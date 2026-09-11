@@ -1,5 +1,7 @@
 "use strict";
 
+const readline = require("readline");
+const { Readable } = require("stream");
 const db = require("../../../loaders/models.loader");
 const AppError = require("../../../core/utils/AppError");
 const { parsearPaginacion } = require("../../../core/utils/paginacion");
@@ -9,6 +11,27 @@ const SORTABLES = ["created_at", "estado", "total"];
 
 // Helper interno para generar el número correlativo único de pedido
 const _generarNumeroPedido = () => `PED-${Date.now().toString().slice(-8)}`;
+
+// Helper interno para parsear una línea CSV respetando comillas
+const _parsearLineaCSV = (linea) => {
+  const valores = [];
+  let valorActual = "";
+  let dentroDeComillas = false;
+
+  for (let i = 0; i < linea.length; i++) {
+    const char = linea[i];
+    if (char === '"' || char === "'") {
+      dentroDeComillas = !dentroDeComillas;
+    } else if (char === "," && !dentroDeComillas) {
+      valores.push(valorActual.trim());
+      valorActual = "";
+    } else {
+      valorActual += char;
+    }
+  }
+  valores.push(valorActual.trim());
+  return valores;
+};
 
 // Helper interno para verificar stock suficiente (Físico - Comprometido)
 const _verificarStockDisponible = async (varianteId, cantidad, transaction) => {
@@ -328,10 +351,175 @@ const anular = async (id, motivo, usuario) => {
   });
 };
 
-// ─── cargarMasivo (RF-PED-06) ────────────────────────────────────────────────
-const cargarMasivo = async (clienteId, archivo) => {
-  if (!archivo) throw new AppError("No se proporcionó ningún archivo CSV", 400);
-  return { mensaje: "Procesamiento masivo de pedidos en construcción" };
+// ─── cargarMasivo (RF-PED-06 / RF-PED-07) ───────────────────────────────────
+const cargarMasivo = async (clienteId, archivo, sucursalId) => {
+  if (!archivo || !archivo.buffer) {
+    throw new AppError("No se proporcionó ningún archivo CSV válido", 400);
+  }
+
+  if (!sucursalId) {
+    throw new AppError("Es necesario especificar la sucursal para la carga masiva", 400);
+  }
+
+  // 1. Obtener cliente y verificar tipo para mínimos mayoristas
+  const cliente = await db.cliente.findByPk(clienteId);
+  if (!cliente) throw new AppError("Cliente no encontrado", 404);
+
+  const esMayorista = cliente.tipo === "MAYORISTA";
+  const MIN_MAYORISTA = Number(process.env.MIN_CANTIDAD_MAYORISTA || 10);
+
+  // 2. Leer archivo CSV línea por línea mediante streams de Node.js
+  const stream = Readable.from(archivo.buffer.toString("utf-8"));
+  const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+
+  const filas = [];
+  let esPrimeraLinea = true;
+
+  for await (const linea of rl) {
+    if (!linea.trim()) continue;
+    if (esPrimeraLinea) {
+      esPrimeraLinea = false; // Omitir cabecera
+      continue;
+    }
+    filas.push(_parsearLineaCSV(linea));
+  }
+
+  if (filas.length === 0) {
+    throw new AppError("El archivo CSV está vacío o no contiene datos válidos", 400);
+  }
+
+  // 3. Pre-validación línea por línea (RF-PED-07)
+  const errores = [];
+  const itemsAProcesar = [];
+
+  for (let i = 0; i < filas.length; i++) {
+    const numeroLinea = i + 2; // +2 por la cabecera e índice basado en 1
+    const [sku, cantidadRaw, observacionesLinea] = filas[i];
+    const cantidad = parseInt(cantidadRaw, 10);
+
+    if (!sku) {
+      errores.push({ linea: numeroLinea, error: "El SKU es requerido" });
+      continue;
+    }
+
+    if (isNaN(cantidad) || cantidad <= 0) {
+      errores.push({ linea: numeroLinea, sku, error: "La cantidad debe ser un número entero mayor a 0" });
+      continue;
+    }
+
+    if (esMayorista && cantidad < MIN_MAYORISTA) {
+      errores.push({
+        linea: numeroLinea,
+        sku,
+        error: `Como cliente mayorista, la cantidad mínima por ítem debe ser ${MIN_MAYORISTA}`
+      });
+      continue;
+    }
+
+    const variante = await db.variante.findOne({
+      where: { sku, activo: true },
+      include: [{ model: db.producto, where: { activo: true } }]
+    });
+
+    if (!variante) {
+      errores.push({ linea: numeroLinea, sku, error: `El SKU '${sku}' no existe o no está activo` });
+      continue;
+    }
+
+    const existencia = await db.existencia.findOne({
+      where: { variante_id: variante.id, sucursal_id: sucursalId }
+    });
+
+    const disponible = existencia
+      ? (existencia.cantidad_fisica || 0) - (existencia.cantidad_comprometida || 0)
+      : 0;
+
+    if (disponible < cantidad) {
+      errores.push({
+        linea: numeroLinea,
+        sku,
+        error: `Stock insuficiente. Requerido: ${cantidad}, Disponible: ${Math.max(0, disponible)}`
+      });
+      continue;
+    }
+
+    itemsAProcesar.push({
+      variante,
+      cantidad,
+      precioUnitario: Number(variante.precio_venta),
+      subtotal: Number(variante.precio_venta) * cantidad,
+      observaciones: observacionesLinea || null
+    });
+  }
+
+  // Si hay cualquier error en el desglose, se rechaza todo el archivo
+  if (errores.length > 0) {
+    throw AppError.reglaNegocio("El archivo CSV contiene errores y no se pudo procesar", errores);
+  }
+
+  // 4. Procesamiento atómico en base de datos
+  return await db.sequelize.transaction(async (t) => {
+    let subtotalGeneral = 0;
+
+    itemsAProcesar.forEach((item) => {
+      subtotalGeneral += item.subtotal;
+    });
+
+    const pedido = await db.pedido.create({
+      numero: _generarNumeroPedido(),
+      cliente_id: clienteId,
+      sucursal_id: sucursalId,
+      tipo_cliente: cliente.tipo || "MINORISTA",
+      canal: "CARGA_MASIVA",
+      forma_pago: "CREDITO",
+      entrega_tipo: "RETIRO_SUCURSAL",
+      subtotal: subtotalGeneral,
+      costo_envio: 0,
+      total: subtotalGeneral,
+      estado: "REGISTRADO"
+    }, { transaction: t });
+
+    for (const item of itemsAProcesar) {
+      const nombreProducto = item.variante.producto ? item.variante.producto.nombre : "Producto";
+
+      await db.pedido_detalle.create({
+        pedido_id: pedido.id,
+        variante_id: item.variante.id,
+        sku: item.variante.sku,
+        descripcion: `${nombreProducto} - SKU: ${item.variante.sku}`,
+        cantidad: item.cantidad,
+        precio_unitario: item.precioUnitario,
+        subtotal: item.subtotal
+      }, { transaction: t });
+
+      const existencia = await db.existencia.findOne({
+        where: { variante_id: item.variante.id, sucursal_id: sucursalId },
+        transaction: t
+      });
+
+      if (existencia) {
+        await existencia.increment("cantidad_comprometida", {
+          by: item.cantidad,
+          transaction: t
+        });
+      }
+    }
+
+    await db.pedido_historial.create({
+      pedido_id: pedido.id,
+      estado_anterior: null,
+      estado_nuevo: "REGISTRADO",
+      motivo: `Carga masiva procesada exitosamente desde CSV (${itemsAProcesar.length} ítems)`
+    }, { transaction: t });
+
+    return {
+      mensaje: "Carga masiva procesada con éxito",
+      pedido_id: pedido.id,
+      numero_pedido: pedido.numero,
+      total_items: itemsAProcesar.length,
+      total_monto: subtotalGeneral
+    };
+  });
 };
 
 module.exports = {
