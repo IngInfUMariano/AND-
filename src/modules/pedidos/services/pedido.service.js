@@ -428,7 +428,7 @@ const anular = async (id, motivo, usuario) => {
         estado_anterior: estadoAnterior,
         estado_nuevo: "ANULADO",
         motivo: `ANULACIÓN: ${motivo}`,
-        usuario_id: usuario.id
+        usuario_id: usuario ? usuario.id : null
       },
       { transaction: t }
     );
@@ -666,6 +666,162 @@ const generarHojaRecoleccion = async (id) => {
   };
 };
 
+// ─── INTEGRACIÓN CON PAGO.SERVICE ───────────────────────────────────────────
+
+// ─── confirmarPago ────────────────────────────────────────────────────────────
+// Invocado por pago.service.js (Webhook Stripe o Pago con Crédito)
+const confirmarPago = async (pedidoId, transaccionId = null, opts = {}) => {
+  const { formaPago = "EN_LINEA", motivo = "Pago confirmado exitosamente", transaction } = opts;
+
+  const t = transaction || (await db.sequelize.transaction());
+
+  try {
+    const pedido = await db.pedido.findByPk(pedidoId, {
+      include: [{ model: db.pedido_detalle }],
+      transaction: t,
+      lock: t.LOCK.UPDATE
+    });
+
+    if (!pedido) throw AppError.noEncontrado ? AppError.noEncontrado("Pedido") : new AppError("Pedido no encontrado", 404);
+
+    const estadoAnterior = pedido.estado;
+
+    // Si ya fue pagado, retornamos de forma idempotente
+    if (pedido.estado === "PAGADO") {
+      if (!transaction) await t.commit();
+      return pedido;
+    }
+
+    // 1. Cambiar estado del pedido
+    await pedido.update(
+      {
+        estado: "PAGADO",
+        forma_pago: formaPago
+      },
+      { transaction: t }
+    );
+
+    // 2. Registrar auditoría en pedido_historial
+    await db.pedido_historial.create(
+      {
+        pedido_id: pedidoId,
+        estado_anterior: estadoAnterior,
+        estado_nuevo: "PAGADO",
+        motivo,
+        usuario_id: null
+      },
+      { transaction: t }
+    );
+
+    if (!transaction) await t.commit();
+    return pedido;
+  } catch (err) {
+    if (!transaction) await t.rollback();
+    throw err;
+  }
+};
+
+// ─── revertirPago ─────────────────────────────────────────────────────────────
+// Invocado por pago.service.js cuando un pago en Stripe falla
+const revertirPago = async (pedidoId, opts = {}) => {
+  const { motivo = "Pago rechazado por la pasarela", transaction } = opts;
+
+  const t = transaction || (await db.sequelize.transaction());
+
+  try {
+    const pedido = await db.pedido.findByPk(pedidoId, { transaction: t });
+    if (!pedido) throw AppError.noEncontrado ? AppError.noEncontrado("Pedido") : new AppError("Pedido no encontrado", 404);
+
+    // Registrar el intento fallido en el historial sin cambiar necesariamente el estado principal
+    await db.pedido_historial.create(
+      {
+        pedido_id: pedidoId,
+        estado_anterior: pedido.estado,
+        estado_nuevo: pedido.estado,
+        motivo: `Intento de pago fallido: ${motivo}`,
+        usuario_id: null
+      },
+      { transaction: t }
+    );
+
+    if (!transaction) await t.commit();
+    return pedido;
+  } catch (err) {
+    if (!transaction) await t.rollback();
+    throw err;
+  }
+};
+
+// ─── procesarReembolso ────────────────────────────────────────────────────────
+// Invocado por pago.service.js al realizar un reembolso
+const procesarReembolso = async (pedidoId, txReembolsoId, opts = {}) => {
+  const { esTotal = false, transaction } = opts;
+
+  const t = transaction || (await db.sequelize.transaction());
+
+  try {
+    const pedido = await db.pedido.findByPk(pedidoId, {
+      include: [{ model: db.pedido_detalle }],
+      transaction: t,
+      lock: t.LOCK.UPDATE
+    });
+
+    if (!pedido) throw AppError.noEncontrado ? AppError.noEncontrado("Pedido") : new AppError("Pedido no encontrado", 404);
+
+    const estadoAnterior = pedido.estado;
+
+    if (esTotal) {
+      // 1. Marcar pedido como ANULADO
+      await pedido.update({ estado: "ANULADO" }, { transaction: t });
+
+      // 2. Liberar existencias comprometidas en Inventario si aún estaban reservadas
+      for (const detalle of pedido.pedido_detalles) {
+        const existencia = await db.existencia.findOne({
+          where: { variante_id: detalle.variante_id, sucursal_id: pedido.sucursal_id },
+          transaction: t
+        });
+
+        if (existencia && existencia.cantidad_comprometida > 0) {
+          await existencia.decrement("cantidad_comprometida", {
+            by: Math.min(detalle.cantidad, existencia.cantidad_comprometida),
+            transaction: t
+          });
+        }
+      }
+
+      // 3. Historial de anulación por reembolso total
+      await db.pedido_historial.create(
+        {
+          pedido_id: pedidoId,
+          estado_anterior: estadoAnterior,
+          estado_nuevo: "ANULADO",
+          motivo: `Reembolso total procesado (Transacción: ${txReembolsoId})`,
+          usuario_id: null
+        },
+        { transaction: t }
+      );
+    } else {
+      // Reembolso parcial: solo registrar en historial
+      await db.pedido_historial.create(
+        {
+          pedido_id: pedidoId,
+          estado_anterior: estadoAnterior,
+          estado_nuevo: pedido.estado,
+          motivo: `Reembolso parcial procesado (Transacción: ${txReembolsoId})`,
+          usuario_id: null
+        },
+        { transaction: t }
+      );
+    }
+
+    if (!transaction) await t.commit();
+    return pedido;
+  } catch (err) {
+    if (!transaction) await t.rollback();
+    throw err;
+  }
+};
+
 module.exports = {
   listar,
   obtener,
@@ -673,5 +829,8 @@ module.exports = {
   cambiarEstado,
   anular,
   cargarMasivo,
-  generarHojaRecoleccion
+  generarHojaRecoleccion,
+  confirmarPago,
+  revertirPago,
+  procesarReembolso
 };
