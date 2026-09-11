@@ -60,21 +60,15 @@ const obtenerCarrito = async (clienteId) => {
 };
 
 // ─── agregarItem ─────────────────────────────────────────────────────────────
-// RF-PED-01: Mínimo mayorista y advertencia de stock
-const agregarItem = async (clienteId, datos, tipoCliente = "MINORISTA") => {
+// RF-PED-01: Advertencia de stock (el mínimo mayorista se evalúa sobre el total global del carrito)
+const agregarItem = async (clienteId, datos) => {
   const { variante_id, cantidad } = datos;
 
-  // 1. Validar mínimo si el cliente es MAYORISTA
-  if (tipoCliente === "MAYORISTA") {
-    const paramMinimo = await db.parametro.findOne({ where: { clave: "MIN_CANTIDAD_MAYORISTA" } });
-    const minimoRequerido = paramMinimo ? parseInt(paramMinimo.valor, 10) : 10;
-
-    if (cantidad < minimoRequerido) {
-      throw new AppError(`Para clientes mayoristas, la cantidad mínima por variante es ${minimoRequerido}.`, 400);
-    }
+  if (!cantidad || cantidad <= 0) {
+    throw new AppError("La cantidad debe ser mayor a 0", 400);
   }
 
-  // 2. Validar que exista la variante
+  // 1. Validar que exista la variante
   const variante = await db.variante.findByPk(variante_id);
   if (!variante) {
     throw new AppError("La variante de producto especificada no existe", 404);
@@ -91,7 +85,7 @@ const agregarItem = async (clienteId, datos, tipoCliente = "MINORISTA") => {
 
   const cantidadTotal = detalle ? detalle.cantidad + cantidad : cantidad;
 
-  // 3. Consultar disponibilidad en inventario mediante existencia.service.js
+  // 2. Consultar disponibilidad en inventario mediante existencia.service.js
   const stockDisponible = await _obtenerStockDisponible(variante_id);
   let advertencia = null;
 
@@ -99,7 +93,7 @@ const agregarItem = async (clienteId, datos, tipoCliente = "MINORISTA") => {
     advertencia = `La cantidad solicitada (${cantidadTotal}) excede la disponibilidad actual en inventario (${stockDisponible}).`;
   }
 
-  // 4. Crear o actualizar ítem
+  // 3. Crear o actualizar ítem
   if (detalle) {
     await detalle.update({ cantidad: cantidadTotal });
   } else {
@@ -115,7 +109,6 @@ const agregarItem = async (clienteId, datos, tipoCliente = "MINORISTA") => {
     advertencia
   };
 };
-
 // ─── actualizarCantidad ──────────────────────────────────────────────────────
 const actualizarCantidad = async (clienteId, itemId, cantidad) => {
   const carrito = await _obtenerOCrearCarritoActivo(clienteId);
@@ -162,8 +155,8 @@ const vaciarCarrito = async (clienteId) => {
 };
 
 // ─── revalidarCarrito ────────────────────────────────────────────────────────
-// RF-PED-03: Revalidación de cada línea del carrito contra stock/precio vigente
-const revalidarCarrito = async (clienteId) => {
+// RF-PED-03: Revalidación de stock por línea y mínimo total mayorista
+const revalidarCarrito = async (clienteId, tipoCliente = "MINORISTA") => {
   const carrito = await obtenerCarrito(clienteId);
 
   if (!carrito || !carrito.carrito_detalles || carrito.carrito_detalles.length === 0) {
@@ -172,7 +165,23 @@ const revalidarCarrito = async (clienteId) => {
 
   const reporte = [];
   let requiereAjustes = false;
+  let mensajeGlobal = null;
 
+  // 1. Calcular total acumulado de unidades en el carrito
+  const totalArticulos = carrito.carrito_detalles.reduce((acc, item) => acc + item.cantidad, 0);
+
+  // 2. Validar mínimo mayorista sobre el TOTAL de unidades
+  if (tipoCliente === "MAYORISTA") {
+    const paramMinimo = await db.parametro.findOne({ where: { clave: "MIN_CANTIDAD_MAYORISTA" } });
+    const minimoRequerido = paramMinimo ? parseInt(paramMinimo.valor, 10) : 80;
+
+    if (totalArticulos < minimoRequerido) {
+      requiereAjustes = true;
+      mensajeGlobal = `Para compras mayoristas, debes acumular al menos ${minimoRequerido} unidades en total en tu pedido (tienes ${totalArticulos}).`;
+    }
+  }
+
+  // 3. Validar stock línea por línea
   for (const item of carrito.carrito_detalles) {
     const stockDisponible = await _obtenerStockDisponible(item.variante_id);
 
@@ -202,6 +211,8 @@ const revalidarCarrito = async (clienteId) => {
 
   return {
     listo_para_checkout: !requiereAjustes,
+    total_articulos: totalArticulos,
+    mensaje_global: mensajeGlobal,
     lineas: reporte
   };
 };
