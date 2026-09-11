@@ -14,6 +14,9 @@ module.exports = (app) => {
   // GET /api/carrito -> Obtener carrito activo del usuario
   router.get("/", controlador.obtenerCarrito);
 
+  // POST /api/carrito/revalidar -> Revalidar stock y precios vigentes antes del checkout (RF-PED-03)
+  router.post("/revalidar", controlador.revalidarCarrito);
+
   // POST /api/carrito/items -> Agregar producto/variante al carrito
   router.post(
     "/items",

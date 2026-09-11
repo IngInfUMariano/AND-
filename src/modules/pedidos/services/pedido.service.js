@@ -1,13 +1,33 @@
 "use strict";
 
-const db               = require("../../../loaders/models.loader");
-const AppError         = require("../../../core/utils/AppError");
+const db = require("../../../loaders/models.loader");
+const AppError = require("../../../core/utils/AppError");
 const { parsearPaginacion } = require("../../../core/utils/paginacion");
+const movimientoService = require("../../inventario/services/movimientoInventario.service");
 
 const SORTABLES = ["created_at", "estado", "total"];
 
 // Helper interno para generar el número correlativo único de pedido
 const _generarNumeroPedido = () => `PED-${Date.now().toString().slice(-8)}`;
+
+// Helper interno para verificar stock suficiente (Físico - Comprometido)
+const _verificarStockDisponible = async (varianteId, cantidad, transaction) => {
+  const existencias = await db.existencia.findAll({
+    where: { variante_id: varianteId },
+    transaction
+  });
+
+  const totalDisponible = existencias.reduce((acc, row) => {
+    const disp = (row.cantidad_fisica || 0) - (row.cantidad_comprometida || 0);
+    return acc + (disp > 0 ? disp : 0);
+  }, 0);
+
+  if (totalDisponible < cantidad) {
+    throw AppError.reglaNegocio("Stock insuficiente para completar la operación", [
+      `Variante ID ${varianteId}: Requerido ${cantidad}, Disponible ${totalDisponible}`
+    ]);
+  }
+};
 
 // ─── listar ──────────────────────────────────────────────────────────────────
 const listar = async (query, usuario) => {
@@ -34,15 +54,13 @@ const listar = async (query, usuario) => {
   return { rows, count, page, limit };
 };
 
-// En src/modules/pedidos/services/pedido.service.js
-
 // ─── obtener ─────────────────────────────────────────────────────────────────
 const obtener = async (id, usuario) => {
   const pedido = await db.pedido.findByPk(id, {
     include: [
       {
         model: db.pedido_detalle,
-        include: [{ model: db.variante }] // <-- Sin alias 'as'
+        include: [{ model: db.variante }]
       },
       { model: db.pedido_historial }
     ]
@@ -57,12 +75,11 @@ const obtener = async (id, usuario) => {
   return pedido;
 };
 
-// ─── crear (Checkout desde carrito) ──────────────────────────────────────────
-// ─── crear (Checkout desde carrito) ──────────────────────────────────────────
+// ─── crear (Checkout desde carrito + Compromiso de Stock RF-PED-02) ──────────
 const crear = async (clienteId, datos) => {
   const {
     sucursal_id,
-    zona_envio_id, // <--- ID de la zona seleccionada por el cliente
+    zona_envio_id,
     forma_pago = "EN_LINEA",
     entrega_tipo = "ENVIO",
     entrega_direccion,
@@ -101,11 +118,14 @@ const crear = async (clienteId, datos) => {
       costoEnvio = Number(zona.costo);
     }
 
-    // 4. Calcular subtotal de las líneas
+    // 4. Calcular subtotal de las líneas y verificar stock
     let subtotal = 0;
     const itemsProcesados = [];
 
     for (const item of carrito.carrito_detalles) {
+      // Validar disponibilidad antes de comprometer
+      await _verificarStockDisponible(item.variante_id, item.cantidad, t);
+
       const variante = await db.variante.findByPk(item.variante_id, {
         include: [{ model: db.producto }],
         transaction: t
@@ -134,7 +154,7 @@ const crear = async (clienteId, datos) => {
 
     const totalFinal = subtotal + costoEnvio;
 
-    // 5. Crear cabecera del pedido incluyendo subtotal, costo_envio y total
+    // 5. Crear cabecera del pedido
     const pedido = await db.pedido.create({
       numero: _generarNumeroPedido(),
       cliente_id: clienteId,
@@ -155,7 +175,7 @@ const crear = async (clienteId, datos) => {
       estado: "REGISTRADO"
     }, { transaction: t });
 
-    // 6. Guardar líneas del detalle
+    // 6. Guardar detalles y comprometer stock en Inventario (RF-PED-02)
     for (const item of itemsProcesados) {
       await db.pedido_detalle.create({
         pedido_id: pedido.id,
@@ -166,6 +186,19 @@ const crear = async (clienteId, datos) => {
         precio_unitario: item.precio_unitario,
         subtotal: item.subtotal
       }, { transaction: t });
+
+      // Compromiso de stock en la tabla de existencias
+      const existencia = await db.existencia.findOne({
+        where: { variante_id: item.variante_id, sucursal_id },
+        transaction: t
+      });
+
+      if (existencia) {
+        await existencia.increment("cantidad_comprometida", {
+          by: item.cantidad,
+          transaction: t
+        });
+      }
     }
 
     // 7. Registro de historial
@@ -173,7 +206,7 @@ const crear = async (clienteId, datos) => {
       pedido_id: pedido.id,
       estado_anterior: null,
       estado_nuevo: "REGISTRADO",
-      motivo: "Pedido creado desde la tienda en línea"
+      motivo: "Pedido creado desde la tienda en línea y stock comprometido"
     }, { transaction: t });
 
     // 8. Limpiar carrito
@@ -183,12 +216,17 @@ const crear = async (clienteId, datos) => {
     return pedido;
   });
 };
-// ─── cambiarEstado ───────────────────────────────────────────────────────────
+
+// ─── cambiarEstado & Despacho (RF-PED-14) ───────────────────────────────────
 const cambiarEstado = async (id, nuevoEstado, observacion, usuario) => {
   const estadoUpper = nuevoEstado.toUpperCase();
 
   return await db.sequelize.transaction(async (t) => {
-    const pedido = await db.pedido.findByPk(id, { transaction: t });
+    const pedido = await db.pedido.findByPk(id, {
+      include: [{ model: db.pedido_detalle }],
+      transaction: t
+    });
+
     if (!pedido) throw new AppError("Pedido no encontrado", 404);
 
     if (pedido.estado === "ANULADO" || pedido.estado === "ENTREGADO") {
@@ -198,6 +236,36 @@ const cambiarEstado = async (id, nuevoEstado, observacion, usuario) => {
     }
 
     const estadoAnterior = pedido.estado;
+
+    // Si el cambio es a DESPACHADO (RF-PED-14), descontamos de Kardex con el servicio de Jose
+    if (estadoUpper === "DESPACHADO") {
+      for (const item of pedido.pedido_detalles) {
+        // Genera Kardex (SALIDA_VENTA), descuenta cantidad_fisica
+        await movimientoService.crear({
+          tipo: "SALIDA_VENTA",
+          cantidad: item.cantidad,
+          variante_id: item.variante_id,
+          sucursal_id: pedido.sucursal_id,
+          referencia_tipo: "PEDIDO",
+          referencia_id: pedido.id,
+          motivo: `Despacho del pedido #${pedido.numero}`
+        }, usuario.id);
+
+        // Liberar la cantidad comprometida
+        const existencia = await db.existencia.findOne({
+          where: { variante_id: item.variante_id, sucursal_id: pedido.sucursal_id },
+          transaction: t
+        });
+
+        if (existencia) {
+          await existencia.decrement("cantidad_comprometida", {
+            by: item.cantidad,
+            transaction: t
+          });
+        }
+      }
+    }
+
     await pedido.update({ estado: estadoUpper }, { transaction: t });
 
     await db.pedido_historial.create({
@@ -212,17 +280,37 @@ const cambiarEstado = async (id, nuevoEstado, observacion, usuario) => {
   });
 };
 
-// ─── anular ──────────────────────────────────────────────────────────────────
+// ─── anular (RF-PED-05 Liberación de Stock) ─────────────────────────────────
 const anular = async (id, motivo, usuario) => {
   return await db.sequelize.transaction(async (t) => {
-    const pedido = await db.pedido.findByPk(id, { transaction: t });
+    const pedido = await db.pedido.findByPk(id, {
+      include: [{ model: db.pedido_detalle }],
+      transaction: t
+    });
+
     if (!pedido) throw new AppError("Pedido no encontrado", 404);
 
-    if (pedido.estado === "ENTREGADO") {
-      throw AppError.reglaNegocio("No se puede anular un pedido que ya fue entregado", []);
+    if (pedido.estado === "ENTREGADO" || pedido.estado === "DESPACHADO") {
+      throw AppError.reglaNegocio("No se puede anular un pedido que ya fue despachado o entregado", []);
     }
 
     const estadoAnterior = pedido.estado;
+
+    // Liberar stock comprometido
+    for (const item of pedido.pedido_detalles) {
+      const existencia = await db.existencia.findOne({
+        where: { variante_id: item.variante_id, sucursal_id: pedido.sucursal_id },
+        transaction: t
+      });
+
+      if (existencia && existencia.cantidad_comprometida > 0) {
+        await existencia.decrement("cantidad_comprometida", {
+          by: Math.min(item.cantidad, existencia.cantidad_comprometida),
+          transaction: t
+        });
+      }
+    }
+
     await pedido.update({
       estado: "ANULADO",
       motivo_anulacion: motivo
@@ -231,7 +319,7 @@ const anular = async (id, motivo, usuario) => {
     await db.pedido_historial.create({
       pedido_id: pedido.id,
       estado_anterior: estadoAnterior,
-      estado: "ANULADO",
+      estado_nuevo: "ANULADO",
       motivo: `ANULACIÓN: ${motivo}`,
       usuario_id: usuario.id
     }, { transaction: t });
@@ -240,6 +328,7 @@ const anular = async (id, motivo, usuario) => {
   });
 };
 
+// ─── cargarMasivo (RF-PED-06) ────────────────────────────────────────────────
 const cargarMasivo = async (clienteId, archivo) => {
   if (!archivo) throw new AppError("No se proporcionó ningún archivo CSV", 400);
   return { mensaje: "Procesamiento masivo de pedidos en construcción" };
