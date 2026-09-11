@@ -168,6 +168,41 @@ POST /api/traslados/:id/recibir
 
 ### Módulo terceros
 
+#### Proveedores
+
+| Método | Ruta | Descripción | Perfiles |
+|--------|------|-------------|---------|
+| GET | `/api/proveedores` | Listar proveedores | ADMIN, GERENTE, BODEGUERO |
+| POST | `/api/proveedores` | Crear proveedor | ADMIN, GERENTE |
+| GET | `/api/proveedores/:id` | Ver proveedor | ADMIN, GERENTE, BODEGUERO |
+| PUT | `/api/proveedores/:id` | Actualizar proveedor | ADMIN, GERENTE |
+| DELETE | `/api/proveedores/:id` | Baja lógica | ADMIN |
+| GET | `/api/proveedores/:id/productos` | Productos que suministra | ADMIN, GERENTE, BODEGUERO |
+| POST | `/api/proveedores/:id/productos` | Asociar producto | ADMIN, GERENTE |
+| DELETE | `/api/proveedores/:id/productos/:pid` | Desasociar producto | ADMIN |
+| GET | `/api/proveedores/:id/historial` | Entradas de mercadería | ADMIN, GERENTE, BODEGUERO |
+
+Filtros de historial: `?fecha_desde=YYYY-MM-DD`, `?fecha_hasta=YYYY-MM-DD`, `?sucursal_id=N`.
+
+Regla principal: `es_principal=true` en un producto desmarca el proveedor principal anterior.
+No se puede desactivar un proveedor con entradas de mercadería registradas → 422.
+
+#### Empleados
+
+| Método | Ruta | Descripción | Perfiles |
+|--------|------|-------------|---------|
+| GET | `/api/empleados` | Listar empleados | ADMIN, GERENTE |
+| POST | `/api/empleados` | Crear empleado | ADMIN |
+| GET | `/api/empleados/:id` | Ver empleado | ADMIN, GERENTE |
+| PUT | `/api/empleados/:id` | Actualizar empleado | ADMIN |
+| DELETE | `/api/empleados/:id` | Baja lógica | ADMIN |
+| PUT | `/api/empleados/:id/sucursal` | Reasignar sucursal | ADMIN |
+
+Reglas: baja lógica desactiva también el usuario vinculado; no se puede dar de baja si tiene movimientos de inventario → 422.
+Reasignar sucursal actualiza también `usuario.sucursal_id` (para el JWT siguiente).
+
+#### Clientes
+
 | Método | Ruta | Descripción | Perfiles |
 |--------|------|-------------|---------|
 | GET | `/api/clientes` | Listar clientes | ADMIN, GERENTE, VENDEDOR |
@@ -175,19 +210,31 @@ POST /api/traslados/:id/recibir
 | GET | `/api/clientes/:id` | Ver cliente | ADMIN, GERENTE, VENDEDOR |
 | PUT | `/api/clientes/:id` | Actualizar cliente | ADMIN, GERENTE |
 | DELETE | `/api/clientes/:id` | Baja lógica | ADMIN |
-| POST | `/api/clientes/:id/aprobar` | Aprobar solicitud | ADMIN, GERENTE |
+| GET | `/api/clientes/pendientes` | Listar solicitudes mayoristas | ADMIN, GERENTE |
+| POST | `/api/clientes/:id/aprobar` | Aprobar mayorista | ADMIN, GERENTE |
+| POST | `/api/clientes/:id/rechazar` | Rechazar solicitud | ADMIN, GERENTE |
+| GET | `/api/clientes/:id/credito` | Ver crédito (límite / utilizado / disponible) | ADMIN, GERENTE, VENDEDOR |
 | GET | `/api/clientes/:id/direcciones` | Listar direcciones | ADMIN, GERENTE, VENDEDOR |
 | POST | `/api/clientes/:id/direcciones` | Agregar dirección | ADMIN, GERENTE |
-| GET | `/api/empleados` | Listar empleados | ADMIN, GERENTE |
-| POST | `/api/empleados` | Crear empleado | ADMIN |
-| GET | `/api/empleados/:id` | Ver empleado | ADMIN, GERENTE |
-| PUT | `/api/empleados/:id` | Actualizar empleado | ADMIN |
-| DELETE | `/api/empleados/:id` | Baja lógica | ADMIN |
-| GET | `/api/proveedores` | Listar proveedores | ADMIN, GERENTE, BODEGUERO |
-| POST | `/api/proveedores` | Crear proveedor | ADMIN, GERENTE |
-| GET | `/api/proveedores/:id` | Ver proveedor | ADMIN, GERENTE, BODEGUERO |
-| PUT | `/api/proveedores/:id` | Actualizar proveedor | ADMIN, GERENTE |
-| DELETE | `/api/proveedores/:id` | Baja lógica | ADMIN |
+| PUT | `/api/clientes/:id/direcciones/:did` | Actualizar dirección | ADMIN, GERENTE |
+| DELETE | `/api/clientes/:id/direcciones/:did` | Baja lógica dirección | ADMIN |
+
+#### Mis direcciones (tienda)
+
+| Método | Ruta | Descripción | Perfiles |
+|--------|------|-------------|---------|
+| GET | `/api/mis-direcciones` | Ver mis direcciones | CLIENTE (tienda) |
+| POST | `/api/mis-direcciones` | Agregar dirección | CLIENTE (tienda) |
+| PUT | `/api/mis-direcciones/:did` | Actualizar dirección | CLIENTE (tienda) |
+| DELETE | `/api/mis-direcciones/:did` | Baja lógica | CLIENTE (tienda) |
+
+Reglas de clientes:
+- `VENDEDOR` no ve `limite_credito`, `credito_utilizado` ni `plazo_credito_dias`.
+- `POST /aprobar` requiere `limite_credito` (≥ 0) y `plazo_credito_dias` (≥ 0) en el body.
+- `POST /rechazar` requiere `motivo` (obligatorio).
+- No se puede desactivar un cliente con pedidos activos o con `credito_utilizado > 0` → 422.
+- Solo una dirección puede ser predeterminada: al marcar una, desmarca la anterior.
+- El cliente de tienda accede solo a sus propias direcciones (ID resuelto desde el token, no de la URL).
 
 ### Módulo catálogo
 
@@ -264,13 +311,167 @@ POST /api/traslados/:id/recibir
 
 ### Módulo pagos
 
+Arquitectura: **Stripe Payment Intents + Stripe Elements**. El número de tarjeta
+NUNCA pasa por esta API (PCI-DSS, RNF-SEG-08). Las llaves de Stripe se configuran
+en variables de entorno (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`).
+
+#### Formas de pago disponibles
+
 | Método | Ruta | Descripción | Perfiles |
 |--------|------|-------------|---------|
-| POST | `/api/pagos/iniciar` | Crear sesión de pago (tienda) | CLIENTE |
-| POST | `/api/pagos/webhook` | Webhook del proveedor | Público (firmado) |
-| GET | `/api/pagos/:pedido_id` | Ver transacciones de un pedido | ADMIN, GERENTE |
-| POST | `/api/pagos/:id/reembolsar` | Iniciar reembolso | ADMIN, GERENTE |
-| GET | `/api/credito/:cliente_id` | Ver saldo y movimientos | ADMIN, GERENTE, VENDEDOR |
+| GET | `/api/pagos/formas-pago/:pedidoId` | Formas de pago disponibles para el pedido | CLIENTE (tienda) |
+
+Regla: MINORISTA → solo `EN_LINEA`; MAYORISTA con `credito_disponible >= total` → `EN_LINEA` y `CREDITO`; MAYORISTA sin crédito → solo `EN_LINEA`. El `credito_disponible = limite_credito - credito_utilizado`.
+
+Respuesta `200`:
+```json
+{
+  "data": {
+    "pedido_id": 5,
+    "total": 275.00,
+    "tipo_cliente": "MAYORISTA",
+    "formas_pago": ["EN_LINEA", "CREDITO"]
+  }
+}
+```
+
+#### Pago en línea (Stripe Payment Intents)
+
+| Método | Ruta | Descripción | Perfiles |
+|--------|------|-------------|---------|
+| POST | `/api/pagos/intencion` | Crear PaymentIntent; devuelve `client_secret` | CLIENTE (tienda) |
+
+Body: `{ "pedido_id": 5 }`
+
+Reglas:
+- El monto se calcula en el servidor desde `pedido.total`. No se acepta monto del cliente.
+- Stripe trabaja en centavos: GTQ 100.50 → 10050.
+- Si ya existe un PaymentIntent pendiente para el pedido, se reutiliza.
+- El pedido no puede estar en estado `PAGADO`, `ANULADO` ni `ENTREGADO`.
+
+Respuesta `201`:
+```json
+{
+  "data": {
+    "client_secret": "pi_xxx_secret_yyy",
+    "monto": 275.00
+  }
+}
+```
+
+#### Webhook de Stripe
+
+| Método | Ruta | Descripción | Perfiles |
+|--------|------|-------------|---------|
+| POST | `/api/pagos/webhook` | Recibe eventos de Stripe | Público (firma HMAC) |
+
+Reglas críticas:
+- Requiere el **body crudo** (`express.raw`), registrado en `app.js` **antes** de `express.json()`.
+- Verifica la firma con `stripe.webhooks.constructEvent` antes de procesar nada.
+- Firma inválida → `400` y registro en bitácora como `WEBHOOK_FIRMA_INVALIDA`.
+- Es **idempotente**: el mismo evento dos veces no produce efectos duplicados.
+- Maneja: `payment_intent.succeeded` → transacción `EXITOSA`; `payment_intent.payment_failed` → `RECHAZADA`.
+- La confirmación del pedido ocurre aquí (webhook), nunca por el retorno del navegador.
+
+Respuesta `200`: `{ "recibido": true }`
+
+#### Consulta y reembolsos (portal interno)
+
+| Método | Ruta | Descripción | Perfiles |
+|--------|------|-------------|---------|
+| GET | `/api/pagos/transacciones` | Listar transacciones con filtros | ADMIN |
+| POST | `/api/pagos/:id/reembolso` | Reembolso total o parcial | ADMIN, GERENTE |
+
+Filtros de `/transacciones`: `?pedido_id=N`, `?estado=EXITOSA`, `?tipo=PAGO`, `?proveedor=STRIPE`, `?fecha_desde=YYYY-MM-DD`, `?fecha_hasta=YYYY-MM-DD`.
+
+Reglas de reembolso:
+- Solo transacciones con `tipo=PAGO` y `estado=EXITOSA`.
+- `motivo` obligatorio.
+- `monto` opcional; si se omite, reembolso total.
+- Reembolso total → transacción original pasa a `REEMBOLSADA`.
+- Genera una transacción hija con `tipo=REEMBOLSO` vinculada mediante `transaccion_origen_id`.
+
+Body: `{ "motivo": "Devolución solicitada", "monto": 125.00 }`
+
+#### Pago con crédito (tienda — solo mayoristas)
+
+| Método | Ruta | Descripción | Perfiles |
+|--------|------|-------------|---------|
+| POST | `/api/pagos/credito/:pedidoId` | Registrar pedido al crédito del cliente | CLIENTE (tienda) |
+
+Reglas:
+- Cliente debe ser `MAYORISTA`.
+- `credito_disponible >= pedido.total` → si no, `422`.
+- Crea `credito_movimiento` tipo `CARGO` y aumenta `credito_utilizado`.
+- No pasa por Stripe.
+
+Respuesta `201`:
+```json
+{
+  "data": {
+    "pedido_id": 5,
+    "credito_utilizado": 2600.00,
+    "credito_disponible": 47400.00
+  }
+}
+```
+
+#### Gestión de crédito (portal interno)
+
+| Método | Ruta | Descripción | Perfiles |
+|--------|------|-------------|---------|
+| POST | `/api/clientes/:id/abonos` | Registrar abono al crédito | ADMIN |
+| GET | `/api/clientes/:id/estado-cuenta` | Historial de movimientos de crédito | ADMIN, GERENTE, VENDEDOR |
+
+Reglas de abono:
+- `monto` obligatorio, mayor a 0.
+- No puede abonar más de `credito_utilizado` → `422`.
+- Crea `credito_movimiento` tipo `ABONO` y disminuye `credito_utilizado`.
+
+Body de abono: `{ "monto": 500.00, "referencia": "Transferencia Ref-001", "pedido_id": 5 }`
+
+---
+
+### Contrato del módulo de pedidos (firmas requeridas por el módulo de pagos)
+
+El módulo de pagos llama a las siguientes funciones del módulo de pedidos.
+Quien implemente pedidos **debe respetar estas firmas exactamente**:
+
+```js
+// Confirma un pago (exitoso en Stripe o por crédito) y avanza el pedido.
+// Llamada desde: webhook payment_intent.succeeded y POST /api/pagos/credito/:pedidoId
+// transaccionId es null cuando el pago es por crédito (no pasa por Stripe).
+pedidoService.confirmarPago(
+  pedidoId:      number,
+  transaccionId: number | null,
+  opts?: { formaPago?: "EN_LINEA" | "CREDITO", transaction?: SequelizeTransaction }
+)
+// Debe:
+//   1. Cambiar pedido.estado de PENDIENTE_PAGO (o REGISTRADO) → PAGADO
+//   2. Registrar pedido_historial con usuario_id=null y motivo adecuado
+//   3. Comprometer existencias: incrementar cantidad_comprometida en cada línea
+
+// Revierte el estado del pedido cuando el pago falla.
+// Llamada desde: webhook payment_intent.payment_failed
+pedidoService.revertirPago(
+  pedidoId: number,
+  opts?: { motivo?: string, transaction?: SequelizeTransaction }
+)
+// Debe:
+//   1. Devolver pedido.estado a REGISTRADO
+//   2. Registrar pedido_historial con el motivo del rechazo
+
+// Procesa un reembolso sobre un pedido ya pagado.
+// Llamada desde: POST /api/pagos/:id/reembolso
+pedidoService.procesarReembolso(
+  pedidoId:          number,
+  txReembolsoId:     number,
+  opts: { esTotal: boolean, transaction?: SequelizeTransaction }
+)
+// Debe:
+//   Si esTotal=true:  marcar pedido como ANULADO y liberar cantidad_comprometida
+//   Si esTotal=false: registrar en pedido_historial sin cambiar el estado
+```
 
 ---
 
