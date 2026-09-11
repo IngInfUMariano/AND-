@@ -18,6 +18,9 @@ module.exports = (app) => {
   // GET /api/pedidos/:id -> Ver detalle completo de un pedido
   router.get("/:id", controlador.obtener);
 
+  //Generacion de documentos de almacen
+  router.get("/:id/hoja-recoleccion", verifyToken, ctrl.generarHojaRecoleccion);
+
   // ── Creación de Pedidos ───────────────────────────────────────────────────
   // POST /api/pedidos -> Realizar Checkout desde carrito (Tienda y Vendedores)
   router.post(

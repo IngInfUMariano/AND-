@@ -612,11 +612,66 @@ const cargarMasivo = async (clienteId, archivo, sucursalId) => {
   });
 };
 
+// ─── generarHojaRecoleccion (RF-PED-13) ──────────────────────────────────────
+const generarHojaRecoleccion = async (id) => {
+  const pedido = await db.pedido.findByPk(id, {
+    include: [
+      { model: db.cliente, attributes: ["id", "nombre", "apellido", "telefono", "email"] },
+      { model: db.sucursal, attributes: ["id", "nombre", "codigo"] },
+      {
+        model: db.pedido_detalle,
+        include: [
+          {
+            model: db.variante,
+            attributes: ["id", "sku", "codigo_barras", "ubicacion_almacen"],
+            include: [{ model: db.producto, attributes: ["nombre"] }]
+          }
+        ]
+      }
+    ]
+  });
+
+  if (!pedido) throw new AppError("Pedido no encontrado", 404);
+
+  // Mapear y ordenar ítems por ubicación en bodega para optimizar el recorrido
+  const itemsRecoleccion = pedido.pedido_detalles.map((detalle) => ({
+    detalle_id: detalle.id,
+    variante_id: detalle.variante_id,
+    sku: detalle.sku,
+    codigo_barras: detalle.variante?.codigo_barras || "N/A",
+    descripcion: detalle.descripcion,
+    ubicacion: detalle.variante?.ubicacion_almacen || "SIN ASIGNAR",
+    cantidad_solicitada: detalle.cantidad,
+    recolectado: false
+  })).sort((a, b) => a.ubicacion.localeCompare(b.ubicacion));
+
+  return {
+    titulo: "HOJA DE RECOLECCIÓN (PICKING LIST)",
+    numero_pedido: pedido.numero,
+    fecha_emision: new Date(),
+    sucursal: pedido.sucursal ? pedido.sucursal.nombre : "N/A",
+    cliente: {
+      nombre_completo: `${pedido.cliente?.nombre || ""} ${pedido.cliente?.apellido || ""}`.trim(),
+      telefono: pedido.cliente?.telefono || pedido.entrega_telefono
+    },
+    entrega: {
+      tipo: pedido.entrega_tipo,
+      destinatario: pedido.entrega_destinatario,
+      direccion: pedido.entrega_direccion,
+      municipio: pedido.entrega_municipio,
+      departamento: pedido.entrega_departamento
+    },
+    total_articulos: itemsRecoleccion.reduce((acc, item) => acc + item.cantidad_solicitada, 0),
+    items: itemsRecoleccion
+  };
+};
+
 module.exports = {
   listar,
   obtener,
   crear,
   cambiarEstado,
   anular,
-  cargarMasivo
+  cargarMasivo,
+  generarHojaRecoleccion
 };

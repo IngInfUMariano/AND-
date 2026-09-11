@@ -50,11 +50,18 @@ const anular = asyncHandler(async (req, res) => {
   ok(res, pedido);
 });
 
+const generarHojaRecoleccion = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const data = await pedidoService.generarHojaRecoleccion(id);
+  return respuestaExito(res, "Hoja de recolección generada con éxito", data);
+});
+
 module.exports = {
   listar,
   obtener,
   crear,
   cargarMasivo,
   cambiarEstado,
-  anular
+  anular,
+  generarHojaRecoleccion
 };
