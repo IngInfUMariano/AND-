@@ -15,7 +15,7 @@
 
 const { body, param } = require("express-validator");
 
-// ─── crearValidator ───────────────────────────────────────────────────────────
+//  crearValidator 
 // Reglas para POST /api/categorias
 const crearValidator = [
   body("nombre")
@@ -38,7 +38,7 @@ const crearValidator = [
     .toInt()
 ];
 
-// ─── actualizarValidator ──────────────────────────────────────────────────────
+//  actualizarValidator 
 // Reglas para PUT /api/categorias/:id
 // Todos los campos son opcionales: se actualiza solo lo que se envía.
 const actualizarValidator = [
