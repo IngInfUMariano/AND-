@@ -33,12 +33,12 @@ const _parsearLineaCSV = (linea) => {
   return valores;
 };
 
-// Helper interno para verificar stock suficiente (Físico - Comprometido)
-const _verificarStockDisponible = async (varianteId, cantidad, transaction) => {
-  const existencias = await db.existencia.findAll({
-    where: { variante_id: varianteId },
-    transaction
-  });
+// Helper interno para verificar stock disponible global o por sucursal
+const _verificarStockDisponible = async (varianteId, cantidad, sucursalId = null, transaction) => {
+  const where = { variante_id: varianteId };
+  if (sucursalId) where.sucursal_id = sucursalId;
+
+  const existencias = await db.existencia.findAll({ where, transaction });
 
   const totalDisponible = existencias.reduce((acc, row) => {
     const disp = (row.cantidad_fisica || 0) - (row.cantidad_comprometida || 0);
@@ -50,6 +50,60 @@ const _verificarStockDisponible = async (varianteId, cantidad, transaction) => {
       `Variante ID ${varianteId}: Requerido ${cantidad}, Disponible ${totalDisponible}`
     ]);
   }
+};
+
+// Helper interno: Asignación Automática de Sucursal (RF-PED-08)
+const _asignarSucursalAutomatica = async (zonaEnvioId, itemsCarrito, transaction) => {
+  const zona = await db.zona_envio.findByPk(zonaEnvioId, { transaction });
+  if (!zona || !zona.activo) {
+    throw new AppError("La zona de envío seleccionada no existe o no está activa", 400);
+  }
+
+  const sucursalesAConsultar = [];
+  if (zona.sucursal_id) {
+    sucursalesAConsultar.push(zona.sucursal_id);
+  }
+
+  const otrasSucursales = await db.sucursal.findAll({
+    where: { activo: true },
+    attributes: ["id"],
+    transaction
+  });
+
+  otrasSucursales.forEach((s) => {
+    if (!sucursalesAConsultar.includes(s.id)) {
+      sucursalesAConsultar.push(s.id);
+    }
+  });
+
+  for (const sucursalId of sucursalesAConsultar) {
+    let tieneStockCompleto = true;
+
+    for (const item of itemsCarrito) {
+      const existencia = await db.existencia.findOne({
+        where: { variante_id: item.variante_id, sucursal_id: sucursalId },
+        transaction
+      });
+
+      const disponible = existencia
+        ? (existencia.cantidad_fisica || 0) - (existencia.cantidad_comprometida || 0)
+        : 0;
+
+      if (disponible < item.cantidad) {
+        tieneStockCompleto = false;
+        break;
+      }
+    }
+
+    if (tieneStockCompleto) {
+      return { sucursalId, costoEnvio: Number(zona.costo) };
+    }
+  }
+
+  throw AppError.reglaNegocio(
+    "No hay ninguna sucursal con inventario suficiente para cubrir todos los productos de este pedido",
+    []
+  );
 };
 
 // ─── listar ──────────────────────────────────────────────────────────────────
@@ -98,7 +152,7 @@ const obtener = async (id, usuario) => {
   return pedido;
 };
 
-// ─── crear (Checkout desde carrito + Compromiso de Stock RF-PED-02) ──────────
+// ─── crear (Checkout + Compromiso + Asignación Automática RF-PED-08) ────────
 const crear = async (clienteId, datos) => {
   const {
     sucursal_id,
@@ -118,7 +172,7 @@ const crear = async (clienteId, datos) => {
     const cliente = await db.cliente.findByPk(clienteId, { transaction: t });
     if (!cliente) throw new AppError("Cliente no encontrado", 404);
 
-    // 2. Obtener carrito activo y sus detalles
+    // 2. Obtener carrito activo
     const carrito = await db.carrito.findOne({
       where: { cliente_id: clienteId, activo: true },
       include: [{ model: db.carrito_detalle }],
@@ -131,14 +185,31 @@ const crear = async (clienteId, datos) => {
       ]);
     }
 
-    // 3. Obtener el costo de envío si aplica
+    // 3. Determinar Sucursal y Costo de Envío (RF-PED-08)
+    let sucursalFinalId = sucursal_id;
     let costoEnvio = 0;
+
     if (entrega_tipo === "ENVIO" && zona_envio_id) {
-      const zona = await db.zona_envio.findByPk(zona_envio_id, { transaction: t });
-      if (!zona || !zona.activo) {
-        throw new AppError("La zona de envío seleccionada no existe o no está activa", 400);
+      if (!sucursalFinalId) {
+        // Asignación automática de sucursal
+        const asignacion = await _asignarSucursalAutomatica(
+          zona_envio_id,
+          carrito.carrito_detalles,
+          t
+        );
+        sucursalFinalId = asignacion.sucursalId;
+        costoEnvio = asignacion.costoEnvio;
+      } else {
+        const zona = await db.zona_envio.findByPk(zona_envio_id, { transaction: t });
+        if (!zona || !zona.activo) {
+          throw new AppError("La zona de envío seleccionada no existe o no está activa", 400);
+        }
+        costoEnvio = Number(zona.costo);
       }
-      costoEnvio = Number(zona.costo);
+    }
+
+    if (!sucursalFinalId) {
+      throw new AppError("Debe especificar una sucursal o una zona de envío válida", 400);
     }
 
     // 4. Calcular subtotal de las líneas y verificar stock
@@ -146,8 +217,7 @@ const crear = async (clienteId, datos) => {
     const itemsProcesados = [];
 
     for (const item of carrito.carrito_detalles) {
-      // Validar disponibilidad antes de comprometer
-      await _verificarStockDisponible(item.variante_id, item.cantidad, t);
+      await _verificarStockDisponible(item.variante_id, item.cantidad, sucursalFinalId, t);
 
       const variante = await db.variante.findByPk(item.variante_id, {
         include: [{ model: db.producto }],
@@ -178,41 +248,46 @@ const crear = async (clienteId, datos) => {
     const totalFinal = subtotal + costoEnvio;
 
     // 5. Crear cabecera del pedido
-    const pedido = await db.pedido.create({
-      numero: _generarNumeroPedido(),
-      cliente_id: clienteId,
-      sucursal_id,
-      tipo_cliente: cliente.tipo || "MINORISTA",
-      canal: "TIENDA",
-      forma_pago,
-      entrega_tipo,
-      entrega_destinatario,
-      entrega_direccion,
-      entrega_municipio,
-      entrega_departamento,
-      entrega_telefono,
-      observaciones,
-      subtotal,
-      costo_envio: costoEnvio,
-      total: totalFinal,
-      estado: "REGISTRADO"
-    }, { transaction: t });
+    const pedido = await db.pedido.create(
+      {
+        numero: _generarNumeroPedido(),
+        cliente_id: clienteId,
+        sucursal_id: sucursalFinalId,
+        tipo_cliente: cliente.tipo || "MINORISTA",
+        canal: "TIENDA",
+        forma_pago,
+        entrega_tipo,
+        entrega_destinatario,
+        entrega_direccion,
+        entrega_municipio,
+        entrega_departamento,
+        entrega_telefono,
+        observaciones,
+        subtotal,
+        costo_envio: costoEnvio,
+        total: totalFinal,
+        estado: "REGISTRADO"
+      },
+      { transaction: t }
+    );
 
-    // 6. Guardar detalles y comprometer stock en Inventario (RF-PED-02)
+    // 6. Guardar detalles y comprometer stock en Inventario
     for (const item of itemsProcesados) {
-      await db.pedido_detalle.create({
-        pedido_id: pedido.id,
-        variante_id: item.variante_id,
-        sku: item.sku,
-        descripcion: item.descripcion,
-        cantidad: item.cantidad,
-        precio_unitario: item.precio_unitario,
-        subtotal: item.subtotal
-      }, { transaction: t });
+      await db.pedido_detalle.create(
+        {
+          pedido_id: pedido.id,
+          variante_id: item.variante_id,
+          sku: item.sku,
+          descripcion: item.descripcion,
+          cantidad: item.cantidad,
+          precio_unitario: item.precio_unitario,
+          subtotal: item.subtotal
+        },
+        { transaction: t }
+      );
 
-      // Compromiso de stock en la tabla de existencias
       const existencia = await db.existencia.findOne({
-        where: { variante_id: item.variante_id, sucursal_id },
+        where: { variante_id: item.variante_id, sucursal_id: sucursalFinalId },
         transaction: t
       });
 
@@ -225,12 +300,15 @@ const crear = async (clienteId, datos) => {
     }
 
     // 7. Registro de historial
-    await db.pedido_historial.create({
-      pedido_id: pedido.id,
-      estado_anterior: null,
-      estado_nuevo: "REGISTRADO",
-      motivo: "Pedido creado desde la tienda en línea y stock comprometido"
-    }, { transaction: t });
+    await db.pedido_historial.create(
+      {
+        pedido_id: pedido.id,
+        estado_anterior: null,
+        estado_nuevo: "REGISTRADO",
+        motivo: "Pedido creado desde la tienda en línea y stock comprometido"
+      },
+      { transaction: t }
+    );
 
     // 8. Limpiar carrito
     await db.carrito_detalle.destroy({ where: { carrito_id: carrito.id }, transaction: t });
@@ -260,21 +338,21 @@ const cambiarEstado = async (id, nuevoEstado, observacion, usuario) => {
 
     const estadoAnterior = pedido.estado;
 
-    // Si el cambio es a DESPACHADO (RF-PED-14), descontamos de Kardex con el servicio de Jose
     if (estadoUpper === "DESPACHADO") {
       for (const item of pedido.pedido_detalles) {
-        // Genera Kardex (SALIDA_VENTA), descuenta cantidad_fisica
-        await movimientoService.crear({
-          tipo: "SALIDA_VENTA",
-          cantidad: item.cantidad,
-          variante_id: item.variante_id,
-          sucursal_id: pedido.sucursal_id,
-          referencia_tipo: "PEDIDO",
-          referencia_id: pedido.id,
-          motivo: `Despacho del pedido #${pedido.numero}`
-        }, usuario.id);
+        await movimientoService.crear(
+          {
+            tipo: "SALIDA_VENTA",
+            cantidad: item.cantidad,
+            variante_id: item.variante_id,
+            sucursal_id: pedido.sucursal_id,
+            referencia_tipo: "PEDIDO",
+            referencia_id: pedido.id,
+            motivo: `Despacho del pedido #${pedido.numero}`
+          },
+          usuario.id
+        );
 
-        // Liberar la cantidad comprometida
         const existencia = await db.existencia.findOne({
           where: { variante_id: item.variante_id, sucursal_id: pedido.sucursal_id },
           transaction: t
@@ -291,13 +369,16 @@ const cambiarEstado = async (id, nuevoEstado, observacion, usuario) => {
 
     await pedido.update({ estado: estadoUpper }, { transaction: t });
 
-    await db.pedido_historial.create({
-      pedido_id: pedido.id,
-      estado_anterior: estadoAnterior,
-      estado_nuevo: estadoUpper,
-      motivo: observacion || `Cambio de estado a ${estadoUpper}`,
-      usuario_id: usuario.id
-    }, { transaction: t });
+    await db.pedido_historial.create(
+      {
+        pedido_id: pedido.id,
+        estado_anterior: estadoAnterior,
+        estado_nuevo: estadoUpper,
+        motivo: observacion || `Cambio de estado a ${estadoUpper}`,
+        usuario_id: usuario.id
+      },
+      { transaction: t }
+    );
 
     return pedido;
   });
@@ -319,7 +400,6 @@ const anular = async (id, motivo, usuario) => {
 
     const estadoAnterior = pedido.estado;
 
-    // Liberar stock comprometido
     for (const item of pedido.pedido_detalles) {
       const existencia = await db.existencia.findOne({
         where: { variante_id: item.variante_id, sucursal_id: pedido.sucursal_id },
@@ -334,18 +414,24 @@ const anular = async (id, motivo, usuario) => {
       }
     }
 
-    await pedido.update({
-      estado: "ANULADO",
-      motivo_anulacion: motivo
-    }, { transaction: t });
+    await pedido.update(
+      {
+        estado: "ANULADO",
+        motivo_anulacion: motivo
+      },
+      { transaction: t }
+    );
 
-    await db.pedido_historial.create({
-      pedido_id: pedido.id,
-      estado_anterior: estadoAnterior,
-      estado_nuevo: "ANULADO",
-      motivo: `ANULACIÓN: ${motivo}`,
-      usuario_id: usuario.id
-    }, { transaction: t });
+    await db.pedido_historial.create(
+      {
+        pedido_id: pedido.id,
+        estado_anterior: estadoAnterior,
+        estado_nuevo: "ANULADO",
+        motivo: `ANULACIÓN: ${motivo}`,
+        usuario_id: usuario.id
+      },
+      { transaction: t }
+    );
 
     return pedido;
   });
@@ -361,14 +447,12 @@ const cargarMasivo = async (clienteId, archivo, sucursalId) => {
     throw new AppError("Es necesario especificar la sucursal para la carga masiva", 400);
   }
 
-  // 1. Obtener cliente y verificar tipo para mínimos mayoristas
   const cliente = await db.cliente.findByPk(clienteId);
   if (!cliente) throw new AppError("Cliente no encontrado", 404);
 
   const esMayorista = cliente.tipo === "MAYORISTA";
   const MIN_MAYORISTA = Number(process.env.MIN_CANTIDAD_MAYORISTA || 10);
 
-  // 2. Leer archivo CSV línea por línea mediante streams de Node.js
   const stream = Readable.from(archivo.buffer.toString("utf-8"));
   const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
 
@@ -378,7 +462,7 @@ const cargarMasivo = async (clienteId, archivo, sucursalId) => {
   for await (const linea of rl) {
     if (!linea.trim()) continue;
     if (esPrimeraLinea) {
-      esPrimeraLinea = false; // Omitir cabecera
+      esPrimeraLinea = false;
       continue;
     }
     filas.push(_parsearLineaCSV(linea));
@@ -388,12 +472,11 @@ const cargarMasivo = async (clienteId, archivo, sucursalId) => {
     throw new AppError("El archivo CSV está vacío o no contiene datos válidos", 400);
   }
 
-  // 3. Pre-validación línea por línea (RF-PED-07)
   const errores = [];
   const itemsAProcesar = [];
 
   for (let i = 0; i < filas.length; i++) {
-    const numeroLinea = i + 2; // +2 por la cabecera e índice basado en 1
+    const numeroLinea = i + 2;
     const [sku, cantidadRaw, observacionesLinea] = filas[i];
     const cantidad = parseInt(cantidadRaw, 10);
 
@@ -452,12 +535,10 @@ const cargarMasivo = async (clienteId, archivo, sucursalId) => {
     });
   }
 
-  // Si hay cualquier error en el desglose, se rechaza todo el archivo
   if (errores.length > 0) {
     throw AppError.reglaNegocio("El archivo CSV contiene errores y no se pudo procesar", errores);
   }
 
-  // 4. Procesamiento atómico en base de datos
   return await db.sequelize.transaction(async (t) => {
     let subtotalGeneral = 0;
 
@@ -465,32 +546,38 @@ const cargarMasivo = async (clienteId, archivo, sucursalId) => {
       subtotalGeneral += item.subtotal;
     });
 
-    const pedido = await db.pedido.create({
-      numero: _generarNumeroPedido(),
-      cliente_id: clienteId,
-      sucursal_id: sucursalId,
-      tipo_cliente: cliente.tipo || "MINORISTA",
-      canal: "CARGA_MASIVA",
-      forma_pago: "CREDITO",
-      entrega_tipo: "RETIRO_SUCURSAL",
-      subtotal: subtotalGeneral,
-      costo_envio: 0,
-      total: subtotalGeneral,
-      estado: "REGISTRADO"
-    }, { transaction: t });
+    const pedido = await db.pedido.create(
+      {
+        numero: _generarNumeroPedido(),
+        cliente_id: clienteId,
+        sucursal_id: sucursalId,
+        tipo_cliente: cliente.tipo || "MINORISTA",
+        canal: "CARGA_MASIVA",
+        forma_pago: "CREDITO",
+        entrega_tipo: "RETIRO_SUCURSAL",
+        subtotal: subtotalGeneral,
+        costo_envio: 0,
+        total: subtotalGeneral,
+        estado: "REGISTRADO"
+      },
+      { transaction: t }
+    );
 
     for (const item of itemsAProcesar) {
       const nombreProducto = item.variante.producto ? item.variante.producto.nombre : "Producto";
 
-      await db.pedido_detalle.create({
-        pedido_id: pedido.id,
-        variante_id: item.variante.id,
-        sku: item.variante.sku,
-        descripcion: `${nombreProducto} - SKU: ${item.variante.sku}`,
-        cantidad: item.cantidad,
-        precio_unitario: item.precioUnitario,
-        subtotal: item.subtotal
-      }, { transaction: t });
+      await db.pedido_detalle.create(
+        {
+          pedido_id: pedido.id,
+          variante_id: item.variante.id,
+          sku: item.variante.sku,
+          descripcion: `${nombreProducto} - SKU: ${item.variante.sku}`,
+          cantidad: item.cantidad,
+          precio_unitario: item.precioUnitario,
+          subtotal: item.subtotal
+        },
+        { transaction: t }
+      );
 
       const existencia = await db.existencia.findOne({
         where: { variante_id: item.variante.id, sucursal_id: sucursalId },
@@ -505,12 +592,15 @@ const cargarMasivo = async (clienteId, archivo, sucursalId) => {
       }
     }
 
-    await db.pedido_historial.create({
-      pedido_id: pedido.id,
-      estado_anterior: null,
-      estado_nuevo: "REGISTRADO",
-      motivo: `Carga masiva procesada exitosamente desde CSV (${itemsAProcesar.length} ítems)`
-    }, { transaction: t });
+    await db.pedido_historial.create(
+      {
+        pedido_id: pedido.id,
+        estado_anterior: null,
+        estado_nuevo: "REGISTRADO",
+        motivo: `Carga masiva procesada exitosamente desde CSV (${itemsAProcesar.length} ítems)`
+      },
+      { transaction: t }
+    );
 
     return {
       mensaje: "Carga masiva procesada con éxito",
