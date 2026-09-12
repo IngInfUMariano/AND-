@@ -46,8 +46,8 @@ const listar = async (query) => {
         include: [
             { model: db.sucursal, as: "sucursalOrigen", attributes: ["id", "codigo", "nombre"] },
             { model: db.sucursal, as: "sucursalDestino", attributes: ["id", "codigo", "nombre"] },
-            { model: db.usuario, as: "despachador", attributes: ["id", "nombre", "correo"] },
-            { model: db.usuario, as: "receptor", attributes: ["id", "nombre", "correo"] }
+            { model: db.usuario, as: "despachador", attributes: ["id", "email"] },
+            { model: db.usuario, as: "receptor", attributes: ["id", "email"] }
         ]
     });
 
@@ -60,8 +60,8 @@ const obtener = async (id) => {
         include: [
             { model: db.sucursal, as: "sucursalOrigen", attributes: ["id", "codigo", "nombre"] },
             { model: db.sucursal, as: "sucursalDestino", attributes: ["id", "codigo", "nombre"] },
-            { model: db.usuario, as: "despachador", attributes: ["id", "nombre", "correo"] },
-            { model: db.usuario, as: "receptor", attributes: ["id", "nombre", "correo"] },
+            { model: db.usuario, as: "despachador", attributes: ["id", "email"] },
+            { model: db.usuario, as: "receptor", attributes: ["id", "email"] },
             {
                 model: db.traslado_detalle,
                 include: [
