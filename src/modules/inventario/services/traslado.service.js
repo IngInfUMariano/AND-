@@ -88,7 +88,7 @@ const crear = async (datos, despachado_por) => {
     const { sucursal_origen_id, sucursal_destino_id, observaciones, detalles } = datos;
 
     if (sucursal_origen_id === sucursal_destino_id) {
-        throw AppError.validacion("La sucursal de origen y destino deben ser diferentes");
+        throw AppError.reglaNegocio("La sucursal de origen y destino deben ser diferentes");
     }
 
     return db.sequelize.transaction(async (t) => {
