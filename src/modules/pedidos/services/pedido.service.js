@@ -552,7 +552,7 @@ const cargarMasivo = async (clienteId, archivo, sucursalId) => {
         cliente_id: clienteId,
         sucursal_id: sucursalId,
         tipo_cliente: cliente.tipo || "MINORISTA",
-        canal: "CARGA_MASIVA",
+        canal: "INTERNO",
         forma_pago: "CREDITO",
         entrega_tipo: "RETIRO_SUCURSAL",
         subtotal: subtotalGeneral,
@@ -616,7 +616,7 @@ const cargarMasivo = async (clienteId, archivo, sucursalId) => {
 const generarHojaRecoleccion = async (id) => {
   const pedido = await db.pedido.findByPk(id, {
     include: [
-      { model: db.cliente, attributes: ["id", "nombre", "apellido", "telefono", "email"] },
+      { model: db.cliente, attributes: ["nombre","nombre_comercial"] },
       { model: db.sucursal, attributes: ["id", "nombre", "codigo"] },
       {
         model: db.pedido_detalle,
@@ -651,7 +651,7 @@ const generarHojaRecoleccion = async (id) => {
     fecha_emision: new Date(),
     sucursal: pedido.sucursal ? pedido.sucursal.nombre : "N/A",
     cliente: {
-      nombre_completo: `${pedido.cliente?.nombre || ""} ${pedido.cliente?.apellido || ""}`.trim(),
+      nombre_completo: `${pedido.cliente?.nombre || ""} ${pedido.cliente?.nombre_comercial || ""}`.trim(),
       telefono: pedido.cliente?.telefono || pedido.entrega_telefono
     },
     entrega: {
