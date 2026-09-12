@@ -1,5 +1,6 @@
 "use strict";
 
+const { Op } = require("sequelize");
 const db = require("../../../loaders/models.loader");
 const AppError = require("../../../core/utils/AppError");
 const {parsearPaginacion} = require("../../../core/utils/paginacion");
