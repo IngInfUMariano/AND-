@@ -1,6 +1,5 @@
 "use strict";
 
-const db = requiere("../../../loaders/models.loader");
 const asyncHandler = require("../../../core/utils/asyncHandler");
 const { ok, creado, sinContenido, paginado } = require("../../../core/utils/respuesta");
 const MarcaService = require("../services/marca.service");
