@@ -56,7 +56,7 @@ const listar = async (query) => {
                     { model: db.color, attributes: ["id", "nombre"] }
                 ]
             },
-            { model: db.usuario, attributes: ["id", "nombre", "correo"] }
+            { model: db.usuario, attributes: ["id", "email"] }
         ]
     });
 
@@ -77,7 +77,7 @@ const obtener = async (id) => {
                     { model: db.color, attributes: ["id", "nombre"] }
                 ]
             },
-            { model: db.usuario, attributes: ["id", "nombre", "correo"] },
+            { model: db.usuario, attributes: ["id", "email"] },
             { model: db.comprobante, attributes: ["id", "serie", "numero", "tipo"] }
         ]
     });
