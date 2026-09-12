@@ -5,6 +5,13 @@ const errorHandler = require("./core/middlewares/errorHandler");
 const app = express();
 
 app.use(cors());
+
+// El webhook de Stripe necesita el body CRUDO (Buffer) para verificar la firma HMAC.
+// Este middleware se registra ANTES de express.json() para que el stream no haya
+// sido consumido cuando el controlador llame a stripe.webhooks.constructEvent().
+// body-parser marca req._body=true después de leer, así que express.json() lo omite.
+app.use("/api/pagos/webhook", express.raw({ type: "application/json" }));
+
 app.use(express.json());
 
 app.get("/", (_req, res) => {
