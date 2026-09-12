@@ -15,14 +15,15 @@
   "type": "commonjs",
   "main": "server.js",
   "scripts": {
-    "dev": "DB_SYNC=true DB_HOST=localhost DB_USER=tacua DB_PASSWORD=242002 DB_NAME=inventa_db node server.js",
-    "seed": "DB_HOST=localhost DB_USER=tacua DB_PASSWORD=242002 DB_NAME=inventa_db node src/scripts/seed.js",
+    "dev": "cross-env DB_SYNC=true DB_HOST=localhost DB_USER=tacua DB_PASSWORD=242002 DB_NAME=inventa_db node server.js",
+    "seed": "cross-env DB_HOST=localhost DB_USER=tacua DB_PASSWORD=242002 DB_NAME=inventa_db node src/scripts/seed.js",
     "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
+    "cross-env": "^10.1.0",
     "express": "^5.2.1",
     "express-validator": "^7.3.2",
     "jsonwebtoken": "^9.0.3",
