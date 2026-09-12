@@ -19,6 +19,7 @@ const db                = require("../../../loaders/models.loader");
 const AppError          = require("../../../core/utils/AppError");
 const enviarCorreo      = require("../../../core/utils/enviarCorreo");
 const registrarBitacora = require("../../../core/utils/registrarBitacora");
+const { generarCodigo } = require("../../terceros/services/cliente.service");
 
 const MAX_INTENTOS    = 5;
 const MINUTOS_BLOQUEO = 15;
@@ -173,12 +174,8 @@ const loginTienda  = (email, password, ip) => loginBase(email, password, "TIENDA
 // Si cualquiera de los dos inserts falla (email duplicado, etc.) la transacción
 // revierte ambos para no dejar datos huérfanos.
 const registro = async ({ nombre, email, password, telefono }, ip) => {
-  const hash = bcrypt.hashSync(password, 10);
-
-  // Código de cliente auto-generado. La carrera entre solicitudes simultáneas
-  // es aceptable aquí: la constraint UNIQUE en clientes.codigo rechazaría duplicados.
-  const count  = await db.cliente.count();
-  const codigo = `CLI-${String(count + 1).padStart(4, "0")}`;
+  const hash   = bcrypt.hashSync(password, 10);
+  const codigo = await generarCodigo();
 
   const t = await db.sequelize.transaction();
   try {
