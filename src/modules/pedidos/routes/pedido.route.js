@@ -12,17 +12,17 @@ module.exports = (app) => {
   router.use(verifyToken);
 
   // ── Consultas de Pedidos ──────────────────────────────────────────────────
-  // GET /api/pedidos -> Listar pedidos (Filtrado automático en service según rol/cliente)
+  // GET /api/pedidos -> Listar pedidos
   router.get("/", controlador.listar);
+
+  // GET /api/pedidos/:id/hoja-recoleccion -> Generar Picking List para almacén
+  router.get("/:id/hoja-recoleccion", controlador.generarHojaRecoleccion);
 
   // GET /api/pedidos/:id -> Ver detalle completo de un pedido
   router.get("/:id", controlador.obtener);
 
-  //Generacion de documentos de almacen
-  router.get("/:id/hoja-recoleccion", verifyToken, ctrl.generarHojaRecoleccion);
-
   // ── Creación de Pedidos ───────────────────────────────────────────────────
-  // POST /api/pedidos -> Realizar Checkout desde carrito (Tienda y Vendedores)
+  // POST /api/pedidos -> Realizar Checkout desde carrito
   router.post(
     "/",
     crearPedidoValidator,
@@ -30,24 +30,24 @@ module.exports = (app) => {
     controlador.crear
   );
 
-  // POST /api/pedidos/masivo -> Carga masiva CSV (Solo clientes mayoristas o personal interno)
+  // POST /api/pedidos/masivo -> Carga masiva CSV
   router.post(
     "/masivo",
     controlador.cargarMasivo
   );
 
   // ── Gestión Operativa (Portal Interno) ───────────────────────────────────
-  // PATCH /api/pedidos/:id/estado -> Cambiar estado del pedido (ADMIN, GERENTE, VENDEDOR, BODEGA)
+  // PATCH /api/pedidos/:id/estado -> Cambiar estado del pedido
   router.patch(
     "/:id/estado",
     onlyApp("interno"),
-    hasRole("ADMIN", "GERENTE", "VENDEDOR", "BODEGA"),
+    hasRole("ADMIN", "GERENTE", "VENDEDOR", "BODEGUERO"),
     cambiarEstadoValidator,
     validar,
     controlador.cambiarEstado
   );
 
-  // POST /api/pedidos/:id/anular -> Anular un pedido (ADMIN, GERENTE)
+  // POST /api/pedidos/:id/anular -> Anular un pedido
   router.post(
     "/:id/anular",
     onlyApp("interno"),
