@@ -103,7 +103,7 @@ const crear = async (datos, usuario_id) => {
 
     // Validación de motivo según regla de negocio
     if (["SALIDA_MERMA", "AJUSTE_POSITIVO", "AJUSTE_NEGATIVO"].includes(tipo) && !motivo) {
-        throw AppError.validacion("El campo motivo es obligatorio para mermas y ajustes de inventario");
+        throw AppError.reglaNegocio("El campo motivo es obligatorio para mermas y ajustes de inventario");
     }
 
     return db.sequelize.transaction(async (t) => {
@@ -130,7 +130,7 @@ const crear = async (datos, usuario_id) => {
         const esSalida = TIPOS_SALIDA.includes(tipo);
 
         if (!esEntrada && !esSalida) {
-            throw AppError.validacion(`El tipo de movimiento '${tipo}' no es válido`);
+            throw AppError.reglaNegocio(`El tipo de movimiento '${tipo}' no es válido`);
         }
 
         // 2. Calcular nuevo saldo físico y verificar disponibilidad
