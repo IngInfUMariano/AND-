@@ -15,8 +15,8 @@
   "type": "commonjs",
   "main": "server.js",
   "scripts": {
-    "dev": "DB_SYNC=true DB_HOST=localhost DB_USER=tacua DB_PASSWORD=242002 DB_NAME=inventa_db node server.js",
-    "seed": "DB_HOST=localhost DB_USER=tacua DB_PASSWORD=242002 DB_NAME=inventa_db node src/scripts/seed.js",
+    "dev": "cross-env DB_SYNC=true DB_HOST=localhost DB_USER=tacua DB_PASSWORD=242002 DB_NAME=inventa_db node server.js",
+    "seed": "cross-env DB_HOST=localhost DB_USER=tacua DB_PASSWORD=242002 DB_NAME=inventa_db node src/scripts/seed.js",
     "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -29,5 +29,8 @@
     "pg": "^8.23.0",
     "pg-hstore": "^2.3.4",
     "sequelize": "^6.37.8"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3"
   }
 }
