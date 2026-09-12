@@ -2,7 +2,7 @@
 
 const db = require("../../../loaders/models.loader");
 const AppError = require("../../../core/utils/AppError");
-const {parsearPaginacion} = require("../../../core/utils/parsearPaginacion");
+const {parsearPaginacion} = require("../../../core/utils/paginacion");
 
 const SORTABLES = ["orden", "created_at", "es_principal"];
 
