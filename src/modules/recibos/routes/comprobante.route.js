@@ -13,12 +13,12 @@ module.exports = (app) => {
 
     router.use(verifyToken, onlyApp("interno"));
 
-    router.get("/", hasRole("ADMIN", "GERENTE", "BODEGA"), controlador.listar);
-    router.get("/:id", hasRole("ADMIN", "GERENTE", "BODEGA"), controlador.obtener);
+    router.get("/", hasRole("ADMIN", "GERENTE", "BODEGUERO"), controlador.listar);
+    router.get("/:id", hasRole("ADMIN", "GERENTE", "BODEGUERO"), controlador.obtener);
 
     router.post(
         "/",
-        hasRole("ADMIN", "GERENTE", "BODEGA"),
+        hasRole("ADMIN", "GERENTE", "BODEGUERO"),
         crearValidator,
         validar,
         controlador.crear

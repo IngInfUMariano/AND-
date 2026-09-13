@@ -12,10 +12,10 @@ module.exports = (app) => {
     router.use(verifyToken, onlyApp("interno"));
 
     // Consultas de renglones de comprobante
-    router.get("/", hasRole("ADMIN", "GERENTE", "BODEGA"), controlador.listar);
+    router.get("/", hasRole("ADMIN", "GERENTE", "BODEGUERO"), controlador.listar);
     router.get(
         "/:id",
-        hasRole("ADMIN", "GERENTE", "BODEGA"),
+        hasRole("ADMIN", "GERENTE", "BODEGUERO"),
         obtenerValidator,
         validar,
         controlador.obtener

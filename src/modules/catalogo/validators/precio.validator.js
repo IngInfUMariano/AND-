@@ -12,7 +12,7 @@ const crearValidator = [
     body("monto")
     .notEmpty()
     .withMessage("El monto es obligatorio")
-    .isNumeric()
+    .isFloat({ min: 0 })
     .withMessage("El monto debe ser un número mayor o igual a cero"),
 
     body("variante_id")

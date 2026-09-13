@@ -7,16 +7,14 @@ const db = require("../../../loaders/models.loader");
 
 // Helper interno para obtener el ID y tipo del cliente autenticado
 const _obtenerDatosCliente = async (req) => {
-  const usuarioId = req.user?.id || req.usuario?.id;
-  const cliente = await db.cliente.findOne({ where: { usuario_id: usuarioId } });
+  const usuarioId = req.usuario?.id;
+  const usuario = await db.usuario.findByPk(usuarioId, { attributes: ["id", "cliente_id"] });
 
-  if (!cliente) {
-    return {
-      clienteId: usuarioId,
-      tipoCliente: "MINORISTA"
-    };
+  if (!usuario?.cliente_id) {
+    return { clienteId: usuarioId, tipoCliente: "MINORISTA" };
   }
 
+  const cliente = await db.cliente.findByPk(usuario.cliente_id, { attributes: ["id", "tipo"] });
   return {
     clienteId: cliente.id,
     tipoCliente: cliente.tipo || "MINORISTA"

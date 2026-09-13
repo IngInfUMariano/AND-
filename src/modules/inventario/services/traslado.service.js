@@ -162,7 +162,7 @@ const crear = async (datos, despachado_por) => {
                 {
                     traslado_id: traslado.id,
                     variante_id,
-                    cantidad
+                    cantidad_despachada: cantidad
                 },
                 { transaction: t }
             );
@@ -177,8 +177,7 @@ const recibir = async (id, recibido_por, observaciones) => {
     return db.sequelize.transaction(async (t) => {
         const traslado = await db.traslado.findByPk(id, {
             include: [{ model: db.traslado_detalle }],
-            transaction: t,
-            lock: t.LOCK.UPDATE
+            transaction: t
         });
 
         if (!traslado) throw new AppError("Traslado no encontrado", 404);
@@ -198,7 +197,7 @@ const recibir = async (id, recibido_por, observaciones) => {
         );
 
         // 2. Incrementar stock en sucursal destino
-        for (const detalle of traslado.traslado_detalle) {
+        for (const detalle of traslado.traslado_detalles) {
             let existenciaDestino = await db.existencia.findOne({
                 where: { variante_id: detalle.variante_id, sucursal_id: traslado.sucursal_destino_id },
                 transaction: t,
@@ -219,7 +218,7 @@ const recibir = async (id, recibido_por, observaciones) => {
             }
 
             const saldoAnterior = existenciaDestino.cantidad_fisica;
-            const saldoResultante = saldoAnterior + detalle.cantidad;
+            const saldoResultante = saldoAnterior + detalle.cantidad_despachada;
 
             await existenciaDestino.update(
                 { cantidad_fisica: saldoResultante },
@@ -230,7 +229,7 @@ const recibir = async (id, recibido_por, observaciones) => {
             await db.movimiento_inventario.create(
                 {
                     tipo: "ENTRADA_TRASLADO",
-                    cantidad: detalle.cantidad,
+                    cantidad: detalle.cantidad_despachada,
                     saldo_anterior: saldoAnterior,
                     saldo_resultante: saldoResultante,
                     referencia_tipo: "traslado",
@@ -253,8 +252,7 @@ const anular = async (id, usuario_id, observaciones) => {
     return db.sequelize.transaction(async (t) => {
         const traslado = await db.traslado.findByPk(id, {
             include: [{ model: db.traslado_detalle }],
-            transaction: t,
-            lock: t.LOCK.UPDATE
+            transaction: t
         });
 
         if (!traslado) throw new AppError("Traslado no encontrado", 404);
@@ -272,7 +270,7 @@ const anular = async (id, usuario_id, observaciones) => {
         );
 
         // 2. Reversar salidas restableciendo stock en origen
-        for (const detalle of traslado.traslado_detalle) {
+        for (const detalle of traslado.traslado_detalles) {
             const existenciaOrigen = await db.existencia.findOne({
                 where: { variante_id: detalle.variante_id, sucursal_id: traslado.sucursal_origen_id },
                 transaction: t,
@@ -280,7 +278,7 @@ const anular = async (id, usuario_id, observaciones) => {
             });
 
             const saldoAnterior = existenciaOrigen ? existenciaOrigen.cantidad_fisica : 0;
-            const saldoResultante = saldoAnterior + detalle.cantidad;
+            const saldoResultante = saldoAnterior + detalle.cantidad_despachada;
 
             await existenciaOrigen.update(
                 { cantidad_fisica: saldoResultante },
@@ -291,7 +289,7 @@ const anular = async (id, usuario_id, observaciones) => {
             await db.movimiento_inventario.create(
                 {
                     tipo: "ENTRADA_TRASLADO",
-                    cantidad: detalle.cantidad,
+                    cantidad: detalle.cantidad_despachada,
                     saldo_anterior: saldoAnterior,
                     saldo_resultante: saldoResultante,
                     referencia_tipo: "traslado",

@@ -45,12 +45,10 @@ const obtenerCarrito = async (clienteId) => {
         include: [
           {
             model: db.variante,
-            attributes: ["id", "sku", "precio_venta"],
+            attributes: ["id", "sku"],
             include: [
-              {
-                model: db.producto,
-                attributes: ["id", "nombre"]
-              }
+              { model: db.producto, attributes: ["id", "nombre"] },
+              { model: db.precio, attributes: ["tipo", "monto"] }
             ]
           }
         ]
@@ -190,7 +188,7 @@ const revalidarCarrito = async (clienteId, tipoCliente = "MINORISTA") => {
       variante_id: item.variante_id,
       sku: item.variante ? item.variante.sku : null,
       cantidad_solicitada: item.cantidad,
-      precio_actual: item.variante ? item.variante.precio_venta : 0,
+      precio_actual: item.variante?.precios?.find(p => p.tipo === "MINORISTA")?.monto ?? 0,
       stock_disponible: stockDisponible,
       estado_linea: "OK",
       mensaje: null

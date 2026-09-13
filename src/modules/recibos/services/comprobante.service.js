@@ -37,25 +37,26 @@ const listar = async (query) => {
         include: [
             { model: db.sucursal, attributes: ["id", "codigo", "nombre"] },
             { model: db.proveedor, attributes: ["id", "nombre_comercial"] },
-            { model: db.cliente, attributes: ["id", "nombre", "apellido"] },
-            { model: db.usuario, as: "creador", attributes: ["id", "nombre", "email"] }
+            { model: db.cliente, attributes: ["id", "nombre"] },
+            { model: db.usuario, as: "creador", attributes: ["id", "email"] }
         ]
     });
 
     return { rows, count, page, limit };
 };
 
-//  obtener 
-const obtener = async (id) => {
+//  obtener
+const obtener = async (id, transaction) => {
     const comprobante = await db.comprobante.findByPk(id, {
+        ...(transaction ? { transaction } : {}),
         include: [
             { model: db.sucursal, attributes: ["id", "codigo", "nombre"] },
             { model: db.proveedor, attributes: ["id", "nit", "nombre_comercial"] },
-            { model: db.cliente, attributes: ["id", "nit", "nombre", "apellido"] },
-            { model: db.pedido, attributes: ["id", "codigo", "total"] },
+            { model: db.cliente, attributes: ["id", "nit", "nombre"] },
+            { model: db.pedido, attributes: ["id", "numero", "total"] },
             { model: db.traslado, attributes: ["id", "estado"] },
-            { model: db.usuario, as: "creador", attributes: ["id", "nombre", "email"] },
-            { model: db.usuario, as: "anulador", attributes: ["id", "nombre", "email"] },
+            { model: db.usuario, as: "creador", attributes: ["id", "email"] },
+            { model: db.usuario, as: "anulador", attributes: ["id", "email"] },
             {
                 model: db.comprobante_detalle,
                 include: [{ model: db.variante, attributes: ["id", "sku", "codigo_barras"] }]
@@ -148,26 +149,53 @@ const crear = async (datos, usuario_id) => {
 
         await db.comprobante_detalle.bulkCreate(renglonesConId, { transaction: t });
 
-        // 5. Generar movimientos de inventario (Kardex)
+        // 5. Generar movimientos de inventario (Kardex) y actualizar existencias
         for (const item of detallesProcesados) {
-            const factorOperacion = tipo === "ENTRADA" ? 1 : -1;
-            const cambioStock = item.cantidad * factorOperacion;
+            const esEntrada = tipo === "ENTRADA";
+
+            let existencia = await db.existencia.findOne({
+                where: { variante_id: item.variante_id, sucursal_id },
+                transaction: t,
+                lock: t.LOCK.UPDATE
+            });
+
+            if (!existencia) {
+                existencia = await db.existencia.create(
+                    { variante_id: item.variante_id, sucursal_id, cantidad_fisica: 0, cantidad_comprometida: 0, costo_promedio: 0 },
+                    { transaction: t }
+                );
+            }
+
+            const saldoAnterior = existencia.cantidad_fisica;
+            const saldoResultante = esEntrada ? saldoAnterior + item.cantidad : saldoAnterior - item.cantidad;
+
+            await existencia.update({ cantidad_fisica: saldoResultante }, { transaction: t });
+
+            const TIPO_KARDEX_MAP = {
+                COMPRA: "ENTRADA_COMPRA", DEVOLUCION: esEntrada ? "ENTRADA_DEVOLUCION" : "SALIDA_DEVOLUCION",
+                VENTA: "SALIDA_VENTA", MERMA: "SALIDA_MERMA", TRASLADO: esEntrada ? "ENTRADA_TRASLADO" : "SALIDA_TRASLADO",
+                AJUSTE: esEntrada ? "AJUSTE_POSITIVO" : "AJUSTE_NEGATIVO"
+            };
+            const tipoKardex = TIPO_KARDEX_MAP[subtipo] || (esEntrada ? "ENTRADA_COMPRA" : "SALIDA_VENTA");
 
             await db.movimiento_inventario.create(
                 {
-                    comprobante_id: comprobante.id,
-                    sucursal_id,
+                    tipo: tipoKardex,
+                    cantidad: item.cantidad,
+                    saldo_anterior: saldoAnterior,
+                    saldo_resultante: saldoResultante,
+                    referencia_tipo: "comprobante",
+                    referencia_id: comprobante.id,
+                    motivo: `Comprobante ${comprobante.numero} — ${subtipo}`,
                     variante_id: item.variante_id,
-                    tipo_movimiento: subtipo,
-                    cantidad: cambioStock,
-                    costo_unitario: item.costo_unitario,
+                    sucursal_id,
                     usuario_id
                 },
                 { transaction: t }
             );
         }
 
-        return await obtener(comprobante.id);
+        return await obtener(comprobante.id, t);
     });
 };
 
@@ -194,22 +222,37 @@ const anular = async (id, datosAnulacion, usuario_id) => {
 
         // 1. Reversión de Kardex / Movimientos de Inventario
         for (const item of comprobante.comprobante_detalles) {
-            const factorInverso = comprobante.tipo === "ENTRADA" ? -1 : 1;
-            const cambioStockReversion = item.cantidad * factorInverso;
+            const eraEntrada = comprobante.tipo === "ENTRADA";
 
-            await db.movimiento_inventario.create(
-                {
-                    comprobante_id: comprobante.id,
-                    sucursal_id: comprobante.sucursal_id,
-                    variante_id: item.variante_id,
-                    tipo_movimiento: "AJUSTE",
-                    cantidad: cambioStockReversion,
-                    costo_unitario: item.costo_unitario,
-                    observaciones: `Reversión por anulación de comprobante ${comprobante.numero}`,
-                    usuario_id
-                },
-                { transaction: t }
-            );
+            const existencia = await db.existencia.findOne({
+                where: { variante_id: item.variante_id, sucursal_id: comprobante.sucursal_id },
+                transaction: t,
+                lock: t.LOCK.UPDATE
+            });
+
+            if (existencia) {
+                const saldoAnterior = existencia.cantidad_fisica;
+                // Revertir: si era ENTRADA restamos, si era SALIDA sumamos
+                const saldoResultante = eraEntrada ? saldoAnterior - item.cantidad : saldoAnterior + item.cantidad;
+
+                await existencia.update({ cantidad_fisica: saldoResultante }, { transaction: t });
+
+                await db.movimiento_inventario.create(
+                    {
+                        tipo: eraEntrada ? "AJUSTE_NEGATIVO" : "AJUSTE_POSITIVO",
+                        cantidad: item.cantidad,
+                        saldo_anterior: saldoAnterior,
+                        saldo_resultante: saldoResultante,
+                        referencia_tipo: "comprobante",
+                        referencia_id: comprobante.id,
+                        motivo: `Reversión por anulación de comprobante ${comprobante.numero}`,
+                        variante_id: item.variante_id,
+                        sucursal_id: comprobante.sucursal_id,
+                        usuario_id
+                    },
+                    { transaction: t }
+                );
+            }
         }
 
         // 2. Marcar comprobante como anulado
