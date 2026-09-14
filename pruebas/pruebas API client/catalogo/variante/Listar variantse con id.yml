@@ -1,0 +1,31 @@
+info:
+  name: Listar variantse con id
+  type: http
+  seq: 4
+
+http:
+  method: GET
+  url: "{{base_url}}/variantes?producto_id=1&talla_id=1&color_id=1&activo=true&q=POLO"
+  params:
+    - name: producto_id
+      value: "1"
+      type: query
+    - name: talla_id
+      value: "1"
+      type: query
+    - name: color_id
+      value: "1"
+      type: query
+    - name: activo
+      value: "true"
+      type: query
+    - name: q
+      value: POLO
+      type: query
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

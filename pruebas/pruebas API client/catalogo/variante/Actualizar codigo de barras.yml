@@ -1,0 +1,23 @@
+info:
+  name: Actualizar codigo de barras
+  type: http
+  seq: 6
+
+http:
+  method: PUT
+  url: "{{base_url}}/variantes/1"
+  body:
+    type: json
+    data: |-
+      {
+        "codigo_barras": "7509876543210"
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

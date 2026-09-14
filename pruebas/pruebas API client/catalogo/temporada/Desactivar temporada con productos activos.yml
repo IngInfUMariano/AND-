@@ -1,0 +1,17 @@
+info:
+  name: Desactivar temporada con productos activos
+  type: http
+  seq: 1
+
+http:
+  method: DELETE
+  url: "{{base_url}}/temporadas/1"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

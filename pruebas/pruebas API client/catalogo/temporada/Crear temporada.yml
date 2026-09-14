@@ -1,0 +1,25 @@
+info:
+  name: Crear temporada
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}/temporadas"
+  body:
+    type: json
+    data: |-
+      {
+        "nombre": "Primavera - Verano",
+        "anio": 2026,
+        "descripcion": "Colección de ropa ligera e informal"
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
