@@ -1,0 +1,15 @@
+info:
+  name: Obtener categoria por ID error de no encontrado
+  type: http
+  seq: 7
+
+http:
+  method: GET
+  url: http://localhost:3000/api/categorias/999
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,25 @@
+info:
+  name: Categoria padre inexistente
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: http://localhost:3000/api/categorias
+  body:
+    type: json
+    data: |-
+      {
+        "nombre": "Sandalias",
+        "descripcion": "Ropa de verano, lentes y accesorios",
+        "categoria_padre_id": 999
+      }
+  auth:
+    type: bearer
+    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwicGVyZmlsIjoiQURNSU4iLCJzdWN1cnNhbF9pZCI6MSwiY2xpZW50ZV9pZCI6bnVsbCwidGlwb19jbGllbnRlIjpudWxsLCJhcHAiOiJpbnRlcm5vIiwiaWF0IjoxNzg5NDAzMzgzLCJleHAiOjE3ODk0MzIxODN9.4zgx_rXh3bTVaycLzGrQZvGmdjgGZXkaEvCJnGHkGyo
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

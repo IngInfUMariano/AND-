@@ -1,0 +1,29 @@
+info:
+  name: Actualizar categoria
+  type: http
+  seq: 1
+
+http:
+  method: PUT
+  url: "{{base_url}}/categorias/1"
+  body:
+    type: json
+    data: |-
+      {
+        "nombre": "Invierto",
+        "descripcion": "Catálogo completo de equipo de invierno"
+      }
+  auth:
+    type: bearer
+    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwicGVyZmlsIjoiQURNSU4iLCJzdWN1cnNhbF9pZCI6MSwiY2xpZW50ZV9pZCI6bnVsbCwidGlwb19jbGllbnRlIjpudWxsLCJhcHAiOiJpbnRlcm5vIiwiaWF0IjoxNzg5NDAzMzgzLCJleHAiOjE3ODk0MzIxODN9.4zgx_rXh3bTVaycLzGrQZvGmdjgGZXkaEvCJnGHkGyo
+
+runtime:
+  variables:
+    - name: base_url
+      value: http://localhost:3000/api
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -2,6 +2,22 @@ opencollection: 1.0.0
 
 info:
   name: pruebas API client
+config:
+  proxy:
+    inherit: true
+    config:
+      protocol: http
+      hostname: ""
+      port: ""
+      auth:
+        username: ""
+        password: ""
+      bypassProxy: ""
+
+request:
+  auth:
+    type: bearer
+    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwicGVyZmlsIjoiQURNSU4iLCJzdWN1cnNhbF9pZCI6MSwiY2xpZW50ZV9pZCI6bnVsbCwidGlwb19jbGllbnRlIjpudWxsLCJhcHAiOiJpbnRlcm5vIiwiaWF0IjoxNzg5MzYwODcyLCJleHAiOjE3ODkzODk2NzJ9.odg88eglOisnsbb5KaG9NjSs0VFXpeFDuVsEA57QXcA
 bundled: false
 extensions:
   bruno:

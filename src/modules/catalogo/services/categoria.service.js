@@ -8,9 +8,9 @@
 
 "use strict";
 
-const { Op }           = require("sequelize");
-const db               = require("../../../loaders/models.loader");
-const AppError         = require("../../../core/utils/AppError");
+const { Op } = require("sequelize");
+const db = require("../../../loaders/models.loader");
+const AppError = require("../../../core/utils/AppError");
 const { parsearPaginacion } = require("../../../core/utils/paginacion");
 
 // Columnas por las que se puede ordenar en la lista pública.
@@ -29,7 +29,7 @@ const listar = async (query) => {
   // Búsqueda de texto libre en nombre o descripción
   if (query.q) {
     where[Op.or] = [
-      { nombre:      { [Op.iLike]: `%${query.q}%` } },
+      { nombre: { [Op.iLike]: `%${query.q}%` } },
       { descripcion: { [Op.iLike]: `%${query.q}%` } }
     ];
   }
@@ -52,8 +52,8 @@ const listar = async (query) => {
     // Incluir el padre para que la tienda pueda mostrar la jerarquía
     include: [
       {
-        model:      db.categoria,
-        as:         "categoriaPadre",
+        model: db.categoria,
+        as: "categoriaPadre",
         attributes: ["id", "nombre"]
       }
     ]
@@ -68,13 +68,13 @@ const obtener = async (id) => {
   const categoria = await db.categoria.findByPk(id, {
     include: [
       {
-        model:      db.categoria,
-        as:         "categoriaPadre",
+        model: db.categoria,
+        as: "categoriaPadre",
         attributes: ["id", "nombre"]
       },
       {
-        model:      db.categoria,
-        as:         "subcategorias",
+        model: db.categoria,
+        as: "subcategorias",
         attributes: ["id", "nombre", "activo"]
       }
     ]
@@ -100,11 +100,26 @@ const actualizar = async (id, datos) => {
   const categoria = await db.categoria.findByPk(id);
   if (!categoria) throw new AppError("Categoría no encontrada", 404);
 
+  // Validar autorreferencia
+  if (datos.categoria_padre_id && Number(datos.categoria_padre_id) === Number(id)) {
+    throw AppError.solicitudIncorrecta(
+      "Una categoría no puede asignarse a sí misma como padre"
+    );
+  }
+
+  // Validar existencia de la categoría padre si se envía
+  if (datos.categoria_padre_id) {
+    const padreExiste = await db.categoria.findByPk(datos.categoria_padre_id);
+    if (!padreExiste) {
+      throw new AppError("La categoría padre especificada no existe", 404);
+    }
+  }
+
   // Whitelist explícita: solo dejamos pasar los campos del esquema.
   // Si alguien manda "activo: false" por PUT, lo ignoramos (para eso es DELETE).
   const campos = {};
-  if ("nombre"             in datos) campos.nombre             = datos.nombre;
-  if ("descripcion"        in datos) campos.descripcion        = datos.descripcion;
+  if ("nombre" in datos) campos.nombre = datos.nombre;
+  if ("descripcion" in datos) campos.descripcion = datos.descripcion;
   if ("categoria_padre_id" in datos) campos.categoria_padre_id = datos.categoria_padre_id;
 
   return categoria.update(campos);
@@ -123,6 +138,17 @@ const actualizar = async (id, datos) => {
 const desactivar = async (id) => {
   const categoria = await db.categoria.findByPk(id);
   if (!categoria) throw new AppError("Categoría no encontrada", 404);
+  // Regla de negocio: no se puede desactivar si tiene subcategorías activas
+  const subcategoriasActivas = await db.categoria.count({
+    where: { categoria_padre_id: id, activo: true }
+  });
+
+  if (subcategoriasActivas > 0) {
+    throw AppError.reglaNegocio(
+      "No se puede desactivar una categoría que tiene subcategorías activas",
+      [`La categoría posee ${subcategoriasActivas} subcategoría(s) activa(s)`]
+    );
+  }
 
   const productosActivos = await db.producto.count({
     where: { categoria_id: id, activo: true }

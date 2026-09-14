@@ -1,0 +1,17 @@
+info:
+  name: Eliminar categoria con subcategoria o productos asignados
+  type: http
+  seq: 1
+
+http:
+  method: DELETE
+  url: "{{base_url}}/categorias/1"
+  auth:
+    type: bearer
+    token: "{{token_jwt}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
