@@ -9,6 +9,11 @@ const crearValidator = [
         .withMessage("El nombre es obligatorio")
         .isLength({max: 80})
         .withMessage("El nombre no puede superar 80 caracteres"),
+
+    body("codigo_hex")
+        .optional()
+        .matches(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/)
+        .withMessage("El código hexadecimal debe tener un formato válido (ejemplo: #FF0000)")
 ];
 
 const actualizarValidator = [
@@ -24,6 +29,11 @@ const actualizarValidator = [
         .withMessage("El nombre no puede estar vacío")
         .isLength({max: 80})
         .withMessage("El nombre no puede superar 80 caracteres"),
-];
+
+    body("codigo_hex")
+        .optional()
+        .matches(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/)
+        .withMessage("El código hexadecimal debe tener un formato válido (ejemplo: #FF0000)")
+    ];
 
 module.exports = {crearValidator, actualizarValidator};

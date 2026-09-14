@@ -45,7 +45,7 @@ const obtener = async (id) => {
             },
             {
                 model: db.imagen_producto,
-                attributes: ["id", "url", "activo"]
+                attributes: ["id", "url"]
             }
         ]
 
@@ -55,14 +55,24 @@ const obtener = async (id) => {
 };
 
 const crear = async (datos) => {
-    const {nombre} = datos;
-    return await db.color.create({ nombre });
+    const { nombre, hex, codigo_hex } = datos;
+    const hexValor = hex || codigo_hex;
+
+    return await db.color.create({ nombre, hex: hexValor });
 };
 
 const actualizar = async (id, datos) => {
     const color = await db.color.findByPk(id);
     if (!color) throw new AppError("No se encontró el color", 404);
-    await color.update(datos);
+
+    // --- CAMBIO: Mapeo explícito de campos permitidos ---
+    const campos = {};
+    if ("nombre" in datos) campos.nombre = datos.nombre;
+    if ("hex" in datos || "codigo_hex" in datos) {
+        campos.hex = datos.hex || datos.codigo_hex;
+    }
+
+    await color.update(campos);
     return color;
 };
 

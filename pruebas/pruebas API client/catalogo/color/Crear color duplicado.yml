@@ -1,0 +1,24 @@
+info:
+  name: Crear color duplicado
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{base_url}}/colores"
+  body:
+    type: json
+    data: |-
+      {
+        "nombre": "Azul Turquesa",
+        "codigo_hex": "#40E0D0"
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

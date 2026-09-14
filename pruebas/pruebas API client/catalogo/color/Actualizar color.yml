@@ -1,0 +1,25 @@
+info:
+  name: Actualizar color
+  type: http
+  seq: 1
+
+http:
+  method: PUT
+  url: "{{base_url}}/colores/1"
+  body:
+    type: json
+    data: |-
+      {
+        "nombre": "Azul Marino",
+        "codigo_hex": "#000080"
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+​
