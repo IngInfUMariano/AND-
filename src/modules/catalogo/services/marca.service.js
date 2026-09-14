@@ -67,7 +67,7 @@ const desactivar = async (id) => {
         }
     });
     if (productosActivos > 0) {
-        throw new AppError.reglaNegocio("No se puede desactivar la marca porque tiene productos activos", 400);
+        throw new AppError("No se puede desactivar la marca porque tiene productos activos", 400);
     }
     return marca.update({ activo: false }); 
 }

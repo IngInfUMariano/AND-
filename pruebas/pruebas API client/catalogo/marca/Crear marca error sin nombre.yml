@@ -1,0 +1,23 @@
+info:
+  name: Crear marca error sin nombre
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{base_url}}/marcas"
+  body:
+    type: json
+    data: |-
+      {
+        "descripcion": "calzado y ropa deportiva"
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
