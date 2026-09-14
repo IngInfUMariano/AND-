@@ -66,7 +66,9 @@ const obtener = async (id) => {
 };
 
 const crear = async (data) => {
-    const { tipo, monto, variante_id, registrador_id } = data;
+    // Extrae el ID del usuario enviado desde el controlador (registrador_id / registrado_por)
+    const { tipo, monto, variante_id, registrador_id, registrado_por, registrado_por_id } = data;
+    const usuarioId = registrador_id || registrado_por || registrado_por_id;
     const hoy = new Date().toISOString().split("T")[0];
 
     return await db.sequelize.transaction(async (t) => {
@@ -88,11 +90,11 @@ const crear = async (data) => {
             tipo,
             monto,
             variante_id,
-            registrador_id,
+            registrado_por: usuarioId, // Nombre exacto del atributo en el modelo
             vigente_desde: hoy
         }, { transaction: t });
     });
-}
+};
 
 const actualizar = async (id, data) => {
     const precio = await db.precio.findByPk(id);

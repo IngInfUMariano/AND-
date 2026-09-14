@@ -1,0 +1,24 @@
+info:
+  name: Error al crear - registrar precio
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}/precios"
+  body:
+    type: json
+    data: |-
+      {
+        "variante_id": 1,
+        "monto": -10.00
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
