@@ -9,6 +9,11 @@ const listar = asyncHandler(async (req, res) => {
     paginado(res, rows, count, page, limit);
 });
 
+const listarPorVariante = asyncHandler(async (req, res) => {
+    const { rows, count, page, limit } = await PrecioService.listar({ ...req.query, variante_id: req.params.id });
+    paginado(res, rows, count, page, limit);
+});
+
 const obtener = asyncHandler(async (req, res) => {
     const precio = await PrecioService.obtener(req.params.id);
     ok(res, precio);
@@ -29,4 +34,4 @@ const caducar = asyncHandler(async (req, res) => {
     ok(res, precio);
 });
 
-module.exports = { listar, obtener, crear, actualizar, caducar };
+module.exports = { listar, listarPorVariante, obtener, crear, actualizar, caducar };

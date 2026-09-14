@@ -39,7 +39,7 @@ const listar = async (query) => {
             {
                 model: db.usuario,
                 as: "registrador",
-                attributes: ["id", "nombre", "apellido"]
+                attributes: ["id", "email"]
             }
         ]
     });
@@ -57,7 +57,7 @@ const obtener = async (id) => {
             {
                 model: db.usuario,
                 as: "registrador",
-                attributes: ["id", "nombre", "apellido"]
+                attributes: ["id", "email"]
             }
         ]
     });

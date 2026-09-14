@@ -1,28 +1,36 @@
 "use strict";
 
 module.exports = (app) => {
-    const controlador = require("../controllers/trasladoDetalle.controller.js");
+    const controlador = require("../controllers/comprobante.controller.js");
     const router = require("express").Router();
 
     const { verifyToken, hasRole, onlyApp } = require("../../../core/middlewares/authJwt");
     const validar = require("../../../core/middlewares/validar");
-    const { recepcionItemValidator } = require("../validators/trasladoDetalle.validator");
+    const {
+        crearValidator,
+        anularValidator
+    } = require("../validators/comprobante.validator");
 
-    // Rutas privadas exclusivas para la app interna
     router.use(verifyToken, onlyApp("interno"));
 
-    // Consultas de renglones de traslado
     router.get("/", hasRole("ADMIN", "GERENTE", "BODEGUERO"), controlador.listar);
     router.get("/:id", hasRole("ADMIN", "GERENTE", "BODEGUERO"), controlador.obtener);
 
-    // Registro/confirmación de cantidad recibida a nivel de ítem
-    router.patch(
-        "/:id/recepcion",
+    router.post(
+        "/",
         hasRole("ADMIN", "GERENTE", "BODEGUERO"),
-        recepcionItemValidator,
+        crearValidator,
         validar,
-        controlador.registrarRecepcionItem
+        controlador.crear
     );
 
-    app.use("/api/traslado-detalles", router);
+    router.post(
+        "/:id/anular",
+        hasRole("ADMIN", "GERENTE"),
+        anularValidator,
+        validar,
+        controlador.anular
+    );
+
+    app.use("/api/comprobantes", router);
 };

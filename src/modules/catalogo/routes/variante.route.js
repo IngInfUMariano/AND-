@@ -1,16 +1,24 @@
 "use strict";
 
 module.exports = (app) => {
-  const controlador = require("../controllers/variante.controller.js");
-  const router      = require("express").Router();
+  const controlador       = require("../controllers/variante.controller.js");
+  const precioControlador = require("../controllers/precio.controller.js");
+  const router            = require("express").Router();
 
   const { verifyToken, hasRole, onlyApp } = require("../../../core/middlewares/authJwt");
   const validar = require("../../../core/middlewares/validar");
   const { crearValidator, actualizarValidator } = require("../validators/variante.validator");
 
-  //  Rutas públicas 
+  //  Rutas públicas
   router.get("/",    controlador.listar);
   router.get("/:id", controlador.obtener);
+
+  // GET /api/variantes/:id/precios — historial de precios de una variante
+  router.get(
+    "/:id/precios",
+    verifyToken, onlyApp("interno"), hasRole("ADMIN", "GERENTE"),
+    precioControlador.listarPorVariante
+  );
 
   //  Rutas protegidas: solo portal interno, perfil ADMIN o GERENTE 
   router.post(

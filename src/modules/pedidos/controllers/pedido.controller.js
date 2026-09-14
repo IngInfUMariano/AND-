@@ -7,35 +7,35 @@ const PedidoService  = require("../services/pedido.service");
 // GET /api/pedidos
 // Permite listar pedidos con filtros y paginación (por sucursal, cliente, estado, etc.)
 const listar = asyncHandler(async (req, res) => {
-  const { rows, count, page, limit } = await PedidoService.listar(req.query, req.user);
+  const { rows, count, page, limit } = await PedidoService.listar(req.query, req.usuario);
   paginado(res, rows, count, page, limit);
 });
 
 // GET /api/pedidos/:id
 const obtener = asyncHandler(async (req, res) => {
-  const pedido = await PedidoService.obtener(req.params.id, req.user);
+  const pedido = await PedidoService.obtener(req.params.id, req.usuario);
   ok(res, pedido);
 });
 
 // POST /api/pedidos (Checkout desde carrito)
 const crear = asyncHandler(async (req, res) => {
-  const pedido = await PedidoService.crear(req.user.id, req.body);
+  const pedido = await PedidoService.crear(req.usuario.cliente_id, req.body);
   creado(res, pedido);
 });
 
 // POST /api/pedidos/masivo (Carga masiva CSV para mayoristas)
 const cargarMasivo = asyncHandler(async (req, res) => {
-  const resultado = await PedidoService.cargarMasivo(req.user.id, req.file);
+  const resultado = await PedidoService.cargarMasivo(req.usuario.id, req.file);
   creado(res, resultado);
 });
 
 // PATCH /api/pedidos/:id/estado (Transiciones del ciclo de vida del pedido)
 const cambiarEstado = asyncHandler(async (req, res) => {
   const pedido = await PedidoService.cambiarEstado(
-    req.params.id, 
-    req.body.estado, 
-    req.body.observacion, 
-    req.user
+    req.params.id,
+    req.body.estado,
+    req.body.observacion,
+    req.usuario
   );
   ok(res, pedido);
 });
@@ -43,17 +43,17 @@ const cambiarEstado = asyncHandler(async (req, res) => {
 // POST /api/pedidos/:id/anular (Anulación de pedido)
 const anular = asyncHandler(async (req, res) => {
   const pedido = await PedidoService.anular(
-    req.params.id, 
-    req.body.motivo, 
-    req.user
+    req.params.id,
+    req.body.motivo,
+    req.usuario
   );
   ok(res, pedido);
 });
 
 const generarHojaRecoleccion = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const data = await pedidoService.generarHojaRecoleccion(id);
-  return respuestaExito(res, "Hoja de recolección generada con éxito", data);
+  const data = await PedidoService.generarHojaRecoleccion(id);
+  return ok(res, data);
 });
 
 module.exports = {

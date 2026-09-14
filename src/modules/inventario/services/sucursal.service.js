@@ -83,7 +83,7 @@ const desactivar = async (id) => {
     // 1. Validar existencias físicas[cite: 17]
     // Asumimos que el modelo existencia tiene un campo 'cantidad' o similar.
     const existenciasPositivas = await db.existencia.count({
-        where: { sucursal_id: id, cantidad: { [Op.gt]: 0 } }
+        where: { sucursal_id: id, cantidad_fisica: { [Op.gt]: 0 } }
     });
 
     if (existenciasPositivas > 0) {

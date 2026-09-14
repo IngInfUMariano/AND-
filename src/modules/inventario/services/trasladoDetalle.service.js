@@ -87,7 +87,7 @@ const registrarRecepcionItem = async (id, datos) => {
 
         // Si la cantidad recibida difiere de la despachada, exigimos justificación
         if (cantidad_recibida !== detalle.cantidad_despachada && !observacion_diferencia) {
-            throw AppError.validacion(
+            throw AppError.reglaNegocio(
                 "Debe proporcionar una observación de diferencia cuando la cantidad recibida no coincide con la despachada"
             );
         }

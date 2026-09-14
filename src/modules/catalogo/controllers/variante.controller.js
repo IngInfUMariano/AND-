@@ -10,6 +10,12 @@ const listar = asyncHandler(async (req, res) => {
   paginado(res, rows, count, page, limit);
 });
 
+// GET /api/productos/:id/variantes
+const listarPorProducto = asyncHandler(async (req, res) => {
+  const { rows, count, page, limit } = await VarianteService.listar({ ...req.query, producto_id: req.params.id });
+  paginado(res, rows, count, page, limit);
+});
+
 // GET /api/variantes/:id
 const obtener = asyncHandler(async (req, res) => {
   const variante = await VarianteService.obtener(req.params.id);
@@ -34,4 +40,4 @@ const desactivar = asyncHandler(async (req, res) => {
   sinContenido(res);
 });
 
-module.exports = { listar, obtener, crear, actualizar, desactivar };
+module.exports = { listar, listarPorProducto, obtener, crear, actualizar, desactivar };

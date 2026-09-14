@@ -1,16 +1,18 @@
 "use strict";
 
 module.exports = (app) => {
-    const controlador = require("../controllers/producto.controller.js");
+    const controlador         = require("../controllers/producto.controller.js");
+    const varianteControlador = require("../controllers/variante.controller.js");
     const router = require("express").Router();
 
     const { verifyToken, hasRole, onlyApp } = require("../../../core/middlewares/authJwt");
     const validar = require("../../../core/middlewares/validar");
     const { crearValidator, actualizarValidator } = require("../validators/producto.validator");
 
-    //  Rutas públicas 
+    //  Rutas públicas
     router.get("/", controlador.listar);
     router.get("/:id", controlador.obtener);
+    router.get("/:id/variantes", varianteControlador.listarPorProducto);
 
     //  Rutas protegidas: solo portal interno, perfil ADMIN o GERENTE 
     router.post(

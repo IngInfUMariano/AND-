@@ -39,6 +39,7 @@ const firmarToken = (usuario, tipoCliente, expiresIn) =>
       id:           usuario.id,
       perfil:       usuario.perfil,
       sucursal_id:  usuario.sucursal_id || null,
+      cliente_id:   usuario.cliente_id  || null,
       tipo_cliente: tipoCliente || null,
       app:          usuario.app.toLowerCase()
     },

@@ -1,4 +1,4 @@
-const { ValidationError, UniqueConstraintError, ForeignKeyConstraintError } =
+const { ValidationError, UniqueConstraintError, ForeignKeyConstraintError, DatabaseError } =
   require("sequelize");
 const AppError = require("../utils/AppError");
 
@@ -38,6 +38,19 @@ const errorHandler = (err, req, res, _next) => {
     return res.status(400).json({
       error: { mensaje: "Datos de entrada inválidos", detalles }
     });
+  }
+
+  if (err instanceof DatabaseError) {
+    // Solo interceptar errores de tipo/sintaxis de PostgreSQL (22P02, 22003, etc.)
+    // Los demás DatabaseError son bugs internos y deben ir al bloque de 500.
+    const pgCode = err.original?.code;
+    const invalidTypeCodes = ["22P02", "22003", "22P05", "22007"];
+    if (invalidTypeCodes.includes(pgCode)) {
+      return res.status(400).json({
+        error: { mensaje: "Parámetro inválido en la solicitud", detalles: [] }
+      });
+    }
+    // Otros DatabaseError caen al bloque de 500 más abajo
   }
 
   // --- Errores operacionales lanzados con AppError ---

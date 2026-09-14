@@ -15,13 +15,13 @@ module.exports = (app) => {
     // Rutas privadas exclusivas de la aplicación interna
     router.use(verifyToken, onlyApp("interno"));
 
-    router.get("/", hasRole("ADMIN", "GERENTE", "BODEGA"), controlador.listar);
-    router.get("/:id", hasRole("ADMIN", "GERENTE", "BODEGA"), controlador.obtener);
+    router.get("/", hasRole("ADMIN", "GERENTE", "BODEGUERO"), controlador.listar);
+    router.get("/:id", hasRole("ADMIN", "GERENTE", "BODEGUERO"), controlador.obtener);
 
     // Despachar traslado
     router.post(
         "/",
-        hasRole("ADMIN", "GERENTE", "BODEGA"),
+        hasRole("ADMIN", "GERENTE", "BODEGUERO"),
         crearValidator,
         validar,
         controlador.crear
@@ -30,7 +30,7 @@ module.exports = (app) => {
     // Recepcionar traslado en destino
     router.post(
         "/:id/recibir",
-        hasRole("ADMIN", "GERENTE", "BODEGA"),
+        hasRole("ADMIN", "GERENTE", "BODEGUERO"),
         recibirValidator,
         validar,
         controlador.recibir

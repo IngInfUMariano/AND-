@@ -17,7 +17,7 @@ module.exports = (app) => {
 
     router.post(
         "/",
-        hasRole("ADMIN", "GERENTE", "BODEGA"),
+        hasRole("ADMIN", "GERENTE", "BODEGUERO"),
         crearValidator,
         validar,
         controlador.crear

@@ -112,7 +112,7 @@ const listar = async (query, usuario) => {
   const where = {};
 
   if (usuario.app === "tienda") {
-    where.cliente_id = usuario.id;
+    where.cliente_id = usuario.cliente_id;
   } else if (query.cliente_id) {
     where.cliente_id = query.cliente_id;
   }
@@ -145,7 +145,7 @@ const obtener = async (id, usuario) => {
 
   if (!pedido) throw new AppError("Pedido no encontrado", 404);
 
-  if (usuario.app === "tienda" && pedido.cliente_id !== usuario.id) {
+  if (usuario.app === "tienda" && pedido.cliente_id !== usuario.cliente_id) {
     throw new AppError("No tienes permisos para ver este pedido", 403);
   }
 
@@ -220,7 +220,10 @@ const crear = async (clienteId, datos) => {
       await _verificarStockDisponible(item.variante_id, item.cantidad, sucursalFinalId, t);
 
       const variante = await db.variante.findByPk(item.variante_id, {
-        include: [{ model: db.producto }],
+        include: [
+          { model: db.producto },
+          { model: db.precio, attributes: ["tipo", "monto"] }
+        ],
         transaction: t
       });
 
@@ -228,7 +231,10 @@ const crear = async (clienteId, datos) => {
         throw new AppError(`La variante ${item.variante_id} no existe`, 404);
       }
 
-      const precioUnitario = Number(variante.precio_venta);
+      const tipoPrecio = cliente.tipo === "MAYORISTA" ? "MAYORISTA" : "MINORISTA";
+      const precioObj = variante.precios?.find(p => p.tipo === tipoPrecio)
+        ?? variante.precios?.find(p => p.tipo === "MINORISTA");
+      const precioUnitario = precioObj ? Number(precioObj.monto) : 0;
       const subtotalItem = precioUnitario * item.cantidad;
       subtotal += subtotalItem;
 
@@ -334,6 +340,22 @@ const cambiarEstado = async (id, nuevoEstado, observacion, usuario) => {
       throw AppError.reglaNegocio("No se puede cambiar el estado de un pedido finalizado", [
         `El pedido se encuentra actualmente en estado '${pedido.estado}'`
       ]);
+    }
+
+    const TRANSICIONES_VALIDAS = {
+      REGISTRADO:     ["PENDIENTE_PAGO", "PAGADO", "EN_PREPARACION"],
+      PENDIENTE_PAGO: ["PAGADO", "REGISTRADO"],
+      PAGADO:         ["EN_PREPARACION"],
+      EN_PREPARACION: ["DESPACHADO"],
+      DESPACHADO:     ["ENTREGADO"]
+    };
+
+    const permitidos = TRANSICIONES_VALIDAS[pedido.estado] || [];
+    if (!permitidos.includes(estadoUpper)) {
+      throw AppError.reglaNegocio(
+        `Transición de estado inválida: ${pedido.estado} → ${estadoUpper}`,
+        [`Estados permitidos desde '${pedido.estado}': ${permitidos.join(", ") || "ninguno"}`]
+      );
     }
 
     const estadoAnterior = pedido.estado;
@@ -552,7 +574,7 @@ const cargarMasivo = async (clienteId, archivo, sucursalId) => {
         cliente_id: clienteId,
         sucursal_id: sucursalId,
         tipo_cliente: cliente.tipo || "MINORISTA",
-        canal: "CARGA_MASIVA",
+        canal: "INTERNO",
         forma_pago: "CREDITO",
         entrega_tipo: "RETIRO_SUCURSAL",
         subtotal: subtotalGeneral,
@@ -616,7 +638,7 @@ const cargarMasivo = async (clienteId, archivo, sucursalId) => {
 const generarHojaRecoleccion = async (id) => {
   const pedido = await db.pedido.findByPk(id, {
     include: [
-      { model: db.cliente, attributes: ["id", "nombre", "apellido", "telefono", "email"] },
+      { model: db.cliente, attributes: ["nombre","nombre_comercial"] },
       { model: db.sucursal, attributes: ["id", "nombre", "codigo"] },
       {
         model: db.pedido_detalle,
@@ -651,7 +673,7 @@ const generarHojaRecoleccion = async (id) => {
     fecha_emision: new Date(),
     sucursal: pedido.sucursal ? pedido.sucursal.nombre : "N/A",
     cliente: {
-      nombre_completo: `${pedido.cliente?.nombre || ""} ${pedido.cliente?.apellido || ""}`.trim(),
+      nombre_completo: `${pedido.cliente?.nombre || ""} ${pedido.cliente?.nombre_comercial || ""}`.trim(),
       telefono: pedido.cliente?.telefono || pedido.entrega_telefono
     },
     entrega: {
