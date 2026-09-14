@@ -5,7 +5,7 @@ info:
 
 http:
   method: POST
-  url: http://localhost:3000/api/auth/interno
+  url: "{{base_url}}/auth/interno"
   headers:
     - name: Content-Type
       value: application/json

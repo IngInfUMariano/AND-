@@ -1,0 +1,26 @@
+info:
+  name: Crear o subir imagen
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}/imagen-productos"
+  body:
+    type: json
+    data: |-
+      {
+        "producto_id": 1,
+        "color_id": 1,
+        "url": "https://res.cloudinary.com/demo/image/upload/v1234567890/camisa-azul.jpg",
+        "orden": 1
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

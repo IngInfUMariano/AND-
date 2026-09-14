@@ -26,7 +26,7 @@ const actualizar = asyncHandler(async (req, res) => {
 });
 
 const desactivar = asyncHandler(async (req, res) => {
-    await ImagenProductoService.desactivar(req.params.id);
+    await ImagenProductoService.eliminar(req.params.id);
     sinContenido(res);
 });
 
