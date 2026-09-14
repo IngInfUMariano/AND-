@@ -7,6 +7,7 @@ const sequelize = new Sequelize(dbConfig.DB, dbConfig.USER, dbConfig.PASSWORD, {
   host: dbConfig.HOST,
   port: dbConfig.PORT,
   dialect: dbConfig.dialect,
+  dialectOptions: dbConfig.dialectOptions,
   pool: dbConfig.pool,
   define: {
     // Las columnas timestamps y FKs se generan en snake_case automáticamente

@@ -1,3 +1,8 @@
+if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
+  console.error("FATAL: JWT_SECRET no está definida en producción.");
+  process.exit(1);
+}
+
 module.exports = {
   JWT_SECRET: process.env.JWT_SECRET || "cambiar_en_produccion",
   // Sesiones del portal interno: cortas porque el personal trabaja en turnos definidos
