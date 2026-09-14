@@ -1,11 +1,11 @@
 info:
-  name: Eliminar categoria con subcategoria o productos asignados
+  name: Eliminar subcategoria
   type: http
-  seq: 1
+  seq: 11
 
 http:
   method: DELETE
-  url: "{{base_url}}/categorias/1"
+  url: "{{base_url}}/categorias/2"
   auth:
     type: bearer
     token: "{{token}}"

@@ -102,7 +102,7 @@ const actualizar = async (id, datos) => {
 
   // Validar autorreferencia
   if (datos.categoria_padre_id && Number(datos.categoria_padre_id) === Number(id)) {
-    throw AppError.solicitudIncorrecta(
+    throw AppError.reglaNegocio(
       "Una categoría no puede asignarse a sí misma como padre"
     );
   }
