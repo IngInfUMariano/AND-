@@ -1,0 +1,29 @@
+info:
+  name: Crear producto error
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}/productos"
+  body:
+    type: json
+    data: |-
+      {
+        "codigo": "PROD-001",
+        "nombre": "Playera Polo Class",
+        "descripcion": "Playera manga corta de algodón",
+        "genero": "MASCULINO",
+        "categoria_id": 1,
+        "marca_id": 1,
+        "temporada_id": 1
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

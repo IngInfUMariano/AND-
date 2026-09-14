@@ -1,0 +1,24 @@
+info:
+  name: Actualizar producto
+  type: http
+  seq: 1
+
+http:
+  method: PUT
+  url: "{{base_url}}/productos/1"
+  body:
+    type: json
+    data: |-
+      {
+        "nombre": "Playera Polo Premium Class",
+        "descripcion": "Edición limitada 100% algodón pima"
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
