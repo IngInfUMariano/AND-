@@ -4,12 +4,12 @@ module.exports = (app) => {
   const controlador = require("../controllers/carrito.controller.js");
   const router      = require("express").Router();
 
-  const { verifyToken } = require("../../../core/middlewares/authJwt");
+  const { verifyToken, hasRole, onlyApp } = require("../../../core/middlewares/authJwt");
   const validar         = require("../../../core/middlewares/validar");
   const { agregarItemValidator, actualizarCantidadValidator } = require("../validators/carrito.validator");
 
-  // Todas las rutas del carrito requieren autenticación
-  router.use(verifyToken);
+  // Todas las rutas del carrito son exclusivas del portal tienda (CLIENTE)
+  router.use(verifyToken, onlyApp("tienda"), hasRole("CLIENTE"));
 
   // GET /api/carrito -> Obtener carrito activo del usuario
   router.get("/", controlador.obtenerCarrito);

@@ -24,5 +24,5 @@ module.exports = (app) => {
         controlador.crear
     );
 
-    app.use("/api/movimientos-inventario", router);
+    app.use("/api/movimientos", router);
 };

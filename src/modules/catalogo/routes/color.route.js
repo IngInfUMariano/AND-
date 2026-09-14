@@ -34,5 +34,5 @@ module.exports = (app) => {
     );
 
   // Montar el router bajo el prefijo del recurso
-  app.use("/api/colors", router);
+  app.use("/api/colores", router);
 };
