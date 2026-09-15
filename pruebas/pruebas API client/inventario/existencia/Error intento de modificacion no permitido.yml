@@ -1,0 +1,23 @@
+info:
+  name: Error intento de edición directa de stock
+  type: http
+  seq: 7
+
+http:
+  method: PUT
+  url: "{{base_url}}/existencias/1"
+  body:
+    type: json
+    data: |-
+      {
+        "cantidad": 500
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

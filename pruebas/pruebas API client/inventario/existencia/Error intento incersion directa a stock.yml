@@ -1,0 +1,25 @@
+info:
+  name: Error intento de inserción directa de stock
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: "{{base_url}}/existencias"
+  body:
+    type: json
+    data: |-
+      {
+        "sucursal_id": 1,
+        "variante_id": 1,
+        "cantidad": 100
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

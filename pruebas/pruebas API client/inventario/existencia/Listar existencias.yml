@@ -1,0 +1,27 @@
+info:
+  name: Listar existencias con filtros y paginación
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{base_url}}/existencias?sucursal_id=1&activo=true&q=POLO"
+  params:
+    - name: sucursal_id
+      value: "1"
+      type: query
+    - name: activo
+      value: "true"
+      type: query
+    - name: q
+      value: POLO
+      type: query
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
