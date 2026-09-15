@@ -1,0 +1,24 @@
+info:
+  name: Actualizar marca
+  type: http
+  seq: 1
+
+http:
+  method: PUT
+  url: "{{base_url}}/marcas/1"
+  body:
+    type: json
+    data: |-
+      {
+        "nombre": "Nike International",
+        "descripcion": "Ropa, calzado y accesorios deportivos"
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

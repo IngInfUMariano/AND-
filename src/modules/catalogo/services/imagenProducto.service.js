@@ -17,7 +17,7 @@ const listar = async (query) => {
     if (query.es_principal !== undefined) where.es_principal = query.es_principal === 'true';
 
 
-    const {rows, count} = await db.imagenProducto.findAndCountAll({
+    const {rows, count} = await db.imagen_producto.findAndCountAll({
         where,
         limit,
         offset,
@@ -39,7 +39,7 @@ const listar = async (query) => {
 };
 
 const obtener = async (id) => {
-    const imagenProducto = await db.imagenProducto.findByPk(id, {
+    const imagenProducto = await db.imagen_producto.findByPk(id, {
         include: [
             {
                 model: db.producto,
@@ -59,11 +59,11 @@ const obtener = async (id) => {
 
 const crear = async (datos) => {
     const {url, orden, es_principal, producto_id, color_id} = datos;
-    return await db.imagenProducto.create({url, orden, es_principal, producto_id, color_id});
+    return await db.imagen_producto.create({url, orden, es_principal, producto_id, color_id});
 };
 
 const actualizar = async (id, datos) => {
-    const imagenProducto = await db.imagenProducto.findByPk(id);
+    const imagenProducto = await db.imagen_producto.findByPk(id);
     if (!imagenProducto) throw new AppError("Imagen de producto no encontrada", 404);
     
     const campos = {};
@@ -76,7 +76,7 @@ const actualizar = async (id, datos) => {
 };
 
 const eliminar = async (id) => {
-    const imagenProducto = await db.imagenProducto.findByPk(id);
+    const imagenProducto = await db.imagen_producto.findByPk(id);
     if (!imagenProducto) throw new AppError("Imagen de producto no encontrada", 404);
     return await imagenProducto.destroy();
 };

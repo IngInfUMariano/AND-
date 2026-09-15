@@ -1,0 +1,17 @@
+info:
+  name: Desactivar variante sin existencia
+  type: http
+  seq: 9
+
+http:
+  method: DELETE
+  url: "{{base_url}}/variantes/6"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

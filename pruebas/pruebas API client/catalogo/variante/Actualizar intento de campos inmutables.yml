@@ -1,0 +1,25 @@
+info:
+  name: Actualizar intento de campos inmutables
+  type: http
+  seq: 7
+
+http:
+  method: PUT
+  url: "{{base_url}}/variantes/1"
+  body:
+    type: json
+    data: |-
+      {
+        "sku": "POLO-M-ROJO",
+        "producto_id": 2,
+        "codigo_barras": "7509876543210"
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

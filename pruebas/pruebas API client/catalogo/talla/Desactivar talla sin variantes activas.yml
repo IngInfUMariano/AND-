@@ -1,0 +1,17 @@
+info:
+  name: Desactivar talla sin variantes activas
+  type: http
+  seq: 8
+
+http:
+  method: DELETE
+  url: "{{base_url}}/tallas/5"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

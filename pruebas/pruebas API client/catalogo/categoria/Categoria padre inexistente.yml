@@ -1,0 +1,25 @@
+info:
+  name: Categoria padre inexistente
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: http://localhost:3000/api/categorias
+  body:
+    type: json
+    data: |-
+      {
+        "nombre": "Sandalias",
+        "descripcion": "Ropa de verano, lentes y accesorios",
+        "categoria_padre_id": 999
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

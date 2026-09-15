@@ -1,0 +1,25 @@
+info:
+  name: Crear talla error
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{base_url}}/tallas"
+  body:
+    type: json
+    data: |-
+      {
+        "codigo": "XL",
+        "descripcion": "Talla Extra Grande",
+        "orden": 4
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

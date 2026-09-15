@@ -1,0 +1,28 @@
+info:
+  name: Referencia circular al actualizar categoria padre
+  type: http
+  seq: 9
+
+http:
+  method: PUT
+  url: "{{base_url}}/categorias/1"
+  body:
+    type: json
+    data: |-
+      {
+        "categoria_padre_id" : 1
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  variables:
+    - name: base_url
+      value: http://localhost:3000/api
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

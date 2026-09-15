@@ -1,0 +1,27 @@
+info:
+  name: Crear variante
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{base_url}}/variantes"
+  body:
+    type: json
+    data: |-
+      {
+        "sku": "POLO-L-AZUL",
+        "codigo_barras": "7501234567891",
+        "producto_id": 1,
+        "talla_id": 2,
+        "color_id": 1
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

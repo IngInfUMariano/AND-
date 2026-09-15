@@ -1,0 +1,24 @@
+info:
+  name: Actualizar talla
+  type: http
+  seq: 6
+
+http:
+  method: PUT
+  url: "{{base_url}}/tallas/1"
+  body:
+    type: json
+    data: |-
+      {
+        "codigo":"XL-REGULAR",
+        "orden":5
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

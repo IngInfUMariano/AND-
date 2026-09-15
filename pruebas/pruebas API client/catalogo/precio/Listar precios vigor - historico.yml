@@ -1,0 +1,21 @@
+info:
+  name: Listar precios vigor / historico
+  type: http
+
+http:
+  method: GET
+  url: "{{base_url}}/precios?variante_id=1&vigente=todos"
+  params:
+    - name: variante_id
+      value: "1"
+      type: query
+    - name: vigente
+      value: todos
+      type: query
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

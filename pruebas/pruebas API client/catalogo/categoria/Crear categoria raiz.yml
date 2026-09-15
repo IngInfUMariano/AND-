@@ -1,0 +1,24 @@
+info:
+  name: Crear categoria raiz
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: http://localhost:3000/api/categorias
+  body:
+    type: json
+    data: |-
+      {
+        "nombre": "Verano",
+        "descripcion": "Ropa de verano, lentes y accesorios"
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

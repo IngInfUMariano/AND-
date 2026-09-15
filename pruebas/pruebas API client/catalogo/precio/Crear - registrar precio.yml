@@ -1,0 +1,25 @@
+info:
+  name: Crear / registrar precio
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}/precios"
+  body:
+    type: json
+    data: |-
+      {
+        "variante_id": 2,
+        "tipo": "MINORISTA",
+        "monto": 299.99
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -20,7 +20,10 @@ const obtener = asyncHandler(async (req, res) => {
 });
 
 const crear = asyncHandler(async (req, res) => {
-    const precio = await PrecioService.crear(req.body);
+    const precio = await PrecioService.crear({
+        ...req.body,
+        registrado_por: req.usuario.id // Recupera el ID del usuario guardado en req.usuario
+    });
     creado(res, precio);
 });
 

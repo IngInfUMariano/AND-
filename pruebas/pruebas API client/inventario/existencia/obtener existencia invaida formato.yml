@@ -1,0 +1,17 @@
+info:
+  name: obtener existencia invaida formato
+  type: http
+  seq: 5
+
+http:
+  method: GET
+  url: "{{base_url}}/existencias/abc"
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

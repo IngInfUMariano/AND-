@@ -14,6 +14,7 @@ const db               = require("../../../loaders/models.loader");
 const AppError         = require("../../../core/utils/AppError");
 const registrarBitacora = require("../../../core/utils/registrarBitacora");
 const { parsearPaginacion } = require("../../../core/utils/paginacion");
+const pedidoService    = require("../../pedidos/services/pedido.service");
 
 // La moneda se configura por variable de entorno. Stripe requiere minúsculas.
 const MONEDA_STRIPE = (process.env.STRIPE_CURRENCY || "GTQ").toLowerCase();
@@ -200,7 +201,8 @@ const procesarWebhook = async (rawBody, signature, ip) => {
   return { recibido: true };
 };
 
-// Marca la transacción como EXITOSA.
+// Marca la transacción como EXITOSA y confirma el pedido en una sola transacción BD.
+// Si confirmarPago falla, el rollback deja tx en PENDIENTE y Stripe puede reintentar.
 // Idempotencia: si ya está EXITOSA, no hace nada (el evento duplicado no genera efectos).
 const _manejarPagoExitoso = async (paymentIntent) => {
   const tx = await db.transaccion_pago.findOne({
@@ -209,19 +211,24 @@ const _manejarPagoExitoso = async (paymentIntent) => {
 
   if (!tx || tx.estado === "EXITOSA") return; // ya procesado
 
-  await tx.update({
-    estado:            "EXITOSA",
-    mensaje_proveedor: "Payment succeeded",
-    respuesta_cruda:   { id: paymentIntent.id, status: paymentIntent.status },
-  });
+  const t = await db.sequelize.transaction();
+  try {
+    await tx.update({
+      estado:            "EXITOSA",
+      mensaje_proveedor: "Payment succeeded",
+      respuesta_cruda:   { id: paymentIntent.id, status: paymentIntent.status },
+    }, { transaction: t });
 
-  // TODO: Llamar a pedidoService.confirmarPago() cuando el módulo de pedidos esté disponible.
-  // Esa función debe:
-  //   1. Cambiar pedido.estado de PENDIENTE_PAGO → PAGADO
-  //   2. Registrar pedido_historial con usuario_id=null y motivo="Webhook Stripe confirmado"
-  //   3. Comprometer existencias: incrementar cantidad_comprometida en cada línea del pedido
-  // Firma esperada:
-  //   pedidoService.confirmarPago(pedidoId: number, transaccionId: number, opts?: { transaction? })
+    await pedidoService.confirmarPago(tx.pedido_id, tx.id, {
+      motivo:      "Webhook Stripe confirmado",
+      transaction: t,
+    });
+
+    await t.commit();
+  } catch (err) {
+    await t.rollback();
+    throw err;
+  }
 };
 
 // Marca la transacción como RECHAZADA.
@@ -241,12 +248,7 @@ const _manejarPagoFallido = async (paymentIntent) => {
     respuesta_cruda:   { id: paymentIntent.id, status: paymentIntent.status },
   });
 
-  // TODO: Llamar a pedidoService.revertirPago() cuando el módulo de pedidos esté disponible.
-  // Esa función debe:
-  //   1. Devolver pedido.estado a REGISTRADO (o ANULADO si la política lo indica)
-  //   2. Registrar pedido_historial con el motivo del rechazo
-  // Firma esperada:
-  //   pedidoService.revertirPago(pedidoId: number, opts?: { motivo?: string, transaction? })
+  await pedidoService.revertirPago(tx.pedido_id, { motivo });
 };
 
 // ─── listarTransacciones ──────────────────────────────────────────────────────
@@ -338,12 +340,10 @@ const reembolsar = async (id, datos) => {
       await tx.update({ estado: "REEMBOLSADA" }, { transaction: t });
     }
 
-    // TODO: Llamar a pedidoService.procesarReembolso() cuando el módulo de pedidos esté disponible.
-    // Esa función debe:
-    //   1. Si reembolso total: marcar pedido como ANULADO y liberar cantidad_comprometida
-    //   2. Si reembolso parcial: registrar en pedido_historial sin cambiar el estado
-    // Firma esperada:
-    //   pedidoService.procesarReembolso(pedidoId: number, txReembolsoId: number, opts: { esTotal: boolean, transaction? })
+    await pedidoService.procesarReembolso(tx.pedido_id, txReembolso.id, {
+      esTotal,
+      transaction: t,
+    });
 
     await t.commit();
     return txReembolso;
@@ -419,13 +419,11 @@ const pagarConCredito = async (pedidoId, usuarioId) => {
       { transaction: t }
     );
 
-    // TODO: Llamar a pedidoService.confirmarPago() cuando el módulo de pedidos esté disponible.
-    // Esa función debe:
-    //   1. Cambiar pedido.estado a PAGADO
-    //   2. Registrar pedido_historial con motivo="Crédito mayorista autorizado"
-    //   3. Comprometer existencias para cada línea del pedido
-    // Firma esperada:
-    //   pedidoService.confirmarPago(pedidoId: number, transaccionId: null, opts?: { formaPago?: string, transaction? })
+    await pedidoService.confirmarPago(pedidoId, null, {
+      formaPago: "CREDITO",
+      motivo:    "Crédito mayorista autorizado",
+      transaction: t,
+    });
 
     await t.commit();
 

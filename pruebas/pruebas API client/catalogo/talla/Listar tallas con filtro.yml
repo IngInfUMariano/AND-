@@ -1,0 +1,21 @@
+info:
+  name: Listar tallas con filtro
+  type: http
+
+http:
+  method: GET
+  url: "{{base_url}}/tallas?q=Extra&activo=true"
+  params:
+    - name: q
+      value: Extra
+      type: query
+    - name: activo
+      value: "true"
+      type: query
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
