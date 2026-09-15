@@ -699,7 +699,6 @@ const confirmarPago = async (pedidoId, transaccionId = null, opts = {}) => {
 
   try {
     const pedido = await db.pedido.findByPk(pedidoId, {
-      include: [{ model: db.pedido_detalle }],
       transaction: t,
       lock: t.LOCK.UPDATE
     });
@@ -783,7 +782,6 @@ const procesarReembolso = async (pedidoId, txReembolsoId, opts = {}) => {
 
   try {
     const pedido = await db.pedido.findByPk(pedidoId, {
-      include: [{ model: db.pedido_detalle }],
       transaction: t,
       lock: t.LOCK.UPDATE
     });
@@ -797,6 +795,11 @@ const procesarReembolso = async (pedidoId, txReembolsoId, opts = {}) => {
       await pedido.update({ estado: "ANULADO" }, { transaction: t });
 
       // 2. Liberar existencias comprometidas en Inventario si aún estaban reservadas
+      const detalles = await db.pedido_detalle.findAll({
+        where: { pedido_id: pedidoId },
+        transaction: t,
+      });
+      pedido.pedido_detalles = detalles;
       for (const detalle of pedido.pedido_detalles) {
         const existencia = await db.existencia.findOne({
           where: { variante_id: detalle.variante_id, sucursal_id: pedido.sucursal_id },
