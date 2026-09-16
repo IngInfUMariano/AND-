@@ -1,0 +1,26 @@
+info:
+  name: Registrar salida de inventario por venta
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{base_url}}/movimientos-inventario"
+  body:
+    type: json
+    data: |-
+      {
+        "tipo": "SALIDA_VENTA",
+        "cantidad": 5,
+        "variante_id": 1,
+        "sucursal_id": 1
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,27 @@
+info:
+  name: Registrar entrada de inventario por compra
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}/movimientos-inventario"
+  body:
+    type: json
+    data: |-
+      {
+        "tipo": "ENTRADA_COMPRA",
+        "cantidad": 50,
+        "costo_unitario": 45.00,
+        "variante_id": 1,
+        "sucursal_id": 1
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
