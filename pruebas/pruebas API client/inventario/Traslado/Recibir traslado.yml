@@ -1,0 +1,23 @@
+info:
+  name: Recibir traslado en sucursal destino
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{base_url}}/traslados/1/recibir"
+  body:
+    type: json
+    data: |-
+      {
+        "observaciones": "Recepción conforme de mercancía"
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

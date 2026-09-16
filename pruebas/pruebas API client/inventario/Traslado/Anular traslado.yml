@@ -1,0 +1,23 @@
+info:
+  name: Anular traslado en transito y revertir stock
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: "{{base_url}}/traslados/2/anular"
+  body:
+    type: json
+    data: |-
+      {
+        "observaciones": "Cancelación por error en selección de destino"
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
