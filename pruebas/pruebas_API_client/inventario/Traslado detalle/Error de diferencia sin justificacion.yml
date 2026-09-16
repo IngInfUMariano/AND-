@@ -1,0 +1,23 @@
+info:
+  name: Error recepcion con diferencia sin observacion obligatoria
+  type: http
+  seq: 4
+
+http:
+  method: PATCH
+  url: "{{base_url}}/traslado-detalles/1/recepcion"
+  body:
+    type: json
+    data: |-
+      {
+        "cantidad_recibida": 3
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

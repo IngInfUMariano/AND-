@@ -1,0 +1,26 @@
+info:
+  name: Error registrar merma sin motivo obligatorio
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{base_url}}/movimientos"
+  body:
+    type: json
+    data: |-
+      {
+        "tipo": "SALIDA_MERMA",
+        "cantidad": 2,
+        "variante_id": 1,
+        "sucursal_id": 1
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

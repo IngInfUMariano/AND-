@@ -1,0 +1,25 @@
+info:
+  name: Actualizar sucursal e ignorar codigo
+  type: http
+  seq: 5
+
+http:
+  method: PUT
+  url: "{{base_url}}/sucursales/1"
+  body:
+    type: json
+    data: |-
+      {
+        "codigo": "INTENTO-CAMBIO-CODIGO",
+        "nombre": "Sucursal Zona Norte Renovada",
+        "telefono": "5559876543"
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

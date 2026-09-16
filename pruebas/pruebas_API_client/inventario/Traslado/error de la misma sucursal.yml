@@ -1,0 +1,30 @@
+info:
+  name: Error sucursal origen y destino iguales
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{base_url}}/traslados"
+  body:
+    type: json
+    data: |-
+      {
+        "sucursal_origen_id": 1,
+        "sucursal_destino_id": 1,
+        "detalles": [
+          {
+            "variante_id": 1,
+            "cantidad": 2
+          }
+        ]
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

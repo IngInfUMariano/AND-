@@ -1,0 +1,31 @@
+info:
+  name: Despachar traslado entre sucursales
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}/traslados"
+  body:
+    type: json
+    data: |-
+      {
+        "sucursal_origen_id": 1,
+        "sucursal_destino_id": 2,
+        "observaciones": "Envío de stock para reabastecimiento",
+        "detalles": [
+          {
+            "variante_id": 1,
+            "cantidad": 5
+          }
+        ]
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

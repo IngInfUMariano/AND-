@@ -1,0 +1,25 @@
+info:
+  name: Error intento de creación directa de detalle
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: "{{base_url}}/traslado-detalles"
+  body:
+    type: json
+    data: |-
+      {
+        "traslado_id": 1,
+        "variante_id": 1,
+        "cantidad_despachada": 10
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

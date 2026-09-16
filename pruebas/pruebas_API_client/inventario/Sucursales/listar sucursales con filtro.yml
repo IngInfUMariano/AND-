@@ -1,0 +1,27 @@
+info:
+  name: Listar sucursales con filtros
+  type: http
+  seq: 3
+
+http:
+  method: GET
+  url: "{{base_url}}/sucursales?es_bodega_central=false&vende_en_linea=true&q=Norte"
+  params:
+    - name: es_bodega_central
+      value: "false"
+      type: query
+    - name: vende_en_linea
+      value: "true"
+      type: query
+    - name: q
+      value: Norte
+      type: query
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

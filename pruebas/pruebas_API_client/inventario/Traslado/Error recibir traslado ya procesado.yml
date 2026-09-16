@@ -1,0 +1,23 @@
+info:
+  name: Error recibir traslado que no esta en transito
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{base_url}}/traslados/1/recibir"
+  body:
+    type: json
+    data: |-
+      {
+        "observaciones": "Intento de doble recepción"
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

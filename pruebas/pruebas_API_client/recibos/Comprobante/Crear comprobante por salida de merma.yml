@@ -1,0 +1,35 @@
+info:
+  name: Crear comprobante de salida por merma
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{base_url}}/comprobantes"
+  body:
+    type: json
+    data: |-
+      {
+        "sucursal_id": 1,
+        "tipo": "SALIDA",
+        "subtipo": "MERMA",
+        "observaciones": "Producto dañado en bodega",
+        "detalles": [
+          {
+            "variante_id": 1,
+            "sku": "VAR-001",
+            "descripcion": "Camiseta Negra Talla M",
+            "cantidad": 2,
+            "costo_unitario": 25.50
+          }
+        ]
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
