@@ -1,0 +1,23 @@
+info:
+  name: Error registrar recepcion en traslado que no esta en transito
+  type: http
+  seq: 6
+
+http:
+  method: PATCH
+  url: "{{base_url}}/traslado-detalles/2/recepcion"
+  body:
+    type: json
+    data: |-
+      {
+        "cantidad_recibida": 5
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
