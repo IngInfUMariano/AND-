@@ -5,7 +5,7 @@ info:
 
 http:
   method: PATCH
-  url: "{{base_url}}/traslado-detalles/5/recepcion"
+  url: "{{base_url}}/traslado-detalles/7/recepcion"
   body:
     type: json
     data: |-
