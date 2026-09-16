@@ -1,0 +1,28 @@
+info:
+  name: Crear sucursal
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}/sucursales"
+  body:
+    type: json
+    data: |-
+      {
+        "codigo": "SUC-NORTE",
+        "nombre": "Sucursal Zona Norte",
+        "direccion": "Av. Principal 123",
+        "telefono": "5551234567",
+        "es_bodega_central": false,
+        "vende_en_linea": true
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
