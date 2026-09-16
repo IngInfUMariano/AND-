@@ -1,0 +1,37 @@
+info:
+  name: Crear comprobante de entrada por compra
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}/comprobantes"
+  body:
+    type: json
+    data: |-
+      {
+        "sucursal_id": 1,
+        "tipo": "ENTRADA",
+        "subtipo": "COMPRA",
+        "documento_externo": "FACT-PROV-9921",
+        "observaciones": "Ingreso de mercancia por compra a proveedor",
+        "proveedor_id": 1,
+        "detalles": [
+          {
+            "variante_id": 1,
+            "sku": "VAR-001",
+            "descripcion": "Camiseta Negra Talla M",
+            "cantidad": 10,
+            "costo_unitario": 25.50
+          }
+        ]
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

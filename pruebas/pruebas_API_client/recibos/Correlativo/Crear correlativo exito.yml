@@ -1,0 +1,26 @@
+info:
+  name: Crear configuración de correlativo
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}/correlativos"
+  body:
+    type: json
+    data: |-
+      {
+        "sucursal_id": 3,
+        "tipo_documento": "ENTRADA",
+        "serie": "F001",
+        "ultimo_numero": 0
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

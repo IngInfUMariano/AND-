@@ -1,0 +1,24 @@
+info:
+  name: Actualizar serie o correlativo
+  type: http
+  seq: 4
+
+http:
+  method: PUT
+  url: "{{base_url}}/correlativos/1"
+  body:
+    type: json
+    data: |-
+      {
+        "serie": "F001-A",
+        "ultimo_numero": 10
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

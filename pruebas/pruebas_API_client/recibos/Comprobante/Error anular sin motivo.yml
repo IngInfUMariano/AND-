@@ -1,0 +1,23 @@
+info:
+  name: Error anular comprobante sin motivo
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: "{{base_url}}/comprobantes/1/anular"
+  body:
+    type: json
+    data: |-
+      {
+        "motivo_anulacion": ""
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

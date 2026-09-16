@@ -1,0 +1,23 @@
+info:
+  name: Error intentar reducir el ultimo numero
+  type: http
+  seq: 5
+
+http:
+  method: PUT
+  url: "{{base_url}}/correlativos/1"
+  body:
+    type: json
+    data: |-
+      {
+        "ultimo_numero": 5
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
