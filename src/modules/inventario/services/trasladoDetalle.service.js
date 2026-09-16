@@ -72,7 +72,9 @@ const registrarRecepcionItem = async (id, datos) => {
 
     return db.sequelize.transaction(async (t) => {
         const detalle = await db.traslado_detalle.findByPk(id, {
-            include: [{ model: db.traslado }],
+            include: [{ model: db.traslado,
+                required: true
+             }],
             transaction: t,
             lock: t.LOCK.UPDATE
         });

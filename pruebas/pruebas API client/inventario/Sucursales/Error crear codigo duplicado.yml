@@ -10,7 +10,7 @@ http:
     type: json
     data: |-
       {
-        "codigo": "SUC-NORTE",
+        "codigo": "S4",
         "nombre": "Otra Sucursal Norte"
       }
   auth:

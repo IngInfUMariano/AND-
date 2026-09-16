@@ -5,8 +5,10 @@ info:
 
 http:
   method: GET
-  url: "{{base_url}}/movimientos-inventario/1"
-  auth: inherit
+  url: "{{base_url}}/movimientos/1"
+  auth:
+    type: bearer
+    token: "{{token}}"
 
 settings:
   encodeUrl: true

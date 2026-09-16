@@ -6,7 +6,9 @@ info:
 http:
   method: GET
   url: "{{base_url}}/traslado-detalles/1"
-  auth: inherit
+  auth:
+    type: bearer
+    token: "{{token}}"
 
 settings:
   encodeUrl: true

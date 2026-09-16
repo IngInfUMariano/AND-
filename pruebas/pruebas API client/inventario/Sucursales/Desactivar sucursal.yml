@@ -5,7 +5,7 @@ info:
 
 http:
   method: DELETE
-  url: "{{base_url}}/sucursales/1"
+  url: "{{base_url}}/sucursales/3"
   auth:
     type: bearer
     token: "{{token}}"

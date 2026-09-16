@@ -5,7 +5,7 @@ info:
 
 http:
   method: GET
-  url: "{{base_url}}/movimientos-inventario?sucursal_id=1&variante_id=1&tipo=ENTRADA_COMPRA"
+  url: "{{base_url}}/movimientos?sucursal_id=1&variante_id=1&tipo=ENTRADA_COMPRA"
   params:
     - name: sucursal_id
       value: "1"
@@ -16,7 +16,9 @@ http:
     - name: tipo
       value: ENTRADA_COMPRA
       type: query
-  auth: inherit
+  auth:
+    type: bearer
+    token: "{{token}}"
 
 settings:
   encodeUrl: true

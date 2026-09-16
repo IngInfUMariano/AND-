@@ -10,7 +10,9 @@ http:
     - name: traslado_id
       value: "1"
       type: query
-  auth: inherit
+  auth:
+    type: bearer
+    token: "{{token}}"
 
 settings:
   encodeUrl: true

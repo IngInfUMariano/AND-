@@ -78,7 +78,7 @@ const obtener = async (id) => {
                 ]
             },
             { model: db.usuario, attributes: ["id", "email"] },
-            { model: db.comprobante, attributes: ["id", "serie", "numero", "tipo"] }
+            { model: db.comprobante, attributes: ["id"] }
         ]
     });
 

@@ -5,7 +5,7 @@ info:
 
 http:
   method: POST
-  url: "{{base_url}}/movimientos-inventario"
+  url: "{{base_url}}/movimientos"
   body:
     type: json
     data: |-

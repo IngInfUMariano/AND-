@@ -6,10 +6,13 @@ info:
 http:
   method: GET
   url: "{{base_url}}/traslados/1"
-  auth: inherit
+  auth:
+    type: bearer
+    token: "{{token}}"
 
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
-  maxRedirects: 5s
+  maxRedirects: 5
+​
