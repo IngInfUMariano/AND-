@@ -1,0 +1,25 @@
+info:
+  name: Agregar ítem al carrito
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}/api/carrito/items"
+  body:
+    type: json
+    data: |-
+      {
+        "producto_id": 1,
+        "variante_id": 1,
+        "cantidad": 2
+      }
+  auth:
+    type: bearer
+    token: "{{token_cliente}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
