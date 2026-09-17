@@ -1,0 +1,24 @@
+info:
+  name: Registrar abono - monto invalido
+  type: http
+  seq: 17
+
+http:
+  method: POST
+  url: "{{base_url}}api/clientes/2/abonos"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "monto": -100.00
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

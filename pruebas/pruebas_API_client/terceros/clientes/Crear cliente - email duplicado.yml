@@ -1,0 +1,26 @@
+info:
+  name: Crear cliente - email duplicado
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{base_url}}api/clientes"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "nombre": "Ana Duplicada",
+        "email": "ana.morales@gmail.com",
+        "tipo": "MINORISTA"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

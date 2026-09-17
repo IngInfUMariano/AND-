@@ -1,0 +1,33 @@
+info:
+  name: 04 - Registrar ajuste negativo
+  type: http
+  seq: 4
+
+# Registra una reducción de stock por causa no comercial: merma, robo, daño, etc.
+# Se diferencia de una venta porque no genera movimiento financiero.
+
+http:
+  method: POST
+  url: "{{base_url}}api/movimientos"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "tipo": "AJUSTE_NEGATIVO",
+        "variante_id": 1,
+        "sucursal_id": 1,
+        "cantidad": 3,
+        "observaciones": "Merma por producto dañado en bodega"
+      }
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

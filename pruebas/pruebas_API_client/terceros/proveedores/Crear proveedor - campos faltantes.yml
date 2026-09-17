@@ -1,0 +1,24 @@
+info:
+  name: Crear proveedor - campos faltantes
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{base_url}}api/proveedores"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "nombre_comercial": "Sin datos obligatorios"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,35 @@
+info:
+  name: 06 - Recepcionar traslado
+  type: http
+  seq: 6
+
+# La sucursal destino confirma que recibió la mercadería.
+# El stock se acredita en la sucursal destino y el traslado cierra como RECIBIDO.
+# Reemplazar traslado_id con el id devuelto en el paso 05.
+
+http:
+  method: POST
+  url: "{{base_url}}api/traslados/{{traslado_id}}/recibir"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "observaciones": "Mercadería recibida conforme"
+      }
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+runtime:
+  variables:
+    - name: traslado_id
+      value: "1"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

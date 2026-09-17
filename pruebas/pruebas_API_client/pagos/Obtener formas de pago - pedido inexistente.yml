@@ -1,0 +1,17 @@
+info:
+  name: Obtener formas de pago - pedido inexistente
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: "{{base_url}}api/pagos/formas-pago/9999"
+  auth:
+    type: bearer
+    token: "{{token_tienda}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

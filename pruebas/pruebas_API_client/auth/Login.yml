@@ -5,7 +5,7 @@ info:
 
 http:
   method: POST
-  url: "{{base_url}}/api/auth/interno"
+  url: "{{base_url}}api/auth/interno"
   headers:
     - name: Content-Type
       value: application/json
@@ -18,8 +18,14 @@ http:
       }
   auth: inherit
 
+runtime:
+  variables:
+    - name: base_url
+      value: https://and-2yw6.onrender.com/
+
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+  forwardAuthorizationHeader: true

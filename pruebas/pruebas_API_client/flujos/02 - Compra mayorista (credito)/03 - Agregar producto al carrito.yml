@@ -1,0 +1,31 @@
+info:
+  name: "03 - Agregar producto al carrito"
+  type: http
+  seq: 3
+
+# PASO 3
+# El mayorista agrega productos a su carrito.
+# Usa token_mayorista para identificarse como ese cliente.
+
+http:
+  method: POST
+  url: "{{base_url}}api/carrito/items"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "variante_id": 1,
+        "cantidad": 10
+      }
+  auth:
+    type: bearer
+    token: "{{token_mayorista}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

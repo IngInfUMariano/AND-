@@ -1,0 +1,34 @@
+info:
+  name: 02b - Crear cliente mayorista
+  type: http
+  seq: 2
+
+# Solo el admin puede crear clientes MAYORISTAS desde el portal interno.
+# El cliente queda en estado PENDIENTE hasta que el admin lo aprueba (paso 03).
+# El auto-registro de la tienda siempre crea MINORISTA — esta es la única
+# forma de registrar un mayorista en el sistema.
+
+http:
+  method: POST
+  url: "{{base_url}}api/clientes"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "nombre": "Distribuidora del Sur S.A.",
+        "email": "distribuidora.sur@gmail.com",
+        "telefono": "55559999",
+        "tipo": "MAYORISTA"
+      }
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,41 @@
+info:
+  name: 05 - Transición de estado inválida (400)
+  type: http
+  seq: 5
+
+# REGLA DE NEGOCIO — Máquina de estados del pedido
+# Intenta saltar de ENTREGADO a EN_PREPARACION, lo cual es imposible.
+# El sistema tiene transiciones válidas definidas:
+#   REGISTRADO → PENDIENTE_PAGO / PAGADO / EN_PREPARACION
+#   PAGADO → EN_PREPARACION
+#   EN_PREPARACION → DESPACHADO
+#   DESPACHADO → ENTREGADO
+# Cualquier otro salto es rechazado con el mensaje de error exacto.
+
+http:
+  method: PATCH
+  url: "{{base_url}}api/pedidos/{{pedido_id}}/estado"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "estado": "EN_PREPARACION",
+        "observacion": "Intento de retroceder estado"
+      }
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+runtime:
+  variables:
+    - name: pedido_id
+      value: "21"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

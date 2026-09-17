@@ -1,0 +1,20 @@
+info:
+  name: 08 - Ver transacciones de pago
+  type: http
+  seq: 8
+
+# Lista todas las transacciones exitosas del sistema.
+# Solo accesible para ADMIN desde el portal interno.
+
+http:
+  method: GET
+  url: "{{base_url}}api/pagos/transacciones?estado=EXITOSA"
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

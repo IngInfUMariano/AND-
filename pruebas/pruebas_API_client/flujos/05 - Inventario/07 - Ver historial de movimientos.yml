@@ -1,0 +1,27 @@
+info:
+  name: 07 - Ver historial de movimientos (kardex)
+  type: http
+  seq: 7
+
+# Lista todos los movimientos de inventario: entradas, salidas, ajustes, traslados.
+# Permite auditar qué pasó con el stock de una variante o sucursal específica.
+
+http:
+  method: GET
+  url: "{{base_url}}api/movimientos?sucursal_id=1&variante_id=1"
+  params:
+    - name: sucursal_id
+      value: "1"
+      type: query
+    - name: variante_id
+      value: "1"
+      type: query
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

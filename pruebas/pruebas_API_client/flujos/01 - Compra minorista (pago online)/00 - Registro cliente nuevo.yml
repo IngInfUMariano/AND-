@@ -1,0 +1,32 @@
+info:
+  name: 00 - Registro cliente nuevo
+  type: http
+  seq: 0
+
+# FLUJO MINORISTA — PASO 0
+# Registra un cliente nuevo. El sistema lo crea como MINORISTA en estado PENDIENTE.
+# Email y password usados aquí deben coincidir con el paso 01 (Login).
+
+http:
+  method: POST
+  url: "{{base_url}}api/auth/registro"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "nombre": "Roberto Pérez",
+        "email": "nuevo.cliente@gmail.com",
+        "password": "Cliente123!",
+        "telefono": "55551234"
+      }
+  auth:
+    type: none
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

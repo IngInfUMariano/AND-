@@ -1,0 +1,32 @@
+info:
+  name: 12 - Verificar transaccion procesada
+  type: http
+  seq: 12
+
+http:
+  method: GET
+  url: "{{base_url}}/api/pagos/transacciones?pedido_id=21&estado=EXITOSA"
+  params:
+    - name: pedido_id
+      value: "21"
+      type: query
+    - name: estado
+      value: EXITOSA
+      type: query
+  auth:
+    type: bearer
+    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwicGVyZmlsIjoiQURNSU4iLCJzdWN1cnNhbF9pZCI6MSwiY2xpZW50ZV9pZCI6bnVsbCwidGlwb19jbGllbnRlIjpudWxsLCJhcHAiOiJpbnRlcm5vIiwiaWF0IjoxNzg5NjY0Njk2LCJleHAiOjE3ODk2OTM0OTZ9.Jq2Twuswq5wEsLICAeTVoQrmtAJbLsh7uwde8QejXVQ
+
+runtime:
+  variables:
+    - name: token_tienda
+      value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwicGVyZmlsIjoiQ0xJRU5URSIsInN1Y3Vyc2FsX2lkIjpudWxsLCJjbGllbnRlX2lkIjoxLCJ0aXBvX2NsaWVudGUiOiJNSU5PUklTVEEiLCJhcHAiOiJ0aWVuZGEiLCJpYXQiOjE3ODk2NjI4NTcsImV4cCI6MTc5MjI1NDg1N30.p4t05_XH6VzkAZkzOymXugtHatl3U4wuy7zjWOp4yR4
+    - name: token_interno
+      value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NiwicGVyZmlsIjoiQ0xJRU5URSIsInN1Y3Vyc2FsX2lkIjpudWxsLCJjbGllbnRlX2lkIjoyLCJ0aXBvX2NsaWVudGUiOiJNQVlPUklTVEEiLCJhcHAiOiJ0aWVuZGEiLCJpYXQiOjE3ODk2NjQ2MjIsImV4cCI6MTc5MjI1NjYyMn0.pC2ft3SQP7x25-MMkxq1FYDB4UloLDlI2nrjsxMr5YM
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

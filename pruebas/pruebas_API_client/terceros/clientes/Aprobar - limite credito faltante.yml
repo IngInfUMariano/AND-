@@ -1,0 +1,24 @@
+info:
+  name: Aprobar - limite credito faltante
+  type: http
+  seq: 10
+
+http:
+  method: POST
+  url: "{{base_url}}api/clientes/3/aprobar"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "plazo_credito_dias": 30
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

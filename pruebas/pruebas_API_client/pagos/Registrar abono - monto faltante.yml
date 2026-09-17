@@ -1,0 +1,24 @@
+info:
+  name: Registrar abono - monto faltante
+  type: http
+  seq: 18
+
+http:
+  method: POST
+  url: "{{base_url}}api/clientes/2/abonos"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "referencia": "Sin monto"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

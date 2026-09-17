@@ -1,0 +1,30 @@
+info:
+  name: Crear direccion cliente
+  type: http
+  seq: 15
+
+http:
+  method: POST
+  url: "{{base_url}}api/clientes/1/direcciones"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "alias": "Trabajo",
+        "destinatario": "Ana Morales",
+        "direccion": "5a Avenida 10-50, Zona 4",
+        "municipio": "Guatemala",
+        "departamento": "Guatemala",
+        "telefono": "55001122",
+        "es_predeterminada": false
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

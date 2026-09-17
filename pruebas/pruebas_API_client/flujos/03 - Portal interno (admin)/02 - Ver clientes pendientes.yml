@@ -1,0 +1,20 @@
+info:
+  name: 02 - Ver clientes pendientes
+  type: http
+  seq: 2
+
+# Muestra los clientes que se registraron y aún no han sido aprobados.
+# El cliente registrado en el flujo minorista (paso 00) aparece aquí.
+
+http:
+  method: GET
+  url: "{{base_url}}api/clientes/pendientes"
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,33 @@
+info:
+  name: Registro cliente
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: "{{base_url}}api/auth/registro"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "nombre": "Carlos Nuevo",
+        "email": "carlos.nuevo@gmail.com",
+        "password": "Nuevo123!",
+        "telefono": "55001234"
+      }
+  auth: inherit
+
+runtime:
+  variables:
+    - name: base_url
+      value: https://and-2yw6.onrender.com/
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

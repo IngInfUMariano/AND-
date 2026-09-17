@@ -1,0 +1,20 @@
+info:
+  name: 04 - Listar pedidos
+  type: http
+  seq: 4
+
+# Lista todos los pedidos del sistema con su estado actual.
+# Visible solo desde el portal interno.
+
+http:
+  method: GET
+  url: "{{base_url}}api/pedidos"
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

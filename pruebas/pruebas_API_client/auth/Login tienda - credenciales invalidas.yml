@@ -1,0 +1,31 @@
+info:
+  name: Login tienda - credenciales invalidas
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{base_url}}api/auth/tienda"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "email": "ana.morales@gmail.com",
+        "password": "WrongPass999!"
+      }
+  auth: inherit
+
+runtime:
+  variables:
+    - name: base_url
+      value: https://and-2yw6.onrender.com/
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

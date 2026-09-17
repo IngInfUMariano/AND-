@@ -1,0 +1,26 @@
+info:
+  name: Actualizar proveedor
+  type: http
+  seq: 6
+
+http:
+  method: PUT
+  url: "{{base_url}}api/proveedores/1"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "condiciones_pago": "45 dias neto",
+        "plazo_entrega_dias": 10,
+        "telefono": "23009900"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

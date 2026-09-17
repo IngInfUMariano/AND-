@@ -1,0 +1,24 @@
+info:
+  name: Reembolsar - transaccion inexistente
+  type: http
+  seq: 15
+
+http:
+  method: POST
+  url: "{{base_url}}api/pagos/9999/reembolso"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "motivo": "Prueba con transaccion que no existe"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,28 @@
+info:
+  name: Reembolsar transaccion
+  type: http
+  seq: 13
+
+http:
+  method: POST
+  url: "{{base_url}}api/pagos/19/reembolso"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "motivo": "Cliente solicitó cancelación del pedido",
+        "monto": 50.00
+      }
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
