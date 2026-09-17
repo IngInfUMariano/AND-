@@ -1,0 +1,20 @@
+info:
+  name: "05 - Revalidar carrito"
+  type: http
+  seq: 5
+
+# PASO 5
+# Verificar stock y precios vigentes antes del checkout.
+
+http:
+  method: POST
+  url: "{{base_url}}api/carrito/revalidar"
+  auth:
+    type: bearer
+    token: "{{token_mayorista}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

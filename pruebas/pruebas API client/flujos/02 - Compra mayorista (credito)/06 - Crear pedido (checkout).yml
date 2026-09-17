@@ -1,0 +1,35 @@
+info:
+  name: "06 - Crear pedido (checkout)"
+  type: http
+  seq: 6
+
+# PASO 6
+# Hacer el checkout con forma_pago CREDITO.
+# El servidor crea el pedido en estado PENDIENTE_PAGO.
+# Guardar el "id" del pedido de la respuesta para los pasos 7 y 8.
+
+http:
+  method: POST
+  url: "{{base_url}}api/pedidos"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "sucursal_id": 2,
+        "forma_pago": "CREDITO",
+        "entrega_tipo": "ENVIO",
+        "entrega_direccion": "Bodega Dismorales, Zona 12, Guatemala",
+        "observaciones": "Pedido al crédito — 30 días"
+      }
+  auth:
+    type: bearer
+    token: "{{token_mayorista}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

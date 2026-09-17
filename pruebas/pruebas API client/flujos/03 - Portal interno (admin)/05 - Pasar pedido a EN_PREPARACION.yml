@@ -1,0 +1,36 @@
+info:
+  name: 05 - Pasar pedido a EN_PREPARACION
+  type: http
+  seq: 5
+
+# Avanza el estado del pedido pagado a EN_PREPARACION (bodega lo está armando).
+# Reemplazar pedido_id con el id del pedido pagado del flujo minorista.
+# Transición válida: PAGADO → EN_PREPARACION
+
+http:
+  method: PATCH
+  url: "{{base_url}}api/pedidos/{{pedido_id}}/estado"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "estado": "EN_PREPARACION",
+        "observacion": "Pedido asignado a bodega para preparación"
+      }
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+runtime:
+  variables:
+    - name: pedido_id
+      value: "21"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

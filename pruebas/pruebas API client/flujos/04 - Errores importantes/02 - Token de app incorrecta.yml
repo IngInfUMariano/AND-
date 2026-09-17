@@ -1,0 +1,22 @@
+info:
+  name: 02 - Token de app incorrecta (403)
+  type: http
+  seq: 2
+
+# SEGURIDAD — Separación de apps
+# Un cliente de la tienda intenta acceder a un endpoint del portal interno.
+# El sistema detecta que el token es de app "tienda" y rechaza con 403,
+# aunque el token sea válido. Las dos apps están completamente separadas.
+
+http:
+  method: GET
+  url: "{{base_url}}api/clientes"
+  auth:
+    type: bearer
+    token: "{{token_tienda}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

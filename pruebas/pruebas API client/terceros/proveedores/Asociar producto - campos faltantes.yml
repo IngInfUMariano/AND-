@@ -1,0 +1,24 @@
+info:
+  name: Asociar producto - campos faltantes
+  type: http
+  seq: 9
+
+http:
+  method: POST
+  url: "{{base_url}}api/proveedores/1/productos"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "codigo_proveedor": "TS-002"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

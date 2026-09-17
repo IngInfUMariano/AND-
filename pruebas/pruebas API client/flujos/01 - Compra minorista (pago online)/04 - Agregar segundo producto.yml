@@ -1,0 +1,33 @@
+info:
+  name: 04 - Agregar segundo producto
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{base_url}}/api/carrito/items"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "variante_id": 2,
+        "cantidad": 1
+      }
+  auth:
+    type: bearer
+    token: "{{token_tienda}}"
+
+runtime:
+  variables:
+    - name: token_tienda
+      value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwicGVyZmlsIjoiQ0xJRU5URSIsInN1Y3Vyc2FsX2lkIjpudWxsLCJjbGllbnRlX2lkIjoxLCJ0aXBvX2NsaWVudGUiOiJNSU5PUklTVEEiLCJhcHAiOiJ0aWVuZGEiLCJpYXQiOjE3ODk2NjI4NTcsImV4cCI6MTc5MjI1NDg1N30.p4t05_XH6VzkAZkzOymXugtHatl3U4wuy7zjWOp4yR4
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

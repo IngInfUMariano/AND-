@@ -1,0 +1,24 @@
+info:
+  name: Crear intencion - pedido_id faltante
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{base_url}}api/pagos/intencion"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {}
+  auth:
+    type: bearer
+    token: "{{token_tienda}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

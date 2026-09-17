@@ -1,7 +1,11 @@
 info:
-  name: LoginInterno
+  name: 01 - Login admin
   type: http
   seq: 1
+
+# FLUJO PORTAL INTERNO — PASO 1
+# Obtener token de sesión del administrador.
+# Después de ejecutar: copiar "token" y pegarlo en token_admin del environment.
 
 http:
   method: POST
@@ -16,16 +20,11 @@ http:
         "email": "admin@inventa.gt",
         "password": "Admin123!"
       }
-  auth: inherit
-
-runtime:
-  variables:
-    - name: base_url
-      value: https://and-2yw6.onrender.com/
+  auth:
+    type: none
 
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
   maxRedirects: 5
-  forwardAuthorizationHeader: true

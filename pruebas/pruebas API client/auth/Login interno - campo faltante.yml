@@ -1,21 +1,21 @@
 info:
-  name: Crear color
+  name: Login interno - campo faltante
   type: http
-  seq: 1
+  seq: 3
 
 http:
   method: POST
-  url: "{{base_url}}/colores"
+  url: "{{base_url}}api/auth/interno"
+  headers:
+    - name: Content-Type
+      value: application/json
   body:
     type: json
     data: |-
       {
-        "nombre": "Azul Turquesa",
-        "codigo_hex": "#40E0D0"
+        "email": "admin@inventa.gt"
       }
-  auth:
-    type: bearer
-    token: "{{token}}"
+  auth: inherit
 
 runtime:
   variables:

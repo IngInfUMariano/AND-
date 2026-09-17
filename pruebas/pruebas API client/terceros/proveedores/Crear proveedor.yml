@@ -1,0 +1,32 @@
+info:
+  name: Crear proveedor
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{base_url}}api/proveedores"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "codigo": "PROV004",
+        "razon_social": "Textiles del Norte S.A.",
+        "nombre_comercial": "TexNorte",
+        "nit": "9988776-5",
+        "telefono": "23001122",
+        "email": "ventas@texnorte.gt",
+        "contacto_nombre": "Luis Mendez",
+        "condiciones_pago": "30 dias",
+        "plazo_entrega_dias": 7
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,23 @@
+info:
+  name: 13 - Ver pedido en PAGADO
+  type: http
+  seq: 13
+
+http:
+  method: GET
+  url: "{{base_url}}/api/pedidos/21"
+  auth:
+    type: bearer
+    token: "{{token_tienda}}"
+
+runtime:
+  variables:
+    - name: token_tienda
+      value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwicGVyZmlsIjoiQ0xJRU5URSIsInN1Y3Vyc2FsX2lkIjpudWxsLCJjbGllbnRlX2lkIjoxLCJ0aXBvX2NsaWVudGUiOiJNSU5PUklTVEEiLCJhcHAiOiJ0aWVuZGEiLCJpYXQiOjE3ODk2NjI4NTcsImV4cCI6MTc5MjI1NDg1N30.p4t05_XH6VzkAZkzOymXugtHatl3U4wuy7zjWOp4yR4
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

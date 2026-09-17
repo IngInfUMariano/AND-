@@ -1,0 +1,18 @@
+info:
+  name: Listar transacciones
+  type: http
+  seq: 10
+
+http:
+  method: GET
+  url: "{{base_url}}api/pagos/transacciones"
+  auth:
+    type: bearer
+    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwicGVyZmlsIjoiQURNSU4iLCJzdWN1cnNhbF9pZCI6MSwiY2xpZW50ZV9pZCI6bnVsbCwidGlwb19jbGllbnRlIjpudWxsLCJhcHAiOiJpbnRlcm5vIiwiaWF0IjoxNzg5NjY2NDI2LCJleHAiOjE3ODk2OTUyMjZ9._4u8oYACLwrjFuTXxD9asOEy_LG4p7zyJiKvTT6tJ5k
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

@@ -1,0 +1,31 @@
+info:
+  name: 03 - Bloqueo por intentos fallidos (401)
+  type: http
+  seq: 3
+
+# SEGURIDAD — Protección contra fuerza bruta
+# Después de 5 intentos fallidos consecutivos, la cuenta se bloquea 15 minutos.
+# Este request muestra el mensaje de bloqueo con la hora exacta de desbloqueo.
+# Para reproducirlo: ejecutar este request 5 veces seguidas con la contraseña incorrecta.
+
+http:
+  method: POST
+  url: "{{base_url}}api/auth/tienda"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "email": "nuevo.cliente@gmail.com",
+        "password": "contrasena_incorrecta"
+      }
+  auth:
+    type: none
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

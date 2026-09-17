@@ -1,0 +1,136 @@
+# ─── Variables ────────────────────────────────────────────────────────────────
+# @base = http://localhost:3000/api
+@base = https://and-2yw6.onrender.com/api
+@token_admin    = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwicGVyZmlsIjoiQURNSU4iLCJzdWN1cnNhbF9pZCI6MSwiY2xpZW50ZV9pZCI6bnVsbCwidGlwb19jbGllbnRlIjpudWxsLCJhcHAiOiJpbnRlcm5vIiwiaWF0IjoxNzg5MzQwNjQ4LCJleHAiOjE3ODkzNjk0NDh9.iwdehCTyaCR3wMm5tCh2SkYvPLFAUzsB8rQ2F7KJ6cw
+@token_bodeguero = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwicGVyZmlsIjoiQk9ERUdVRVJPIiwic3VjdXJzYWxfaWQiOjEsImNsaWVudGVfaWQiOm51bGwsInRpcG9fY2xpZW50ZSI6bnVsbCwiYXBwIjoiaW50ZXJubyIsImlhdCI6MTc4OTM0MTY1MywiZXhwIjoxNzg5MzcwNDUzfQ.saCsUuEL6AurB8oZvtKMVMGVcO8Ujjo0Xtm25dFEmrs
+@token_cliente  = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywicGVyZmlsIjoiQ0xJRU5URSIsInN1Y3Vyc2FsX2lkIjpudWxsLCJjbGllbnRlX2lkIjoxLCJ0aXBvX2NsaWVudGUiOiJNSU5PUklTVEEiLCJhcHAiOiJ0aWVuZGEiLCJpYXQiOjE3ODkzNDE4NDUsImV4cCI6MTc5MTkzMzg0NX0.c8MmCsK4Kvw2hFtakMN70ebV-TJ61MmG9bKjm98Eows
+
+# =============================================================================
+# BLOQUE 1 — Login
+# =============================================================================
+
+### 1. Login interno exitoso (admin)
+POST {{base}}/auth/interno
+Content-Type: application/json
+
+{
+  "email": "admin@inventa.gt",
+  "password": "Admin123!"
+}
+
+### 2. Login interno exitoso (bodeguero)
+POST {{base}}/auth/interno
+Content-Type: application/json
+
+{
+  "email": "bodega@inventa.gt",
+  "password": "Bodega123!"
+}
+
+### 3. Login tienda exitoso (cliente minorista)
+POST {{base}}/auth/tienda
+Content-Type: application/json
+
+{
+  "email": "ana.morales@gmail.com",
+  "password": "Cliente123!"
+}
+
+### 4. Login con contraseña incorrecta → 401
+POST {{base}}/auth/interno
+Content-Type: application/json
+
+{
+  "email": "admin@inventa.gt",
+  "password": "wrongpassword"
+}
+
+### 5. Login con email inexistente → 401
+POST {{base}}/auth/interno
+Content-Type: application/json
+
+{
+  "email": "noexiste@inventa.gt",
+  "password": "Admin123!"
+}
+
+### 6. Cliente intentando entrar por /interno → 401
+POST {{base}}/auth/interno
+Content-Type: application/json
+
+{
+  "email": "ana.morales@gmail.com",
+  "password": "Cliente123!"
+}
+
+### 7. Empleado intentando entrar por /tienda → 401
+POST {{base}}/auth/tienda
+Content-Type: application/json
+
+{
+  "email": "admin@inventa.gt",
+  "password": "Admin123!"
+}
+
+# =============================================================================
+# BLOQUE 2 — Rutas protegidas
+# =============================================================================
+
+### 8. Ver perfil con token válido (admin)
+GET {{base}}/auth/perfil
+Authorization: Bearer {{token_admin}}
+
+### 9. Ver perfil sin token → 401
+GET {{base}}/auth/perfil
+
+### 10. Ver perfil con token inventado → 401
+GET {{base}}/auth/perfil
+Authorization: Bearer token.inventado.invalido
+
+# =============================================================================
+# BLOQUE 3 — Registro
+# =============================================================================
+
+### 11. Registro de cliente nuevo
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{
+  "nombre": "Pedro García",
+  "email": "pedro.garcia@gmail.com",
+  "password": "Pedro123!",
+  "telefono": "55667788"
+}
+
+### 12. Registro con email ya existente → error
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{
+  "nombre": "Pedro García",
+  "email": "pedro.garcia@gmail.com",
+  "password": "Pedro123!",
+  "telefono": "55667788"
+}
+
+# =============================================================================
+# BLOQUE 4 — Contraseña
+# =============================================================================
+
+### 13. Cambiar contraseña estando logueado
+PUT {{base}}/auth/password
+Authorization: Bearer {{token_admin}}
+Content-Type: application/json
+
+{
+  "password_actual": "Admin123!",
+  "password_nuevo": "Admin456!"
+}
+
+### 14. Solicitar recuperación de contraseña
+POST {{base}}/auth/recuperar
+Content-Type: application/json
+
+{
+  "email": "admin@inventa.gt"
+}

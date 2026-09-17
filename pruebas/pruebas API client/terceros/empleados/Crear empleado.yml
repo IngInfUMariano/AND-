@@ -1,0 +1,32 @@
+info:
+  name: Crear empleado
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{base_url}}api/empleados"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "codigo": "EMP006",
+        "nombres": "Roberto",
+        "apellidos": "Castillo",
+        "dpi": "3344556677889",
+        "puesto": "Cajero",
+        "sucursal_id": 2,
+        "fecha_ingreso": "2026-01-15",
+        "telefono": "55006600",
+        "email": "roberto.castillo@inventa.gt"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

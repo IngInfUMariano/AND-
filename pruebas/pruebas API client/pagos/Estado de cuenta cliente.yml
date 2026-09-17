@@ -1,0 +1,15 @@
+info:
+  name: Estado de cuenta cliente
+  type: http
+  seq: 19
+
+http:
+  method: GET
+  url: "{{base_url}}api/clientes/2/estado-cuenta"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,34 @@
+info:
+  name: 07 - Minorista intenta pagar con crédito (400)
+  type: http
+  seq: 7
+
+# REGLA DE NEGOCIO — Restricción por tipo de cliente
+# El pago con crédito es exclusivo para clientes MAYORISTAS.
+# Un cliente MINORISTA que intente usar este endpoint recibe un error 400
+# con el mensaje de la regla de negocio que lo impide.
+
+http:
+  method: POST
+  url: "{{base_url}}api/pagos/credito/{{pedido_id}}"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {}
+  auth:
+    type: bearer
+    token: "{{token_tienda}}"
+
+runtime:
+  variables:
+    - name: pedido_id
+      value: "21"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

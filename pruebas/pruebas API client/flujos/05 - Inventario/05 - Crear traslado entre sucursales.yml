@@ -1,0 +1,38 @@
+info:
+  name: 05 - Crear traslado entre sucursales
+  type: http
+  seq: 5
+
+# Despacha mercadería de una sucursal a otra.
+# El stock se descuenta de origen inmediatamente y queda en tránsito
+# hasta que la sucursal destino lo recepciona (paso 06).
+
+http:
+  method: POST
+  url: "{{base_url}}api/traslados"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "sucursal_origen_id": 1,
+        "sucursal_destino_id": 2,
+        "observaciones": "Reabastecimiento sucursal zona 10",
+        "detalles": [
+          {
+            "variante_id": 1,
+            "cantidad": 10
+          }
+        ]
+      }
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

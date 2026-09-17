@@ -1,0 +1,27 @@
+info:
+  name: Actualizar mi direccion
+  type: http
+  seq: 4
+
+http:
+  method: PUT
+  url: "{{base_url}}api/mis-direcciones/1"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "alias": "Casa Actualizada",
+        "telefono": "55009988"
+      }
+  auth:
+    type: bearer
+    token: "{{token_tienda}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

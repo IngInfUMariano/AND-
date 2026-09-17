@@ -1,0 +1,15 @@
+info:
+  name: Desactivar direccion cliente
+  type: http
+  seq: 18
+
+http:
+  method: DELETE
+  url: "{{base_url}}api/clientes/1/direcciones/1"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
