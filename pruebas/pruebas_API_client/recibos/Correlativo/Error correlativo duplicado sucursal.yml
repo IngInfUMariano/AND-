@@ -1,0 +1,25 @@
+info:
+  name: Error correlativo duplicado para misma sucursal y tipo
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{base_url}}/correlativos"
+  body:
+    type: json
+    data: |-
+      {
+        "sucursal_id": 1,
+        "tipo_documento": "ENTRADA",
+        "serie": "F002"
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

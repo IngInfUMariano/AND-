@@ -1,16 +1,17 @@
 info:
-  name: Registrar recepcion de item conforme
+  name: Actualizar serie o correlativo
   type: http
-  seq: 3
+  seq: 4
 
 http:
-  method: PATCH
-  url: "{{base_url}}/traslado-detalles/5/recepcion"
+  method: PUT
+  url: "{{base_url}}/correlativos/1"
   body:
     type: json
     data: |-
       {
-        "cantidad_recibida": 5
+        "serie": "F001-A",
+        "ultimo_numero": 10
       }
   auth:
     type: bearer
