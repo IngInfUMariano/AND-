@@ -1,0 +1,23 @@
+info:
+  name: Anular pedido
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}/api/pedidos/20/anular"
+  body:
+    type: json
+    data: |-
+      {
+        "motivo": "Cliente solicitó cancelación por cambio de opinión"
+      }
+  auth:
+    type: bearer
+    token: "{{token_usuario}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

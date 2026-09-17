@@ -1,0 +1,15 @@
+info:
+  name: Listar transacciones con filtros
+  type: http
+  seq: 11
+
+http:
+  method: GET
+  url: "{{base_url}}api/pagos/transacciones?estado=EXITOSA&tipo=PAGO&fecha_desde=2025-01-01&fecha_hasta=2025-12-31"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

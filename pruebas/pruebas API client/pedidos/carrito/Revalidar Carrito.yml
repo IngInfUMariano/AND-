@@ -1,0 +1,17 @@
+info:
+  name: Revalidar Carrito
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}/api/carrito/revalidar"
+  auth:
+    type: bearer
+    token: "{{token_cliente}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

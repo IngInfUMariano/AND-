@@ -1,0 +1,35 @@
+info:
+  name: 07 - Pasar pedido a ENTREGADO
+  type: http
+  seq: 7
+
+# Confirma que el cliente recibió el pedido. Estado final — ya no se puede modificar.
+# Transición válida: DESPACHADO → ENTREGADO
+
+http:
+  method: PATCH
+  url: "{{base_url}}api/pedidos/{{pedido_id}}/estado"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "estado": "ENTREGADO",
+        "observacion": "Cliente confirmó recepción del paquete"
+      }
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+runtime:
+  variables:
+    - name: pedido_id
+      value: "21"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

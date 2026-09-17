@@ -1,0 +1,18 @@
+info:
+  name: 10 - Estado de cuenta (ver cargo)
+  type: http
+  seq: 10
+
+http:
+  method: GET
+  url: "{{base_url}}api/clientes/2/estado-cuenta"
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

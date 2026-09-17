@@ -1,0 +1,35 @@
+info:
+  name: 06 - Pasar pedido a DESPACHADO
+  type: http
+  seq: 6
+
+# El pedido salió de bodega hacia el cliente.
+# Transición válida: EN_PREPARACION → DESPACHADO
+
+http:
+  method: PATCH
+  url: "{{base_url}}api/pedidos/{{pedido_id}}/estado"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "estado": "DESPACHADO",
+        "observacion": "Paquete entregado a transportista"
+      }
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+runtime:
+  variables:
+    - name: pedido_id
+      value: "21"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

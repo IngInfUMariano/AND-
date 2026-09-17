@@ -1,0 +1,25 @@
+info:
+  name: Actualizar empleado
+  type: http
+  seq: 6
+
+http:
+  method: PUT
+  url: "{{base_url}}api/empleados/1"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "puesto": "Supervisor de Ventas",
+        "telefono": "55000011"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

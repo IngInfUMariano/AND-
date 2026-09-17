@@ -1,0 +1,28 @@
+info:
+  name: Webhook - firma invalida
+  type: http
+  seq: 9
+
+http:
+  method: POST
+  url: "{{base_url}}api/pagos/webhook"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: stripe-signature
+      value: t=1234567890,v1=firma_falsa_para_prueba
+  body:
+    type: json
+    data: |-
+      {
+        "type": "payment_intent.succeeded",
+        "data": { "object": { "id": "pi_test_123" } }
+      }
+  auth:
+    type: none
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

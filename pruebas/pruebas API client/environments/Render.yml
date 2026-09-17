@@ -1,0 +1,8 @@
+name: Render
+variables:
+  - name: base_url
+    value: https://and-2yw6.onrender.com
+  - name: token_cliente
+    value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwicGVyZmlsIjoiQ0xJRU5URSIsInN1Y3Vyc2FsX2lkIjpudWxsLCJjbGllbnRlX2lkIjoxLCJ0aXBvX2NsaWVudGUiOiJNSU5PUklTVEEiLCJhcHAiOiJ0aWVuZGEiLCJpYXQiOjE3ODk1ODcxNTgsImV4cCI6MTc5MjE3OTE1OH0.IrtcnXL9j0WJUuf0BAUQKvsQpJYGxILPi5UccNQEZTQ
+  - name: token_usuario
+    value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwicGVyZmlsIjoiQURNSU4iLCJzdWN1cnNhbF9pZCI6MSwiY2xpZW50ZV9pZCI6bnVsbCwidGlwb19jbGllbnRlIjpudWxsLCJhcHAiOiJpbnRlcm5vIiwiaWF0IjoxNzg5NjY1MzQ5LCJleHAiOjE3ODk2OTQxNDl9.ZsuzNy6KSKkM7-NjaP8z5OwaJN9xKZWsZHuBIqLT_xQ

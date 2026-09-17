@@ -1,0 +1,30 @@
+info:
+  name: Crear cliente mayorista
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{base_url}}api/clientes"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "nombre": "Distribuidora Xela S.A.",
+        "email": "compras@distxela.gt",
+        "tipo": "MAYORISTA",
+        "nit": "1234567-8",
+        "nombre_comercial": "DistXela",
+        "telefono": "77001122",
+        "contacto_nombre": "Mario Xela"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

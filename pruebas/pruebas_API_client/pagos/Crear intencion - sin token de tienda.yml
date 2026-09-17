@@ -1,0 +1,25 @@
+info:
+  name: Crear intencion - sin token de tienda
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: "{{base_url}}api/pagos/intencion"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "pedido_id": 1
+      }
+  auth:
+    type: none
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

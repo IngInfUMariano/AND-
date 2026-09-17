@@ -1,0 +1,36 @@
+info:
+  name: 06 - Pedido finalizado no modificable (400)
+  type: http
+  seq: 6
+
+# REGLA DE NEGOCIO — Estado terminal
+# Un pedido en estado ENTREGADO o ANULADO no puede cambiar de estado nunca más.
+# Ejecutar después del paso 07 del flujo portal interno (pedido ya en ENTREGADO).
+
+http:
+  method: PATCH
+  url: "{{base_url}}api/pedidos/{{pedido_id}}/estado"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "estado": "DESPACHADO",
+        "observacion": "Intento de modificar pedido cerrado"
+      }
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+runtime:
+  variables:
+    - name: pedido_id
+      value: "21"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

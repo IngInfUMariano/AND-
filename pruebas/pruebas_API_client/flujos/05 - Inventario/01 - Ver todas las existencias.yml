@@ -1,0 +1,20 @@
+info:
+  name: 01 - Ver todas las existencias
+  type: http
+  seq: 1
+
+# Lista el stock actual de todas las variantes en todas las sucursales.
+# Solo accesible desde el portal interno.
+
+http:
+  method: GET
+  url: "{{base_url}}api/existencias"
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

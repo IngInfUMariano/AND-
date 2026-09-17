@@ -1,0 +1,20 @@
+info:
+  name: 09 - Ver bitácora
+  type: http
+  seq: 9
+
+# Muestra el historial de todas las operaciones del sistema: logins, cambios de estado,
+# creaciones, aprobaciones, etc. Solo accesible para ADMIN.
+
+http:
+  method: GET
+  url: "{{base_url}}api/bitacora"
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

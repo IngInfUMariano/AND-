@@ -1,0 +1,24 @@
+info:
+  name: Crear direccion - campos faltantes
+  type: http
+  seq: 16
+
+http:
+  method: POST
+  url: "{{base_url}}api/clientes/1/direcciones"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "alias": "Incompleta"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

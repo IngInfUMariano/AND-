@@ -1,0 +1,18 @@
+info:
+  name: 08 - Pagar con credito
+  type: http
+  seq: 8
+
+http:
+  method: POST
+  url: "{{base_url}}api/pagos/credito/22"
+  auth:
+    type: bearer
+    token: "{{token_mayorista}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

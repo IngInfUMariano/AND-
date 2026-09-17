@@ -1,0 +1,15 @@
+info:
+  name: Desactivar cliente
+  type: http
+  seq: 19
+
+http:
+  method: DELETE
+  url: "{{base_url}}api/clientes/6"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

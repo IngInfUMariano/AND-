@@ -1,0 +1,36 @@
+info:
+  name: 08 - Crear pedido (checkout)
+  type: http
+  seq: 8
+
+http:
+  method: POST
+  url: "{{base_url}}/api/pedidos"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "sucursal_id": 2,
+        "forma_pago": "EN_LINEA",
+        "entrega_tipo": "ENVIO",
+        "entrega_direccion": "6a Avenida 3-20, Zona 1, Guatemala",
+        "observaciones": "Llamar antes de entregar"
+      }
+  auth:
+    type: bearer
+    token: "{{token_tienda}}"
+
+runtime:
+  variables:
+    - name: token_tienda
+      value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwicGVyZmlsIjoiQ0xJRU5URSIsInN1Y3Vyc2FsX2lkIjpudWxsLCJjbGllbnRlX2lkIjoxLCJ0aXBvX2NsaWVudGUiOiJNSU5PUklTVEEiLCJhcHAiOiJ0aWVuZGEiLCJpYXQiOjE3ODk2NjI4NTcsImV4cCI6MTc5MjI1NDg1N30.p4t05_XH6VzkAZkzOymXugtHatl3U4wuy7zjWOp4yR4
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

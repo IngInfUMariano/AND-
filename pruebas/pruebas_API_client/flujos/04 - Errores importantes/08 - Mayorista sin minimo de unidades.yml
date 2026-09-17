@@ -1,0 +1,23 @@
+info:
+  name: 08 - Mayorista sin mínimo de unidades (400)
+  type: http
+  seq: 8
+
+# REGLA DE NEGOCIO — Mínimo mayorista
+# Un cliente MAYORISTA necesita acumular al menos 80 unidades en el carrito
+# antes de poder proceder al checkout. Si revalida con menos, el sistema
+# indica cuántas unidades tiene y cuántas necesita.
+# Requiere tener el carrito mayorista con menos de 80 unidades en total.
+
+http:
+  method: POST
+  url: "{{base_url}}api/carrito/revalidar"
+  auth:
+    type: bearer
+    token: "{{token_mayorista}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

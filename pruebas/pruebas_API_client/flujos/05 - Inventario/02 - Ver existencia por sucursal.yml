@@ -1,0 +1,29 @@
+info:
+  name: 02 - Ver existencia por sucursal
+  type: http
+  seq: 2
+
+# Filtra el stock de una sucursal específica.
+# Útil para saber exactamente cuánto hay disponible en cada bodega.
+
+http:
+  method: GET
+  url: "{{base_url}}api/existencias?sucursal_id={{sucursal_id}}"
+  params:
+    - name: sucursal_id
+      value: "1"
+      type: query
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+runtime:
+  variables:
+    - name: sucursal_id
+      value: "1"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

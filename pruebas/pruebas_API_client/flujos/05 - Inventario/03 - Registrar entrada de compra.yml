@@ -1,0 +1,34 @@
+info:
+  name: 03 - Registrar entrada de compra
+  type: http
+  seq: 3
+
+# Registra la llegada de mercadería nueva a una sucursal (compra a proveedor).
+# Incrementa el stock de la variante en la sucursal indicada.
+# Reemplazar variante_id con un id válido del paso 01.
+
+http:
+  method: POST
+  url: "{{base_url}}api/movimientos"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "tipo": "ENTRADA_COMPRA",
+        "variante_id": 1,
+        "sucursal_id": 1,
+        "cantidad": 50,
+        "observaciones": "Compra a proveedor — factura 001-2026"
+      }
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

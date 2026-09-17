@@ -1,0 +1,17 @@
+info:
+  name: Zonas de Envío
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{base_url}}/api/zonas-envio"
+  auth:
+    type: bearer
+    token: "{{token_cliente}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,11 +1,11 @@
 info:
-  name: LoginInterno
+  name: 01 - Login tienda mayorista
   type: http
   seq: 1
 
 http:
   method: POST
-  url: "{{base_url}}api/auth/interno"
+  url: "{{base_url}}/api/auth/tienda"
   headers:
     - name: Content-Type
       value: application/json
@@ -13,15 +13,9 @@ http:
     type: json
     data: |-
       {
-        "email": "admin@inventa.gt",
-        "password": "Admin123!"
+        "email": "compras@dismorales.gt",
+        "password": "Cliente123!"
       }
-  auth: inherit
-
-runtime:
-  variables:
-    - name: base_url
-      value: https://and-2yw6.onrender.com/
 
 settings:
   encodeUrl: true

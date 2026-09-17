@@ -1,0 +1,24 @@
+info:
+  name: Reembolsar - motivo faltante
+  type: http
+  seq: 14
+
+http:
+  method: POST
+  url: "{{base_url}}api/pagos/1/reembolso"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "monto": 50.00
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
