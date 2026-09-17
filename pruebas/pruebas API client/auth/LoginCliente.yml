@@ -1,20 +1,17 @@
 info:
-  name: LoginInterno
+  name: LoginCliente
   type: http
   seq: 1
 
 http:
   method: POST
-  url: "{{base_url}}/api/auth/interno"
-  headers:
-    - name: Content-Type
-      value: application/json
+  url: "{{base_url}}/api/auth/tienda"
   body:
     type: json
     data: |-
       {
-        "email": "admin@inventa.gt",
-        "password": "Admin123!"
+        "email": "ana.morales@gmail.com",
+        "password": "Cliente123!"
       }
   auth: inherit
 

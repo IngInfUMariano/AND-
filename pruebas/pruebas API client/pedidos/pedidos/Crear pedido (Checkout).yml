@@ -1,0 +1,25 @@
+info:
+  name: Crear pedido (Checkout)
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}/api/pedidos"
+  body:
+    type: json
+    data: |-
+      {
+        "direccion_id": 1,
+        "sucursal_id": 1,
+        "metodo_pago": "TRANSFERENCIA"
+      }
+  auth:
+    type: bearer
+    token: "{{token_cliente}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
