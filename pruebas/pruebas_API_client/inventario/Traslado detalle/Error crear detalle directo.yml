@@ -1,17 +1,18 @@
 info:
-  name: Error crear sucursal codigo duplicado
+  name: Error intento de creación directa de detalle
   type: http
-  seq: 2
+  seq: 7
 
 http:
   method: POST
-  url: "{{base_url}}/sucursales"
+  url: "{{base_url}}/traslado-detalles"
   body:
     type: json
     data: |-
       {
-        "codigo": "S4",
-        "nombre": "Otra Sucursal Norte"
+        "traslado_id": 1,
+        "variante_id": 1,
+        "cantidad_despachada": 10
       }
   auth:
     type: bearer

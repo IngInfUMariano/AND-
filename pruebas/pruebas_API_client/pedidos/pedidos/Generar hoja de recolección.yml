@@ -1,0 +1,17 @@
+info:
+  name: Generar hoja de recolección
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{base_url}}/api/pedidos/20/hoja-recoleccion"
+  auth:
+    type: bearer
+    token: "{{token_usuario}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

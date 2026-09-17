@@ -1,0 +1,27 @@
+info:
+  name: Registrar merma con motivo obligatorio
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{base_url}}/movimientos"
+  body:
+    type: json
+    data: |-
+      {
+        "tipo": "SALIDA_MERMA",
+        "cantidad": 1,
+        "motivo": "Empaque dañado durante traslado interno",
+        "variante_id": 1,
+        "sucursal_id": 1
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

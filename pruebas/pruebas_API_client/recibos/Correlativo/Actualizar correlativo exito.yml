@@ -1,17 +1,17 @@
 info:
-  name: Error crear sucursal codigo duplicado
+  name: Actualizar serie o correlativo
   type: http
-  seq: 2
+  seq: 4
 
 http:
-  method: POST
-  url: "{{base_url}}/sucursales"
+  method: PUT
+  url: "{{base_url}}/correlativos/1"
   body:
     type: json
     data: |-
       {
-        "codigo": "S4",
-        "nombre": "Otra Sucursal Norte"
+        "serie": "F001-A",
+        "ultimo_numero": 10
       }
   auth:
     type: bearer

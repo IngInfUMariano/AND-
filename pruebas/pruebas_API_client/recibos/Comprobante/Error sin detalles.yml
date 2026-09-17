@@ -1,0 +1,26 @@
+info:
+  name: Error crear comprobante sin detalles
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{base_url}}/comprobantes"
+  body:
+    type: json
+    data: |-
+      {
+        "sucursal_id": 1,
+        "tipo": "ENTRADA",
+        "subtipo": "COMPRA",
+        "detalles": []
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

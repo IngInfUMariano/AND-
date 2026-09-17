@@ -1,17 +1,18 @@
 info:
-  name: Error crear sucursal codigo duplicado
+  name: Error tipo de documento invalido
   type: http
   seq: 2
 
 http:
   method: POST
-  url: "{{base_url}}/sucursales"
+  url: "{{base_url}}/correlativos"
   body:
     type: json
     data: |-
       {
-        "codigo": "S4",
-        "nombre": "Otra Sucursal Norte"
+        "sucursal_id": 1,
+        "tipo_documento": "FACTURA_INVALIDA",
+        "serie": "F001"
       }
   auth:
     type: bearer

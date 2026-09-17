@@ -1,21 +1,20 @@
 info:
-  name: Error crear sucursal codigo duplicado
+  name: Anular pedido
   type: http
-  seq: 2
+  seq: 1
 
 http:
   method: POST
-  url: "{{base_url}}/sucursales"
+  url: "{{base_url}}/api/pedidos/20/anular"
   body:
     type: json
     data: |-
       {
-        "codigo": "S4",
-        "nombre": "Otra Sucursal Norte"
+        "motivo": "Cliente solicitó cancelación por cambio de opinión"
       }
   auth:
     type: bearer
-    token: "{{token}}"
+    token: "{{token_usuario}}"
 
 settings:
   encodeUrl: true

@@ -1,17 +1,16 @@
 info:
-  name: Error crear sucursal codigo duplicado
+  name: Anular traslado en transito y revertir stock
   type: http
-  seq: 2
+  seq: 6
 
 http:
   method: POST
-  url: "{{base_url}}/sucursales"
+  url: "{{base_url}}/traslados/2/anular"
   body:
     type: json
     data: |-
       {
-        "codigo": "S4",
-        "nombre": "Otra Sucursal Norte"
+        "observaciones": "Cancelación por error en selección de destino"
       }
   auth:
     type: bearer

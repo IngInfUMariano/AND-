@@ -1,17 +1,19 @@
 info:
-  name: Error crear sucursal codigo duplicado
+  name: Crear configuración de correlativo
   type: http
-  seq: 2
+  seq: 1
 
 http:
   method: POST
-  url: "{{base_url}}/sucursales"
+  url: "{{base_url}}/correlativos"
   body:
     type: json
     data: |-
       {
-        "codigo": "S4",
-        "nombre": "Otra Sucursal Norte"
+        "sucursal_id": 3,
+        "tipo_documento": "ENTRADA",
+        "serie": "F001",
+        "ultimo_numero": 0
       }
   auth:
     type: bearer

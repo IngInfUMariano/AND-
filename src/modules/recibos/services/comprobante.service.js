@@ -209,7 +209,9 @@ const anular = async (id, datosAnulacion, usuario_id) => {
 
     return await db.sequelize.transaction(async (t) => {
         const comprobante = await db.comprobante.findByPk(id, {
-            include: [{ model: db.comprobante_detalle }],
+            include: [{ model: db.comprobante_detalle,
+                required: true // Asegura que se obtengan los detalles
+             }],
             transaction: t,
             lock: t.LOCK.UPDATE
         });

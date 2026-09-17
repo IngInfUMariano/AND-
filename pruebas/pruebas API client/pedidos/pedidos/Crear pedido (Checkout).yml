@@ -1,21 +1,22 @@
 info:
-  name: Error crear sucursal codigo duplicado
+  name: Crear pedido (Checkout)
   type: http
-  seq: 2
+  seq: 1
 
 http:
   method: POST
-  url: "{{base_url}}/sucursales"
+  url: "{{base_url}}/api/pedidos"
   body:
     type: json
     data: |-
       {
-        "codigo": "S4",
-        "nombre": "Otra Sucursal Norte"
+        "direccion_id": 1,
+        "sucursal_id": 1,
+        "metodo_pago": "TRANSFERENCIA"
       }
   auth:
     type: bearer
-    token: "{{token}}"
+    token: "{{token_cliente}}"
 
 settings:
   encodeUrl: true

@@ -1,0 +1,27 @@
+info:
+  name: Listar comprobantes con filtros
+  type: http
+  seq: 7
+
+http:
+  method: GET
+  url: "{{base_url}}/comprobantes?sucursal_id=1&tipo=ENTRADA&subtipo=COMPRA"
+  params:
+    - name: sucursal_id
+      value: "1"
+      type: query
+    - name: tipo
+      value: ENTRADA
+      type: query
+    - name: subtipo
+      value: COMPRA
+      type: query
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -67,12 +67,15 @@ const obtener = async (id) => {
 
 //  registrarRecepcionItem 
 // Registra la cantidad realmente recibida y la observación de discrepancia por ítem.
-const registrarRecepcionItem = async (id, datos) => {
+const registrarRecepcionItem = async (id, datos, recibido_por) => {
     const { cantidad_recibida, observacion_diferencia } = datos;
 
     return db.sequelize.transaction(async (t) => {
         const detalle = await db.traslado_detalle.findByPk(id, {
-            include: [{ model: db.traslado }],
+            include: [{ 
+                model: db.traslado,
+                required: true
+             }],
             transaction: t,
             lock: t.LOCK.UPDATE
         });
@@ -90,6 +93,11 @@ const registrarRecepcionItem = async (id, datos) => {
             throw AppError.reglaNegocio(
                 "Debe proporcionar una observación de diferencia cuando la cantidad recibida no coincide con la despachada"
             );
+        }
+
+        // Registrar el usuario receptor en la cabecera del traslado si no ha sido grabado previamente
+        if (recibido_por && !detalle.traslado.recibido_por) {
+            await detalle.traslado.update({ recibido_por }, { transaction: t });
         }
 
         await detalle.update(

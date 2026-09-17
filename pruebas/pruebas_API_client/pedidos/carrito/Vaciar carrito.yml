@@ -1,0 +1,17 @@
+info:
+  name: Vaciar carrito
+  type: http
+  seq: 1
+
+http:
+  method: DELETE
+  url: "{{base_url}}/api/carrito"
+  auth:
+    type: bearer
+    token: "{{token_cliente}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

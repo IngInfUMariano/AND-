@@ -1,0 +1,24 @@
+info:
+  name: Cambiar estado del pedido
+  type: http
+  seq: 1
+
+http:
+  method: PATCH
+  url: "{{base_url}}/api/pedidos/20/estado"
+  body:
+    type: json
+    data: |-
+      {
+        "estado": "PAGADO",
+        "observacion": "Pago verificado exitosamente"
+      }
+  auth:
+    type: bearer
+    token: "{{token_usuario}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

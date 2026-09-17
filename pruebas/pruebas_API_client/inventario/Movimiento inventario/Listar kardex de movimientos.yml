@@ -1,0 +1,27 @@
+info:
+  name: Listar kardex de movimientos con filtros
+  type: http
+  seq: 6
+
+http:
+  method: GET
+  url: "{{base_url}}/movimientos?sucursal_id=1&variante_id=1&tipo=ENTRADA_COMPRA"
+  params:
+    - name: sucursal_id
+      value: "1"
+      type: query
+    - name: variante_id
+      value: "1"
+      type: query
+    - name: tipo
+      value: ENTRADA_COMPRA
+      type: query
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

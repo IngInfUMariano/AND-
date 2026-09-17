@@ -1,21 +1,22 @@
 info:
-  name: Error crear sucursal codigo duplicado
+  name: Agregar ítem al carrito
   type: http
-  seq: 2
+  seq: 1
 
 http:
   method: POST
-  url: "{{base_url}}/sucursales"
+  url: "{{base_url}}/api/carrito/items"
   body:
     type: json
     data: |-
       {
-        "codigo": "S4",
-        "nombre": "Otra Sucursal Norte"
+        "producto_id": 1,
+        "variante_id": 1,
+        "cantidad": 2
       }
   auth:
     type: bearer
-    token: "{{token}}"
+    token: "{{token_cliente}}"
 
 settings:
   encodeUrl: true

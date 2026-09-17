@@ -1,17 +1,18 @@
 info:
-  name: Error crear sucursal codigo duplicado
+  name: Error de campos al Crear / registrar precio
   type: http
   seq: 2
 
 http:
   method: POST
-  url: "{{base_url}}/sucursales"
+  url: "{{base_url}}/precios"
   body:
     type: json
     data: |-
       {
-        "codigo": "S4",
-        "nombre": "Otra Sucursal Norte"
+        "variante_id": 2,
+        "tipo": "MINORISTA",
+        "monto": 299.99
       }
   auth:
     type: bearer

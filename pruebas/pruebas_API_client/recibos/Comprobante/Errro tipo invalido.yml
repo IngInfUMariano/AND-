@@ -1,0 +1,32 @@
+info:
+  name: Error tipo de comprobante invalido
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{base_url}}/comprobantes"
+  body:
+    type: json
+    data: |-
+      {
+        "sucursal_id": 1,
+        "tipo": "INGRESO_INVALIDO",
+        "subtipo": "COMPRA",
+        "detalles": [
+          {
+            "variante_id": 1,
+            "cantidad": 5,
+            "costo_unitario": 10.00
+          }
+        ]
+      }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

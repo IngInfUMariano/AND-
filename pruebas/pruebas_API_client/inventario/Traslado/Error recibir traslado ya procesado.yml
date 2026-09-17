@@ -1,17 +1,16 @@
 info:
-  name: Error crear sucursal codigo duplicado
+  name: Error recibir traslado que no esta en transito
   type: http
-  seq: 2
+  seq: 5
 
 http:
   method: POST
-  url: "{{base_url}}/sucursales"
+  url: "{{base_url}}/traslados/1/recibir"
   body:
     type: json
     data: |-
       {
-        "codigo": "S4",
-        "nombre": "Otra Sucursal Norte"
+        "observaciones": "Intento de doble recepción"
       }
   auth:
     type: bearer

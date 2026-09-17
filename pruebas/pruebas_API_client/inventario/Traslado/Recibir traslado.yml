@@ -1,17 +1,16 @@
 info:
-  name: Error crear sucursal codigo duplicado
+  name: Recibir traslado en sucursal destino
   type: http
-  seq: 2
+  seq: 4
 
 http:
   method: POST
-  url: "{{base_url}}/sucursales"
+  url: "{{base_url}}/traslados/4/recibir"
   body:
     type: json
     data: |-
       {
-        "codigo": "S4",
-        "nombre": "Otra Sucursal Norte"
+        "observaciones": "Recepción conforme de mercancía"
       }
   auth:
     type: bearer
