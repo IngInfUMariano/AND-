@@ -1,5 +1,21 @@
 "use strict";
 
+const multer = require("multer");
+
+// Configuración de Multer para parseo CSV en memoria
+const storage = multer.memoryStorage();
+const uploadCSV = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // Límite de 5MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === "text/csv" || file.originalname.endsWith(".csv")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Formato no soportado. El archivo debe ser un CSV válido."));
+    }
+  }
+});
+
 module.exports = (app) => {
   const controlador = require("../controllers/pedido.controller.js");
   const router      = require("express").Router();
@@ -11,9 +27,16 @@ module.exports = (app) => {
   // Middleware global de token para todo el módulo de pedidos
   router.use(verifyToken);
 
-  // ── Consultas de Pedidos ──────────────────────────────────────────────────
+  // ── Consultas y Cargas Estáticas ─────────────────────────────────────────
   // GET /api/pedidos -> Listar pedidos
   router.get("/", controlador.listar);
+
+  // POST /api/pedidos/masivo -> Carga masiva CSV (Intercalamos uploadCSV.single('archivo'))
+  router.post(
+    "/masivo",
+    uploadCSV.single("archivo"),
+    controlador.cargarMasivo
+  );
 
   // GET /api/pedidos/:id/hoja-recoleccion -> Generar Picking List para almacén
   router.get("/:id/hoja-recoleccion", controlador.generarHojaRecoleccion);
@@ -28,12 +51,6 @@ module.exports = (app) => {
     crearPedidoValidator,
     validar,
     controlador.crear
-  );
-
-  // POST /api/pedidos/masivo -> Carga masiva CSV
-  router.post(
-    "/masivo",
-    controlador.cargarMasivo
   );
 
   // ── Gestión Operativa (Portal Interno) ───────────────────────────────────
