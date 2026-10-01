@@ -8,7 +8,18 @@ const uploadCSV = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // Límite de 5MB
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === "text/csv" || file.originalname.endsWith(".csv")) {
+    const nombreValido = file.originalname.toLowerCase().endsWith(".csv");
+    const mimetypesValidos = [
+      "text/csv",
+      "text/plain",
+      "text/x-csv",
+      "application/csv",
+      "application/x-csv",
+      "application/vnd.ms-excel",
+      "application/octet-stream"
+    ];
+
+    if (nombreValido || mimetypesValidos.includes(file.mimetype)) {
       cb(null, true);
     } else {
       cb(new Error("Formato no soportado. El archivo debe ser un CSV válido."));
