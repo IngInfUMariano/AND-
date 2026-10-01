@@ -15,7 +15,12 @@ app.use("/api/pagos/webhook", express.raw({ type: "application/json" }));
 // El SyntaxError que lanza express.json() cuando llega un body malformado
 // no pasa por el errorHandler normal (tiene err.type === "entity.parse.failed").
 // Este middleware lo intercepta y devuelve 400 con el formato del contrato.
-app.use(express.json());
+// En lugar de: app.use(express.json());
+// Se pone esto para que omita las peticiones multipart (subida de archivos/CSV):
+app.use((req, res, next) => {
+  if (req.headers["content-type"]?.includes("multipart/form-data")) return next();
+  express.json()(req, res, next);
+});
 app.use((err, _req, res, next) => {
   if (err.type === "entity.parse.failed") {
     return res.status(400).json({
