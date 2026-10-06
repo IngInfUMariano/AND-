@@ -83,6 +83,8 @@ async function seed() {
       { clave: "IVA_PORCENTAJE",  valor: "12",  tipo_dato: "NUMERO",   descripcion: "IVA aplicado a ventas locales" },
       { clave: "MONEDA_DEFAULT",  valor: "GTQ", tipo_dato: "TEXTO",    descripcion: "Moneda base del sistema" },
       { clave: "LIMITE_PAGINA",   valor: "20",  tipo_dato: "NUMERO",   descripcion: "Registros por página por defecto" },
+      { clave: "MIN_CANTIDAD_MAYORISTA",    valor: "40",  tipo_dato: "NUMERO", descripcion: "Mínimo de prendas para venta mayorista" },
+      { clave: "MAX_LIMIT_MINORISTA_SKU",   valor: "10",  tipo_dato: "NUMERO", descripcion: "Límite máximo por SKU para minoristas" }
     ], { transaction: t });
 
     await db.correlativo.bulkCreate([
