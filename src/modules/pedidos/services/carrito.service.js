@@ -4,7 +4,6 @@ const db = require("../../../loaders/models.loader");
 const AppError = require("../../../core/utils/AppError");
 const existenciaService = require("../../inventario/services/existencia.service");
 
-// Helper interno para buscar o crear el carrito activo de un cliente
 const _obtenerOCrearCarritoActivo = async (clienteId) => {
   let carrito = await db.carrito.findOne({
     where: { cliente_id: clienteId, activo: true }
@@ -20,7 +19,6 @@ const _obtenerOCrearCarritoActivo = async (clienteId) => {
   return carrito;
 };
 
-// Helper interno para consultar stock disponible (cantidad_fisica - cantidad_comprometida)
 const _obtenerStockDisponible = async (varianteId) => {
   const resultado = await existenciaService.listar({ variante_id: varianteId });
 
@@ -34,7 +32,6 @@ const _obtenerStockDisponible = async (varianteId) => {
   }, 0);
 };
 
-// ─── obtenerCarrito ──────────────────────────────────────────────────────────
 const obtenerCarrito = async (clienteId) => {
   const carrito = await _obtenerOCrearCarritoActivo(clienteId);
 
@@ -57,8 +54,6 @@ const obtenerCarrito = async (clienteId) => {
   });
 };
 
-// ─── agregarItem ─────────────────────────────────────────────────────────────
-// RF-PED-01: Advertencia de stock (el mínimo mayorista se evalúa sobre el total global del carrito)
 const agregarItem = async (clienteId, datos) => {
   const { variante_id, cantidad } = datos;
 
@@ -66,7 +61,6 @@ const agregarItem = async (clienteId, datos) => {
     throw new AppError("La cantidad debe ser mayor a 0", 400);
   }
 
-  // 1. Validar que exista la variante
   const variante = await db.variante.findByPk(variante_id);
   if (!variante) {
     throw new AppError("La variante de producto especificada no existe", 404);
@@ -75,15 +69,10 @@ const agregarItem = async (clienteId, datos) => {
   const carrito = await _obtenerOCrearCarritoActivo(clienteId);
 
   let detalle = await db.carrito_detalle.findOne({
-    where: {
-      carrito_id: carrito.id,
-      variante_id
-    }
+    where: { carrito_id: carrito.id, variante_id }
   });
 
   const cantidadTotal = detalle ? detalle.cantidad + cantidad : cantidad;
-
-  // 2. Consultar disponibilidad en inventario mediante existencia.service.js
   const stockDisponible = await _obtenerStockDisponible(variante_id);
   let advertencia = null;
 
@@ -91,7 +80,6 @@ const agregarItem = async (clienteId, datos) => {
     advertencia = `La cantidad solicitada (${cantidadTotal}) excede la disponibilidad actual en inventario (${stockDisponible}).`;
   }
 
-  // 3. Crear o actualizar ítem
   if (detalle) {
     await detalle.update({ cantidad: cantidadTotal });
   } else {
@@ -102,20 +90,14 @@ const agregarItem = async (clienteId, datos) => {
     });
   }
 
-  return {
-    detalle,
-    advertencia
-  };
+  return { detalle, advertencia };
 };
-// ─── actualizarCantidad ──────────────────────────────────────────────────────
+
 const actualizarCantidad = async (clienteId, itemId, cantidad) => {
   const carrito = await _obtenerOCrearCarritoActivo(clienteId);
 
   const detalle = await db.carrito_detalle.findOne({
-    where: {
-      id: itemId,
-      carrito_id: carrito.id
-    }
+    where: { id: itemId, carrito_id: carrito.id }
   });
 
   if (!detalle) {
@@ -125,15 +107,11 @@ const actualizarCantidad = async (clienteId, itemId, cantidad) => {
   return detalle.update({ cantidad });
 };
 
-// ─── eliminarItem ────────────────────────────────────────────────────────────
 const eliminarItem = async (clienteId, itemId) => {
   const carrito = await _obtenerOCrearCarritoActivo(clienteId);
 
   const detalle = await db.carrito_detalle.findOne({
-    where: {
-      id: itemId,
-      carrito_id: carrito.id
-    }
+    where: { id: itemId, carrito_id: carrito.id }
   });
 
   if (!detalle) {
@@ -143,58 +121,75 @@ const eliminarItem = async (clienteId, itemId) => {
   await detalle.destroy();
 };
 
-// ─── vaciarCarrito ───────────────────────────────────────────────────────────
 const vaciarCarrito = async (clienteId) => {
   const carrito = await _obtenerOCrearCarritoActivo(clienteId);
-
-  await db.carrito_detalle.destroy({
-    where: { carrito_id: carrito.id }
-  });
+  await db.carrito_detalle.destroy({ where: { carrito_id: carrito.id } });
 };
 
-// ─── revalidarCarrito ────────────────────────────────────────────────────────
-// RF-PED-03: Revalidación de stock por línea y mínimo total mayorista
-const revalidarCarrito = async (clienteId, tipoCliente = "MINORISTA") => {
+// RF-PED-03: Revalidación estricta según estado de aprobación del Cliente y reglas de volumen
+const revalidarCarrito = async (clienteId) => {
+  const cliente = await db.cliente.findByPk(clienteId);
+  if (!cliente) throw new AppError("Cliente no encontrado", 404);
+
+  // Verificación estricta: Solo es mayorista activo si tipo === 'MAYORISTA' Y estado === 'APROBADO'
+  const esMayoristaAprobado = cliente.tipo === "MAYORISTA" && cliente.estado === "APROBADO";
+  const tipoClienteEfectivo = esMayoristaAprobado ? "MAYORISTA" : "MINORISTA";
+
   const carrito = await obtenerCarrito(clienteId);
 
   if (!carrito || !carrito.carrito_detalles || carrito.carrito_detalles.length === 0) {
     throw new AppError("El carrito está vacío", 400);
   }
 
-  const reporte = [];
+  // Parámetros de la base de datos
+  const paramMinMay = await db.parametro.findOne({ where: { clave: "MIN_CANTIDAD_MAYORISTA" } });
+  const paramMaxSkuMin = await db.parametro.findOne({ where: { clave: "MAX_CANTIDAD_POR_SKU_MINORISTA" } });
+  const paramMaxTotMin = await db.parametro.findOne({ where: { clave: "MAX_CANTIDAD_TOTAL_MINORISTA" } });
+
+  const minMayorista = paramMinMay ? parseInt(paramMinMay.valor, 10) : 40;
+  const maxPorSkuMinorista = paramMaxSkuMin ? parseInt(paramMaxSkuMin.valor, 10) : 10;
+  const maxTotalMinorista = paramMaxTotMin ? parseInt(paramMaxTotMin.valor, 10) : 39;
+
+  const totalArticulos = carrito.carrito_detalles.reduce((acc, item) => acc + item.cantidad, 0);
+
   let requiereAjustes = false;
   let mensajeGlobal = null;
 
-  // 1. Calcular total acumulado de unidades en el carrito
-  const totalArticulos = carrito.carrito_detalles.reduce((acc, item) => acc + item.cantidad, 0);
-
-  // 2. Validar mínimo mayorista sobre el TOTAL de unidades
-  if (tipoCliente === "MAYORISTA") {
-    const paramMinimo = await db.parametro.findOne({ where: { clave: "MIN_CANTIDAD_MAYORISTA" } });
-    const minimoRequerido = paramMinimo ? parseInt(paramMinimo.valor, 10) : 80;
-
-    if (totalArticulos < minimoRequerido) {
-      requiereAjustes = true;
-      mensajeGlobal = `Para compras mayoristas, debes acumular al menos ${minimoRequerido} unidades en total en tu pedido (tienes ${totalArticulos}).`;
-    }
+  // Validaciones globales por tipo de cliente
+  if (tipoClienteEfectivo === "MAYORISTA" && totalArticulos < minMayorista) {
+    requiereAjustes = true;
+    mensajeGlobal = `Como cliente mayorista debes acumular al menos ${minMayorista} prendas en total en tu pedido (tienes ${totalArticulos}).`;
+  } else if (tipoClienteEfectivo === "MINORISTA" && totalArticulos > maxTotalMinorista) {
+    requiereAjustes = true;
+    mensajeGlobal = `El límite máximo total para compras minoristas es de ${maxTotalMinorista} prendas (llevas ${totalArticulos}). Para volúmenes mayores debes solicitar y tener aprobada una cuenta mayorista.`;
   }
 
-  // 3. Validar stock línea por línea
+  const reporte = [];
+
+  // Validaciones por renglón
   for (const item of carrito.carrito_detalles) {
     const stockDisponible = await _obtenerStockDisponible(item.variante_id);
+
+    const precioAplicable = item.variante?.precios?.find(p => p.tipo === tipoClienteEfectivo)?.monto 
+                         ?? item.variante?.precios?.find(p => p.tipo === "MINORISTA")?.monto ?? 0;
 
     const linea = {
       item_id: item.id,
       variante_id: item.variante_id,
       sku: item.variante ? item.variante.sku : null,
+      nombre_producto: item.variante?.producto?.nombre || "Producto",
       cantidad_solicitada: item.cantidad,
-      precio_actual: item.variante?.precios?.find(p => p.tipo === "MINORISTA")?.monto ?? 0,
+      precio_actual: Number(precioAplicable),
       stock_disponible: stockDisponible,
       estado_linea: "OK",
       mensaje: null
     };
 
-    if (stockDisponible === 0) {
+    if (tipoClienteEfectivo === "MINORISTA" && item.cantidad > maxPorSkuMinorista) {
+      linea.estado_linea = "EXCEDE_LIMITE_SKU";
+      linea.mensaje = `No puedes llevar más de ${maxPorSkuMinorista} unidades del mismo producto (SKU: ${linea.sku}) en compras minoristas.`;
+      requiereAjustes = true;
+    } else if (stockDisponible === 0) {
       linea.estado_linea = "SIN_STOCK";
       linea.mensaje = "Producto agotado. Debe eliminarse para continuar.";
       requiereAjustes = true;
@@ -209,6 +204,7 @@ const revalidarCarrito = async (clienteId, tipoCliente = "MINORISTA") => {
 
   return {
     listo_para_checkout: !requiereAjustes,
+    tipo_cliente_aplicado: tipoClienteEfectivo,
     total_articulos: totalArticulos,
     mensaje_global: mensajeGlobal,
     lineas: reporte
