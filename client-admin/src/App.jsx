@@ -6,6 +6,7 @@ import AdminLayout from '@/layouts/AdminLayout'
 import Login from '@/pages/Login'
 import Dashboard from '@/pages/Dashboard'
 import Referencia from '@/pages/Referencia'
+import Inventario from '@/pages/Inventario'
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
           >
             <Route index element={<Dashboard />} />
             <Route path="referencia" element={<Referencia />} />
+            <Route path="existencias" element={<Inventario />} />
             {/* Los módulos se agregan aquí conforme avance el desarrollo */}
           </Route>
 

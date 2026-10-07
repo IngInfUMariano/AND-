@@ -5,10 +5,9 @@ const db = require("../../../loaders/models.loader");
 const AppError = require("../../../core/utils/AppError");
 const { parsearPaginacion } = require("../../../core/utils/paginacion");
 
-const SORTABLES = ["cantidad_fisica", "cantidad_comprometida", "existencia_minima", "costo_promedio", "created_at"];
+const SORTABLES = ["cantidad_fisica", "cantidad_comprometida", "costo_promedio", "created_at"];
 
-//  listar 
-// Consulta existencias con soporte para alertas de bajo stock y filtros por sucursal/variante.
+// listar
 const listar = async (query) => {
     const { limit, offset, order, page } = parsearPaginacion(query, SORTABLES);
 
@@ -17,9 +16,9 @@ const listar = async (query) => {
     if (query.sucursal_id) where.sucursal_id = query.sucursal_id;
     if (query.variante_id) where.variante_id = query.variante_id;
 
-    // Filtro de alerta: existencias con stock por debajo o igual al mínimo
+    // Filtro de alerta: existencias con stock por debajo o igual al mínimo definido en la variante
     if (query.bajo_minimo === "true") {
-        where.cantidad_fisica = { [Op.lte]: db.Sequelize.col("existencia_minima") };
+        where.cantidad_fisica = { [Op.lte]: db.Sequelize.col("variante.existencia_minima") };
     }
 
     const { rows, count } = await db.existencia.findAndCountAll({
@@ -34,7 +33,7 @@ const listar = async (query) => {
             },
             {
                 model: db.variante,
-                attributes: ["id", "sku", "codigo_barras"],
+                attributes: ["id", "sku", "codigo_barras", "existencia_minima"],
                 include: [
                     { model: db.producto, attributes: ["id", "nombre", "codigo"] },
                     { model: db.talla, attributes: ["id", "codigo"] },
@@ -47,14 +46,14 @@ const listar = async (query) => {
     return { rows, count, page, limit };
 };
 
-//  obtener 
+// obtener
 const obtener = async (id) => {
     const existencia = await db.existencia.findByPk(id, {
         include: [
             { model: db.sucursal, attributes: ["id", "codigo", "nombre"] },
             {
                 model: db.variante,
-                attributes: ["id", "sku", "codigo_barras"],
+                attributes: ["id", "sku", "codigo_barras", "existencia_minima"],
                 include: [
                     { model: db.producto, attributes: ["id", "nombre"] },
                     { model: db.talla, attributes: ["id", "codigo"] },
@@ -68,38 +67,31 @@ const obtener = async (id) => {
     return existencia;
 };
 
-//  crear 
-// Inicializa un registro de existencia para una combinación variante + sucursal.
+// crear
 const crear = async (datos) => {
-    const { variante_id, sucursal_id, existencia_minima } = datos;
+    const { variante_id, sucursal_id } = datos;
 
-    // Verificar si la sucursal y variante existen
     const sucursal = await db.sucursal.findByPk(sucursal_id);
     if (!sucursal) throw new AppError("La sucursal especificada no existe", 404);
 
     const variante = await db.variante.findByPk(variante_id);
     if (!variante) throw new AppError("La variante especificada no existe", 404);
 
-    // La BD previene duplicados mediante índice único (variante_id, sucursal_id)
     return db.existencia.create({
         variante_id,
         sucursal_id,
-        existencia_minima: existencia_minima || 0,
         cantidad_fisica: 0,
         cantidad_comprometida: 0,
         costo_promedio: 0
     });
 };
 
-//  actualizar 
-// Solo se permite parametrizar configuraciones de gestión como la 'existencia_minima'.
-// Las cantidades físicas y costos son inmutables mediante PUT directo.
+// actualizar
 const actualizar = async (id, datos) => {
     const existencia = await db.existencia.findByPk(id);
     if (!existencia) throw new AppError("Registro de existencia no encontrado", 404);
 
     const campos = {};
-    if ("existencia_minima" in datos) campos.existencia_minima = datos.existencia_minima;
 
     return existencia.update(campos);
 };
