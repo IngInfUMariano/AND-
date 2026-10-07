@@ -9,7 +9,8 @@ import {
     ArrowRightLeft,
     SlidersHorizontal,
     Package,
-    Calendar
+    Calendar,
+    AlertTriangle
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { inventarioService } from '@/services/inventario.service'
@@ -25,26 +26,21 @@ export default function KardexModal({
     const [cargando, setCargando] = useState(false)
     const [movimientos, setMovimientos] = useState([])
 
-    // Filtros
+    // Filtros locales
     const [filtroTipo, setFiltroTipo] = useState('TODOS')
-    const [fechaDesde, setFechaDesde] = useState('')
-    const [fechaHasta, setFechaHasta] = useState('')
+    const [fechaDesde, setFechaDesde] = useState('') // Formato texto DD/MM/AAAA
+    const [fechaHasta, setFechaHasta] = useState('') // Formato texto DD/MM/AAAA
 
-    // Cargar historial de movimientos (Kardex)
+    // Cargar historial de movimientos
     const cargarKardex = useCallback(async () => {
         if (!varianteId || !isOpen) return
         setCargando(true)
         try {
             const params = {
                 variante_id: varianteId,
-                sucursal_id: sucursalId || undefined,
-                tipo_movimiento: filtroTipo !== 'TODOS' ? filtroTipo : undefined,
-                fecha_desde: fechaDesde || undefined,
-                fecha_hasta: fechaHasta || undefined,
-                limit: 500
+                sucursal_id: sucursalId || undefined
             }
 
-            // Llamada al servicio de kardex o historial
             const res = await inventarioService.obtenerKardex?.(params) || await inventarioService.listarMovimientos?.(params)
 
             let data = []
@@ -56,36 +52,134 @@ export default function KardexModal({
         } catch (err) {
             console.error('Error al cargar Kardex:', err)
             toast.error('No se pudo obtener el historial de movimientos')
-            setMovimientos([])
         } finally {
             setCargando(false)
         }
-    }, [varianteId, sucursalId, filtroTipo, fechaDesde, fechaHasta, isOpen])
+    }, [varianteId, sucursalId, isOpen])
 
     useEffect(() => {
         if (isOpen) {
             cargarKardex()
         } else {
-            // Resetear estados al cerrar
             setEsPantallaCompleta(false)
             setMovimientos([])
             setFiltroTipo('TODOS')
             setFechaDesde('')
             setFechaHasta('')
         }
-    }, [isOpen, cargarKardex])
+    }, [isOpen, varianteId, sucursalId, cargarKardex])
 
-    // Métricas del Kardex cargado
+    /**
+     * Convierte cualquier fecha en formato texto DD/MM/AAAA a 'YYYY-MM-DD' para comparación
+     */
+    const parseDDMMYYYYtoYYYYMMDD = (strDDMMYYYY) => {
+        if (!strDDMMYYYY) return null
+        const limpio = strDDMMYYYY.trim().split(',')[0]
+        const partes = limpio.split('/')
+
+        if (partes.length === 3) {
+            const dia = partes[0].padStart(2, '0')
+            const mes = partes[1].padStart(2, '0')
+            let anio = partes[2].trim()
+
+            if (anio.length === 2) anio = '20' + anio
+            if (dia.length === 2 && mes.length === 2 && anio.length === 4) {
+                return `${anio}-${mes}-${dia}`
+            }
+        }
+        return null
+    }
+
+    /**
+     * Extrae 'YYYY-MM-DD' de cualquier registro de movimiento (ISO o string DD/MM/YYYY)
+     */
+    const getMovimientoDateYYYYMMDD = (fechaVal) => {
+        if (!fechaVal) return ''
+        const str = String(fechaVal).trim()
+
+        if (str.includes('/')) {
+            return parseDDMMYYYYtoYYYYMMDD(str) || ''
+        }
+
+        const d = new Date(str)
+        if (!isNaN(d.getTime())) {
+            const year = d.getFullYear()
+            const month = String(d.getMonth() + 1).padStart(2, '0')
+            const day = String(d.getDate()).padStart(2, '0')
+            return `${year}-${month}-${day}`
+        }
+
+        return ''
+    }
+
+    // Auto-formateador de máscara mientras el usuario escribe DD/MM/AAAA
+    const handleFechaInput = (valor, setter) => {
+        const numeros = valor.replace(/\D/g, '')
+        let formateado = ''
+
+        if (numeros.length > 0) {
+            formateado = numeros.substring(0, 2)
+            if (numeros.length > 2) {
+                formateado += '/' + numeros.substring(2, 4)
+                if (numeros.length > 4) {
+                    formateado += '/' + numeros.substring(4, 8)
+                }
+            }
+        }
+        setter(formateado)
+    }
+
+    // FILTRADO ROBUSTO EN CLIENTE (ESTRICTO DD/MM/AAAA)
+    const movimientosFiltrados = useMemo(() => {
+        const desdeStandard = parseDDMMYYYYtoYYYYMMDD(fechaDesde)
+        const hastaStandard = parseDDMMYYYYtoYYYYMMDD(fechaHasta)
+
+        return movimientos.filter((m) => {
+            const tipo = String(m.tipo_movimiento || m.tipo || '').toUpperCase()
+            const motivo = String(m.motivo || m.concepto || '').toUpperCase()
+
+            // 1. Filtrar por Tipo de Movimiento / Motivo
+            if (filtroTipo !== 'TODOS') {
+                if (filtroTipo === 'ENTRADA') {
+                    if (!tipo.includes('ENTRADA') && !tipo.includes('COMPRA') && !tipo.includes('RECEPCION')) return false
+                } else if (filtroTipo === 'ENTRADA_COMPRA') {
+                    if (tipo !== 'ENTRADA_COMPRA' && !(tipo.includes('ENTRADA') && tipo.includes('COMPRA'))) return false
+                } else if (filtroTipo === 'SALIDA') {
+                    if (!tipo.includes('SALIDA') && !tipo.includes('VENTA') && !tipo.includes('DESPACHO')) return false
+                } else if (filtroTipo === 'SALIDA_VENTA') {
+                    if (tipo !== 'SALIDA_VENTA' && !(tipo.includes('SALIDA') && tipo.includes('VENTA'))) return false
+                } else if (filtroTipo === 'TRASLADO') {
+                    if (!tipo.includes('TRASLADO') && !tipo.includes('DESPACHO') && !tipo.includes('RECEPCION')) return false
+                } else if (filtroTipo === 'AJUSTE') {
+                    if (!tipo.includes('AJUSTE') && !tipo.includes('MERMA')) return false
+                } else if (filtroTipo === 'MERMA') {
+                    if (!tipo.includes('MERMA') && !motivo.includes('MERMA')) return false
+                }
+            }
+
+            // 2. Filtrar por Fecha
+            const movFechaStandard = getMovimientoDateYYYYMMDD(m.createdAt || m.created_at || m.fecha)
+
+            if (movFechaStandard) {
+                if (desdeStandard && movFechaStandard < desdeStandard) return false
+                if (hastaStandard && movFechaStandard > hastaStandard) return false
+            }
+
+            return true
+        })
+    }, [movimientos, filtroTipo, fechaDesde, fechaHasta])
+
+    // Métricas del Kardex
     const resumen = useMemo(() => {
-        return movimientos.reduce(
+        return movimientosFiltrados.reduce(
             (acc, m) => {
                 const cant = Number(m.cantidad || m.cant || 0)
                 const tipo = String(m.tipo_movimiento || m.tipo || '').toUpperCase()
 
                 if (tipo.includes('ENTRADA') || tipo === 'COMPRA' || tipo === 'AJUSTE_POSITIVO') {
-                    acc.entradas += cant
+                    acc.entradas += Math.abs(cant)
                 } else if (tipo.includes('SALIDA') || tipo === 'VENTA' || tipo === 'AJUSTE_NEGATIVO') {
-                    acc.salidas += cant
+                    acc.salidas += Math.abs(cant)
                 } else if (tipo.includes('TRASLADO')) {
                     acc.traslados += 1
                 }
@@ -93,42 +187,78 @@ export default function KardexModal({
             },
             { entradas: 0, salidas: 0, traslados: 0 }
         )
-    }, [movimientos])
+    }, [movimientosFiltrados])
 
     if (!isOpen) return null
 
-    // Formateadores auxiliares
+    // Formatear visualización a DD/MM/YYYY, HH:MM
     const formatFecha = (str) => {
         if (!str) return '-'
-        return new Date(str).toLocaleString('es-GT', {
-            dateStyle: 'short',
-            timeStyle: 'short'
-        })
+        if (typeof str === 'string' && str.includes('/')) return str
+        const d = new Date(str)
+        if (isNaN(d.getTime())) return str
+
+        const dia = String(d.getDate()).padStart(2, '0')
+        const mes = String(d.getMonth() + 1).padStart(2, '0')
+        const anio = String(d.getFullYear()).slice(-2)
+        const hora = d.toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' })
+
+        return `${dia}/${mes}/${anio}, ${hora}`
     }
 
-    const renderBadgeTipo = (tipoRaw) => {
+    const renderBadgeTipo = (tipoRaw, motivoRaw) => {
         const tipo = String(tipoRaw || '').toUpperCase()
-        if (tipo.includes('ENTRADA') || tipo === 'COMPRA') {
+        const motivo = String(motivoRaw || '').toUpperCase()
+
+        if (tipo === 'ENTRADA_COMPRA' || (tipo.includes('ENTRADA') && (tipo.includes('COMPRA') || motivo.includes('COMPRA')))) {
+            return (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-600">
+                    <ArrowDownLeft size={13} /> Entrada (Compra)
+                </span>
+            )
+        }
+
+        if (tipo === 'SALIDA_VENTA' || (tipo.includes('SALIDA') && (tipo.includes('VENTA') || motivo.includes('VENTA')))) {
+            return (
+                <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-medium text-destructive">
+                    <ArrowUpRight size={13} /> Salida (Venta)
+                </span>
+            )
+        }
+
+        if (tipo.includes('TRASLADO') || tipo.includes('DESPACHO') || tipo.includes('RECEPCION')) {
+            const esEntrada = tipo.includes('ENTRADA') || tipo.includes('RECEPCION')
+            return (
+                <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-medium text-blue-600">
+                    <ArrowRightLeft size={13} /> {esEntrada ? 'Entrada (Traslado)' : 'Salida (Traslado)'}
+                </span>
+            )
+        }
+
+        if (tipo.includes('MERMA') || motivo.includes('MERMA')) {
+            return (
+                <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/10 px-2.5 py-0.5 text-xs font-medium text-rose-600">
+                    <AlertTriangle size={13} /> Merma
+                </span>
+            )
+        }
+
+        if (tipo.includes('ENTRADA')) {
             return (
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-600">
                     <ArrowDownLeft size={13} /> Entrada
                 </span>
             )
         }
-        if (tipo.includes('SALIDA') || tipo === 'VENTA') {
+
+        if (tipo.includes('SALIDA')) {
             return (
                 <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-medium text-destructive">
                     <ArrowUpRight size={13} /> Salida
                 </span>
             )
         }
-        if (tipo.includes('TRASLADO')) {
-            return (
-                <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-medium text-blue-600">
-                    <ArrowRightLeft size={13} /> Traslado
-                </span>
-            )
-        }
+
         return (
             <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-600">
                 <SlidersHorizontal size={13} /> Ajuste
@@ -144,7 +274,7 @@ export default function KardexModal({
                         : 'w-full max-w-5xl max-h-[90vh] rounded-xl'
                     }`}
             >
-                {/* Encabezado del Modal */}
+                {/* Encabezado */}
                 <div className="flex items-center justify-between border-b px-5 py-4 bg-muted/30">
                     <div className="flex items-center gap-3">
                         <div className="rounded-lg bg-primary/10 p-2 text-primary">
@@ -169,7 +299,6 @@ export default function KardexModal({
                     </div>
 
                     <div className="flex items-center gap-1">
-                        {/* Botón Pantalla Completa */}
                         <button
                             onClick={() => setEsPantallaCompleta((v) => !v)}
                             title={esPantallaCompleta ? 'Restaurar tamaño' : 'Pantalla completa'}
@@ -178,7 +307,6 @@ export default function KardexModal({
                             {esPantallaCompleta ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
                         </button>
 
-                        {/* Botón Cerrar */}
                         <button
                             onClick={onClose}
                             className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
@@ -188,9 +316,8 @@ export default function KardexModal({
                     </div>
                 </div>
 
-                {/* Filtros Rápidos y KPIs */}
+                {/* Filtros */}
                 <div className="grid grid-cols-1 gap-3 border-b p-4 bg-card sm:grid-cols-12 sm:items-center">
-                    {/* Controles de Filtro */}
                     <div className="flex flex-wrap items-center gap-2 sm:col-span-8">
                         <select
                             value={filtroTipo}
@@ -198,26 +325,33 @@ export default function KardexModal({
                             className="rounded-md border bg-background px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-ring"
                         >
                             <option value="TODOS">Todos los tipos</option>
-                            <option value="ENTRADA">Entradas</option>
-                            <option value="SALIDA">Salidas</option>
+                            <option value="ENTRADA">Entradas (Todas)</option>
+                            <option value="ENTRADA_COMPRA">Entrada (Compra)</option>
+                            <option value="SALIDA">Salidas (Todas)</option>
+                            <option value="SALIDA_VENTA">Salida (Venta)</option>
                             <option value="TRASLADO">Traslados</option>
                             <option value="AJUSTE">Ajustes</option>
+                            <option value="MERMA">Mermas</option>
                         </select>
 
                         <div className="flex items-center gap-1 text-xs">
                             <Calendar size={14} className="text-muted-foreground" />
                             <input
-                                type="date"
+                                type="text"
+                                placeholder="dd/mm/aaaa"
                                 value={fechaDesde}
-                                onChange={(e) => setFechaDesde(e.target.value)}
-                                className="rounded-md border bg-background px-2 py-1 outline-none focus:ring-2 focus:ring-ring"
+                                onChange={(e) => handleFechaInput(e.target.value, setFechaDesde)}
+                                maxLength={10}
+                                className="w-24 rounded-md border bg-background px-2 py-1 text-center text-xs outline-none focus:ring-2 focus:ring-ring"
                             />
                             <span className="text-muted-foreground">-</span>
                             <input
-                                type="date"
+                                type="text"
+                                placeholder="dd/mm/aaaa"
                                 value={fechaHasta}
-                                onChange={(e) => setFechaHasta(e.target.value)}
-                                className="rounded-md border bg-background px-2 py-1 outline-none focus:ring-2 focus:ring-ring"
+                                onChange={(e) => handleFechaInput(e.target.value, setFechaHasta)}
+                                maxLength={10}
+                                className="w-24 rounded-md border bg-background px-2 py-1 text-center text-xs outline-none focus:ring-2 focus:ring-ring"
                             />
                         </div>
 
@@ -225,12 +359,12 @@ export default function KardexModal({
                             onClick={cargarKardex}
                             disabled={cargando}
                             className="rounded-md border bg-muted px-2.5 py-1 text-xs font-medium transition-colors hover:bg-muted/80 disabled:opacity-50"
+                            title="Recargar datos de servidor"
                         >
                             <RefreshCw size={13} className={cargando ? 'animate-spin' : ''} />
                         </button>
                     </div>
 
-                    {/* Resumen de Unidades */}
                     <div className="flex items-center justify-end gap-3 text-xs sm:col-span-4 border-t pt-2 sm:border-t-0 sm:pt-0">
                         <div className="text-right">
                             <span className="block text-muted-foreground">Entradas:</span>
@@ -244,18 +378,18 @@ export default function KardexModal({
                         <div className="h-6 w-px bg-border" />
                         <div className="text-right">
                             <span className="block text-muted-foreground">Movimientos:</span>
-                            <span className="font-semibold">{movimientos.length}</span>
+                            <span className="font-semibold">{movimientosFiltrados.length}</span>
                         </div>
                     </div>
                 </div>
 
-                {/* Tabla con Scroll */}
+                {/* Tabla */}
                 <div className="flex-1 overflow-y-auto">
                     <table className="w-full text-sm">
                         <thead className="sticky top-0 bg-muted/90 backdrop-blur border-b">
                             <tr>
                                 <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Fecha / Hora</th>
-                                <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Tipo</th>
+                                <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Tipo / Motivo</th>
                                 <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Concepto / Referencia</th>
                                 <th className="px-4 py-2.5 text-center font-medium text-muted-foreground">Cantidad</th>
                                 <th className="px-4 py-2.5 text-center font-medium text-muted-foreground">Saldo Resultante</th>
@@ -270,14 +404,14 @@ export default function KardexModal({
                                         Cargando historial de Kardex...
                                     </td>
                                 </tr>
-                            ) : movimientos.length === 0 ? (
+                            ) : movimientosFiltrados.length === 0 ? (
                                 <tr>
                                     <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
                                         No se encontraron movimientos registrados.
                                     </td>
                                 </tr>
                             ) : (
-                                movimientos.map((m, i) => {
+                                movimientosFiltrados.map((m, i) => {
                                     const tipo = String(m.tipo_movimiento || m.tipo || '').toUpperCase()
                                     const esEntrada = tipo.includes('ENTRADA') || tipo === 'COMPRA'
                                     const esSalida = tipo.includes('SALIDA') || tipo === 'VENTA'
@@ -291,11 +425,11 @@ export default function KardexModal({
                                                 {formatFecha(m.createdAt || m.created_at || m.fecha)}
                                             </td>
                                             <td className="px-4 py-2.5 whitespace-nowrap">
-                                                {renderBadgeTipo(tipo)}
+                                                {renderBadgeTipo(tipo, m.motivo || m.concepto)}
                                             </td>
                                             <td className="px-4 py-2.5">
                                                 <div className="font-medium text-xs">
-                                                    {m.concepto || m.descripcion || m.referencia || 'Sin descripción'}
+                                                    {m.motivo || m.concepto || m.descripcion || m.referencia || 'Sin descripción'}
                                                 </div>
                                                 {m.documento_referencia && (
                                                     <div className="text-[11px] font-mono text-muted-foreground">
@@ -309,7 +443,7 @@ export default function KardexModal({
                                                 </span>
                                             </td>
                                             <td className="px-4 py-2.5 text-center font-mono text-xs font-semibold">
-                                                {m.stock_resultante ?? m.saldo ?? m.stock_nuevo ?? '-'} u.
+                                                {m.saldo_resultante ?? m.stock_resultante ?? m.saldo ?? m.stock_nuevo ?? '-'} u.
                                             </td>
                                             <td className="px-4 py-2.5 text-right text-xs text-muted-foreground whitespace-nowrap">
                                                 {m.usuario?.nombre || m.usuario_nombre || m.creado_por || 'Sistema'}
@@ -322,7 +456,7 @@ export default function KardexModal({
                     </table>
                 </div>
 
-                {/* Footer del Modal */}
+                {/* Footer */}
                 <div className="flex items-center justify-between border-t px-5 py-3 bg-muted/20 text-xs text-muted-foreground">
                     <span>
                         Tip: Presiona el ícono <Maximize2 size={12} className="inline mx-0.5" /> para expandir la vista si hay muchos datos.

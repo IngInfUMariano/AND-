@@ -1,0 +1,173 @@
+import { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import inventarioService from '@/services/inventario.service'
+
+export default function Recepciones() {
+    const { trasladoIdParam } = useParams()
+    const navigate = useNavigate()
+
+    const [traslados, setTraslados] = useState([])
+    const [trasladoSeleccionado, setTrasladoSeleccionado] = useState(null)
+    const [cargando, setCargando] = useState(true)
+    const [procesando, setProcesando] = useState(false)
+    const [error, setError] = useState(null)
+
+    const cargarTraslados = async () => {
+        try {
+            setCargando(true)
+            setError(null)
+            const res = await inventarioService.listarTraslados()
+
+            const listaBruta = Array.isArray(res) ? res : (res?.data || res?.traslados || [])
+
+            // Ordena: Primero activos ('EN_TRANSITO', 'DESPACHADO'), luego por fecha reciente
+            const listaOrdenada = [...listaBruta].sort((a, b) => {
+                const estadosActivos = ['EN_TRANSITO', 'DESPACHADO']
+                const aEsActivo = estadosActivos.includes(a.estado?.toUpperCase())
+                const bEsActivo = estadosActivos.includes(b.estado?.toUpperCase())
+
+                if (aEsActivo && !bEsActivo) return -1
+                if (!aEsActivo && bEsActivo) return 1
+
+                const fechaA = new Date(a.created_at || a.createdAt || a.fecha || 0)
+                const fechaB = new Date(b.created_at || b.createdAt || b.fecha || 0)
+                return fechaB - fechaA
+            })
+
+            setTraslados(listaOrdenada)
+
+            if (trasladoIdParam && listaOrdenada.length > 0) {
+                const encontrado = listaOrdenada.find((t) => String(t.id) === String(trasladoIdParam))
+                if (encontrado) setTrasladoSeleccionado(encontrado)
+            }
+        } catch (err) {
+            console.error('Error al cargar recepciones:', err)
+            setError('No se pudo cargar la lista de recepciones.')
+            setTraslados([])
+        } finally {
+            setCargando(false)
+        }
+    }
+
+    useEffect(() => {
+        cargarTraslados()
+    }, [trasladoIdParam])
+
+    const handleRecibir = async (id) => {
+        try {
+            setProcesando(true)
+            await inventarioService.recibirTraslado(id, {})
+            await cargarTraslados()
+            setTrasladoSeleccionado(null)
+            navigate('/recepciones')
+        } catch (err) {
+            console.error('Error al procesar recepción:', err)
+            alert(err?.response?.data?.message || 'Error al registrar el ingreso.')
+        } finally {
+            setProcesando(false)
+        }
+    }
+
+    return (
+        <div className="space-y-6 p-4">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight">Recepciones (Entradas por Traslado)</h1>
+                    <p className="text-sm text-muted-foreground">
+                        Conteo e ingreso físico de mercadería recibida de otras sucursales.
+                    </p>
+                </div>
+                <button
+                    onClick={cargarTraslados}
+                    className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent"
+                >
+                    Refrescar
+                </button>
+            </div>
+
+            {cargando ? (
+                <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+                    Cargando recepciones pendientes...
+                </div>
+            ) : error ? (
+                <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+                    {error}
+                </div>
+            ) : traslados.length === 0 ? (
+                <div className="flex h-48 flex-col items-center justify-center rounded-lg border border-dashed p-6 text-center">
+                    <p className="font-medium">No hay recepciones registradas</p>
+                    <p className="text-sm text-muted-foreground">
+                        No hay envíos pendientes de ingresar a esta bodega.
+                    </p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    {/* Lista de Traslados */}
+                    <div className="space-y-2 md:col-span-1">
+                        {traslados.map((item) => (
+                            <div
+                                key={item.id}
+                                onClick={() => setTrasladoSeleccionado(item)}
+                                className={`cursor-pointer rounded-lg border p-3 transition-colors ${trasladoSeleccionado?.id === item.id ? 'border-primary bg-accent' : 'hover:bg-accent/50'
+                                    }`}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span className="font-semibold">Traslado #{item.id}</span>
+                                    <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-600">
+                                        {item.estado || 'EN_TRANSITO'}
+                                    </span>
+                                </div>
+                                <div className="mt-2 text-xs text-muted-foreground">
+                                    Origen: {item.sucursal_origen?.nombre || item.origen_id || 'N/A'} <br />
+                                    Destino: {item.sucursal_destino?.nombre || item.destino_id || 'N/A'}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Detalle de Recepción */}
+                    <div className="rounded-lg border p-4 md:col-span-2">
+                        {trasladoSeleccionado ? (
+                            <div className="space-y-4">
+                                <div className="border-b pb-3">
+                                    <h2 className="text-lg font-bold">Detalle de Recepción #{trasladoSeleccionado.id}</h2>
+                                    <p className="text-xs text-muted-foreground">Estado: {trasladoSeleccionado.estado}</p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <p className="text-sm font-semibold">Ítems recibidos:</p>
+                                    {(trasladoSeleccionado.detalles || trasladoSeleccionado.items || []).length === 0 ? (
+                                        <p className="text-xs text-muted-foreground">Sin detalles de ítems.</p>
+                                    ) : (
+                                        <ul className="divide-y rounded border text-sm">
+                                            {(trasladoSeleccionado.detalles || trasladoSeleccionado.items || []).map((det, idx) => (
+                                                <li key={idx} className="flex justify-between p-2">
+                                                    <span>{det.producto?.nombre || det.variante?.sku || `Ítem ${idx + 1}`}</span>
+                                                    <span className="font-mono font-bold">{det.cantidad} u.</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+
+                                {['EN_TRANSITO', 'DESPACHADO'].includes(trasladoSeleccionado.estado?.toUpperCase()) && (
+                                    <button
+                                        disabled={procesando}
+                                        onClick={() => handleRecibir(trasladoSeleccionado.id)}
+                                        className="w-full rounded-md bg-emerald-600 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                                    >
+                                        {procesando ? 'Procesando Ingreso...' : 'Confirmar Recepción e Ingresar a Inventario'}
+                                    </button>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="flex h-full min-h-[200px] items-center justify-center text-sm text-muted-foreground">
+                                Selecciona una recepción de la lista para ver sus detalles.
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    )
+}

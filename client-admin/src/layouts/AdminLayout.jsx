@@ -6,28 +6,30 @@ const MENU = [
     grupo: 'Terceros',
     perfiles: ['ADMIN', 'GERENTE', 'VENDEDOR'],
     items: [
-      { label: 'Clientes',   to: '/clientes'   },
-      { label: 'Empleados',  to: '/empleados',  perfiles: ['ADMIN', 'GERENTE'] },
-      { label: 'Proveedores',to: '/proveedores', perfiles: ['ADMIN', 'GERENTE'] },
+      { label: 'Clientes', to: '/clientes' },
+      { label: 'Empleados', to: '/empleados', perfiles: ['ADMIN', 'GERENTE'] },
+      { label: 'Proveedores', to: '/proveedores', perfiles: ['ADMIN', 'GERENTE'] },
     ],
   },
   {
     grupo: 'Catálogo',
     perfiles: ['ADMIN', 'GERENTE'],
     items: [
-      { label: 'Productos',   to: '/productos'  },
-      { label: 'Categorías',  to: '/categorias' },
-      { label: 'Marcas',      to: '/marcas'     },
+      { label: 'Productos', to: '/productos' },
+      { label: 'Categorías', to: '/categorias' },
+      { label: 'Marcas', to: '/marcas' },
     ],
   },
   {
     grupo: 'Inventario',
     perfiles: ['ADMIN', 'GERENTE', 'BODEGUERO'],
     items: [
-      { label: 'Existencias',  to: '/existencias' },
-      { label: 'Movimientos',  to: '/movimientos' },
-      { label: 'Traslados',    to: '/traslados'   },
-      { label: 'Comprobantes', to: '/comprobantes'},
+      { label: 'Existencias', to: '/existencias' },
+      { label: 'Movimientos', to: '/movimientos' },
+      { label: 'Despachos (Salidas)', to: '/despachos' },
+      { label: 'Recepciones (Entradas)', to: '/recepciones' },
+      { label: 'Traslados', to: '/traslados' },
+      { label: 'Comprobantes', to: '/comprobantes' },
     ],
   },
   {
@@ -95,8 +97,7 @@ export default function AdminLayout() {
                   key={item.to}
                   to={item.to}
                   className={({ isActive }) =>
-                    `flex items-center rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-sidebar-accent ${
-                      isActive ? 'bg-sidebar-accent font-medium' : ''
+                    `flex items-center rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-sidebar-accent ${isActive ? 'bg-sidebar-accent font-medium' : ''
                     }`
                   }
                 >

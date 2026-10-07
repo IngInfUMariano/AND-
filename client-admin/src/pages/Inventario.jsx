@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
     Search,
     Package,
@@ -11,6 +10,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { inventarioService } from '@/services/inventario.service'
+import KardexModal from '@/components/ui/KardexModal'
 
 // Extractores alineados exactamente con la respuesta de la API
 const safeNumber = (val) => {
@@ -72,8 +72,6 @@ const getSucursalNombre = (f) => {
 const ELEMENTOS_POR_PAGINA = 10
 
 export default function Inventario() {
-    const navigate = useNavigate()
-
     // Estado de Datos
     const [filasRaw, setFilasRaw] = useState([])
     const [sucursales, setSucursales] = useState([])
@@ -86,6 +84,14 @@ export default function Inventario() {
 
     // Paginación
     const [pagina, setPagina] = useState(1)
+
+    // Estado para el Modal de Kardex
+    const [kardexModal, setKardexModal] = useState({
+        abierto: false,
+        varianteId: null,
+        sucursalId: null,
+        productoInfo: {}
+    })
 
     // Cargar sucursales al montar
     useEffect(() => {
@@ -209,9 +215,19 @@ export default function Inventario() {
         )
     }, [filasFiltradas])
 
-    const irAKardex = (varianteId, sucursalId) => {
-        if (!varianteId) return
-        navigate(`/kardex?variante_id=${varianteId}${sucursalId ? `&sucursal_id=${sucursalId}` : ''}`)
+    const abrirKardex = (fila) => {
+        if (!fila) return
+        setKardexModal({
+            abierto: true,
+            varianteId: fila.variante_id || fila.variante?.id,
+            sucursalId: fila.sucursal_id || fila.sucursal?.id,
+            productoInfo: {
+                nombre: getProductoNombre(fila),
+                sku: getSku(fila),
+                atributos: getAtributos(fila),
+                sucursal: getSucursalNombre(fila)
+            }
+        })
     }
 
     return (
@@ -390,7 +406,7 @@ export default function Inventario() {
                                         <td className="px-4 py-3 text-right font-medium">Q {(stock * costo).toFixed(2)}</td>
                                         <td className="px-4 py-3 text-right">
                                             <button
-                                                onClick={() => irAKardex(f.variante_id || f.variante?.id, f.sucursal_id || f.sucursal?.id)}
+                                                onClick={() => abrirKardex(f)}
                                                 className="inline-flex items-center gap-1.5 rounded border px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                                             >
                                                 <History size={14} />
@@ -430,6 +446,15 @@ export default function Inventario() {
                     </button>
                 </div>
             </div>
+
+            {/* Modal de Kardex Emergente / Pantalla Completa */}
+            <KardexModal
+                isOpen={kardexModal.abierto}
+                onClose={() => setKardexModal((prev) => ({ ...prev, abierto: false }))}
+                varianteId={kardexModal.varianteId}
+                sucursalId={kardexModal.sucursalId}
+                productoInfo={kardexModal.productoInfo}
+            />
         </div>
     )
 }
