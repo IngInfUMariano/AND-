@@ -231,7 +231,8 @@ const crear = async (clienteId, datos) => {
         throw new AppError(`La variante ${item.variante_id} no existe`, 404);
       }
 
-      const tipoPrecio = cliente.tipo === "MAYORISTA" ? "MAYORISTA" : "MINORISTA";
+      const esMayoristaAprobado = cliente.tipo === "MAYORISTA" && cliente.estado === "APROBADO";
+      const tipoPrecio = esMayoristaAprobado ? "MAYORISTA" : "MINORISTA";
       const precioObj = variante.precios?.find(p => p.tipo === tipoPrecio)
         ?? variante.precios?.find(p => p.tipo === "MINORISTA");
       const precioUnitario = precioObj ? Number(precioObj.monto) : 0;

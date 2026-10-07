@@ -80,11 +80,12 @@ async function seed() {
     ], { transaction: t });
 
     await db.parametro.bulkCreate([
-      { clave: "IVA_PORCENTAJE",  valor: "12",  tipo_dato: "NUMERO",   descripcion: "IVA aplicado a ventas locales" },
-      { clave: "MONEDA_DEFAULT",  valor: "GTQ", tipo_dato: "TEXTO",    descripcion: "Moneda base del sistema" },
-      { clave: "LIMITE_PAGINA",   valor: "20",  tipo_dato: "NUMERO",   descripcion: "Registros por página por defecto" },
-      { clave: "MIN_CANTIDAD_MAYORISTA",    valor: "40",  tipo_dato: "NUMERO", descripcion: "Mínimo de prendas para venta mayorista" },
-      { clave: "MAX_LIMIT_MINORISTA_SKU",   valor: "10",  tipo_dato: "NUMERO", descripcion: "Límite máximo por SKU para minoristas" }
+      { clave: "IVA_PORCENTAJE",                  valor: "12",   tipo_dato: "NUMERO", descripcion: "IVA aplicado a ventas locales" },
+      { clave: "MONEDA_DEFAULT",                  valor: "GTQ",  tipo_dato: "TEXTO",  descripcion: "Moneda base del sistema" },
+      { clave: "LIMITE_PAGINA",                   valor: "20",   tipo_dato: "NUMERO", descripcion: "Registros por página por defecto" },
+      { clave: "MIN_CANTIDAD_MAYORISTA",          valor: "40",   tipo_dato: "NUMERO", descripcion: "Mínimo de prendas para venta mayorista" },
+      { clave: "MAX_CANTIDAD_POR_SKU_MINORISTA",  valor: "1000", tipo_dato: "NUMERO", descripcion: "Límite máximo por SKU para minoristas" },
+      { clave: "MAX_CANTIDAD_TOTAL_MINORISTA",    valor: "39",   tipo_dato: "NUMERO", descripcion: "Límite máximo total de prendas para minoristas" }
     ], { transaction: t });
 
     await db.correlativo.bulkCreate([
@@ -705,7 +706,7 @@ async function validar() {
   const modelos = [
     ["sucursal",             2],
     ["zona_envio",           1],
-    ["parametro",            3],
+    ["parametro",            6],
     ["correlativo",          6],
     ["marca",                1],
     ["temporada",            1],

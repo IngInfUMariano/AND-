@@ -142,14 +142,15 @@ const revalidarCarrito = async (clienteId) => {
   }
 
   // Parámetros de la base de datos
+  // Parámetros de la base de datos
   const paramMinMay = await db.parametro.findOne({ where: { clave: "MIN_CANTIDAD_MAYORISTA" } });
   const paramMaxSkuMin = await db.parametro.findOne({ where: { clave: "MAX_CANTIDAD_POR_SKU_MINORISTA" } });
   const paramMaxTotMin = await db.parametro.findOne({ where: { clave: "MAX_CANTIDAD_TOTAL_MINORISTA" } });
 
   const minMayorista = paramMinMay ? parseInt(paramMinMay.valor, 10) : 40;
-  const maxPorSkuMinorista = paramMaxSkuMin ? parseInt(paramMaxSkuMin.valor, 10) : 10;
+  const maxPorSkuMinorista = paramMaxSkuMin ? parseInt(paramMaxSkuMin.valor, 10) : 1000; // Fallback ajustado a 1000
   const maxTotalMinorista = paramMaxTotMin ? parseInt(paramMaxTotMin.valor, 10) : 39;
-
+  
   const totalArticulos = carrito.carrito_detalles.reduce((acc, item) => acc + item.cantidad, 0);
 
   let requiereAjustes = false;
