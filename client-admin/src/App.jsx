@@ -12,6 +12,7 @@ import Inventario from '@/pages/Inventario'
 import Despachos from '@/pages/Despachos'
 import Recepciones from '@/pages/Recepciones'
 import Referencia from '@/pages/Referencia'
+import Catalogos from '@/pages/Catalogos'
 
 // Componente provisional para módulos pendientes o sin permisos
 function ModuloEnDesarrollo({ titulo }) {
@@ -95,9 +96,12 @@ export default function App() {
             <Route path="empleados" element={<ModuloEnDesarrollo titulo="Empleados" />} />
             <Route path="proveedores" element={<ModuloEnDesarrollo titulo="Proveedores" />} />
             <Route path="productos" element={<ModuloEnDesarrollo titulo="Productos" />} />
-            <Route path="categorias" element={<ModuloEnDesarrollo titulo="Categorías" />} />
-            <Route path="marcas" element={<ModuloEnDesarrollo titulo="Marcas" />} />
-            <Route path="pedidos" element={<ModuloEnDesarrollo titulo="Pedidos" />} />
+            
+            {/* Catálogos */}
+            <Route path="catalogos" element={<Catalogos />} />
+            <Route path="categorias" element={<Catalogos />} />
+            <Route path="marcas" element={<Catalogos />} />
+
             <Route path="transacciones" element={<ModuloEnDesarrollo titulo="Transacciones" />} />
             <Route path="reportes" element={<ModuloEnDesarrollo titulo="Reportes" />} />
 
