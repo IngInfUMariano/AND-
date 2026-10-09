@@ -1,0 +1,35 @@
+info:
+  name: Carga masiva
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}/api/pedidos/masivo"
+  headers:
+    - name: Authorization
+      value: "{{token_cliente}}"
+  body:
+    type: multipart-form
+    data:
+      - name: archivo
+        type: file
+        value:
+          - c:\Users\Coca\AND-\pruebas\pruebas_API_client\pedidos\pedidos\pedidos_prueba.csv
+        contentType: File
+  auth:
+    type: bearer
+    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwicGVyZmlsIjoiQURNSU4iLCJzdWN1cnNhbF9pZCI6MSwiY2xpZW50ZV9pZCI6bnVsbCwidGlwb19jbGllbnRlIjpudWxsLCJhcHAiOiJpbnRlcm5vIiwiaWF0IjoxNzkxMjYzMjk1LCJleHAiOjE3OTEyOTIwOTV9.5plIsGrNLVjRXbYFRsPejGAKBe5PXtjLf1Tua-tEvqk
+
+runtime:
+  variables:
+    - name: base_url
+      value: http://localhost:3000
+    - name: token_cliente
+      value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwicGVyZmlsIjoiQURNSU4iLCJzdWN1cnNhbF9pZCI6MSwiY2xpZW50ZV9pZCI6bnVsbCwidGlwb19jbGllbnRlIjpudWxsLCJhcHAiOiJpbnRlcm5vIiwiaWF0IjoxNzkxMjYzMjk1LCJleHAiOjE3OTEyOTIwOTV9.5plIsGrNLVjRXbYFRsPejGAKBe5PXtjLf1Tua-tEvqk
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

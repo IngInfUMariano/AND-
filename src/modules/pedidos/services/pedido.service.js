@@ -231,7 +231,8 @@ const crear = async (clienteId, datos) => {
         throw new AppError(`La variante ${item.variante_id} no existe`, 404);
       }
 
-      const tipoPrecio = cliente.tipo === "MAYORISTA" ? "MAYORISTA" : "MINORISTA";
+      const esMayoristaAprobado = cliente.tipo === "MAYORISTA" && cliente.estado === "APROBADO";
+      const tipoPrecio = esMayoristaAprobado ? "MAYORISTA" : "MINORISTA";
       const precioObj = variante.precios?.find(p => p.tipo === tipoPrecio)
         ?? variante.precios?.find(p => p.tipo === "MINORISTA");
       const precioUnitario = precioObj ? Number(precioObj.monto) : 0;
@@ -460,6 +461,8 @@ const anular = async (id, motivo, usuario) => {
 };
 
 // ─── cargarMasivo (RF-PED-06 / RF-PED-07) ───────────────────────────────────
+// Ajuste específico en el método cargarMasivo dentro de pedido.service.js
+
 const cargarMasivo = async (clienteId, archivo, sucursalId) => {
   if (!archivo || !archivo.buffer) {
     throw new AppError("No se proporcionó ningún archivo CSV válido", 400);
@@ -469,11 +472,18 @@ const cargarMasivo = async (clienteId, archivo, sucursalId) => {
     throw new AppError("Es necesario especificar la sucursal para la carga masiva", 400);
   }
 
+  // Verificar que el cliente existe, es mayorista Y está en estado APROBADO
   const cliente = await db.cliente.findByPk(clienteId);
   if (!cliente) throw new AppError("Cliente no encontrado", 404);
 
-  const esMayorista = cliente.tipo === "MAYORISTA";
-  const MIN_MAYORISTA = Number(process.env.MIN_CANTIDAD_MAYORISTA || 10);
+  if (cliente.tipo !== "MAYORISTA" || cliente.estado !== "APROBADO") {
+    throw AppError.reglaNegocio("Acceso denegado a Carga Masiva CSV", [
+      "La carga masiva por lote es una función exclusiva para cuentas mayoristas aprobadas por administración."
+    ]);
+  }
+
+  const paramMinMay = await db.parametro.findOne({ where: { clave: "MIN_CANTIDAD_MAYORISTA" } });
+  const MIN_MAYORISTA = paramMinMay ? parseInt(paramMinMay.valor, 10) : 40;
 
   const stream = Readable.from(archivo.buffer.toString("utf-8"));
   const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
@@ -496,6 +506,7 @@ const cargarMasivo = async (clienteId, archivo, sucursalId) => {
 
   const errores = [];
   const itemsAProcesar = [];
+  let totalPrendasLote = 0;
 
   for (let i = 0; i < filas.length; i++) {
     const numeroLinea = i + 2;
@@ -512,18 +523,14 @@ const cargarMasivo = async (clienteId, archivo, sucursalId) => {
       continue;
     }
 
-    if (esMayorista && cantidad < MIN_MAYORISTA) {
-      errores.push({
-        linea: numeroLinea,
-        sku,
-        error: `Como cliente mayorista, la cantidad mínima por ítem debe ser ${MIN_MAYORISTA}`
-      });
-      continue;
-    }
+    totalPrendasLote += cantidad;
 
     const variante = await db.variante.findOne({
       where: { sku, activo: true },
-      include: [{ model: db.producto, where: { activo: true } }]
+      include: [
+        { model: db.producto, where: { activo: true } },
+        { model: db.precio, attributes: ["tipo", "monto"] }
+      ]
     });
 
     if (!variante) {
@@ -531,30 +538,24 @@ const cargarMasivo = async (clienteId, archivo, sucursalId) => {
       continue;
     }
 
-    const existencia = await db.existencia.findOne({
-      where: { variante_id: variante.id, sucursal_id: sucursalId }
-    });
-
-    const disponible = existencia
-      ? (existencia.cantidad_fisica || 0) - (existencia.cantidad_comprometida || 0)
-      : 0;
-
-    if (disponible < cantidad) {
-      errores.push({
-        linea: numeroLinea,
-        sku,
-        error: `Stock insuficiente. Requerido: ${cantidad}, Disponible: ${Math.max(0, disponible)}`
-      });
-      continue;
-    }
+    const precioMayoristaObj = variante.precios?.find(p => p.tipo === "MAYORISTA")
+                            ?? variante.precios?.find(p => p.tipo === "MINORISTA");
+    const precioUnitario = precioMayoristaObj ? Number(precioMayoristaObj.monto) : 0;
 
     itemsAProcesar.push({
       variante,
       cantidad,
-      precioUnitario: Number(variante.precio_venta),
-      subtotal: Number(variante.precio_venta) * cantidad,
+      precioUnitario,
+      subtotal: precioUnitario * cantidad,
       observaciones: observacionesLinea || null
     });
+  }
+
+  // Validación del acumulado global de prendas
+  if (totalPrendasLote < MIN_MAYORISTA) {
+    throw AppError.reglaNegocio("Mínimo mayorista no alcanzado en el CSV", [
+      `El lote acumula ${totalPrendasLote} prendas, pero el mínimo requerido para pedidos mayoristas es de ${MIN_MAYORISTA} unidades.`
+    ]);
   }
 
   if (errores.length > 0) {
@@ -563,17 +564,14 @@ const cargarMasivo = async (clienteId, archivo, sucursalId) => {
 
   return await db.sequelize.transaction(async (t) => {
     let subtotalGeneral = 0;
-
-    itemsAProcesar.forEach((item) => {
-      subtotalGeneral += item.subtotal;
-    });
+    itemsAProcesar.forEach((item) => { subtotalGeneral += item.subtotal; });
 
     const pedido = await db.pedido.create(
       {
         numero: _generarNumeroPedido(),
         cliente_id: clienteId,
         sucursal_id: sucursalId,
-        tipo_cliente: cliente.tipo || "MINORISTA",
+        tipo_cliente: "MAYORISTA",
         canal: "INTERNO",
         forma_pago: "CREDITO",
         entrega_tipo: "RETIRO_SUCURSAL",
@@ -619,7 +617,7 @@ const cargarMasivo = async (clienteId, archivo, sucursalId) => {
         pedido_id: pedido.id,
         estado_anterior: null,
         estado_nuevo: "REGISTRADO",
-        motivo: `Carga masiva procesada exitosamente desde CSV (${itemsAProcesar.length} ítems)`
+        motivo: `Carga masiva procesada desde CSV (${itemsAProcesar.length} ítems, ${totalPrendasLote} prendas en total)`
       },
       { transaction: t }
     );
@@ -629,6 +627,7 @@ const cargarMasivo = async (clienteId, archivo, sucursalId) => {
       pedido_id: pedido.id,
       numero_pedido: pedido.numero,
       total_items: itemsAProcesar.length,
+      total_prendas: totalPrendasLote,
       total_monto: subtotalGeneral
     };
   });
