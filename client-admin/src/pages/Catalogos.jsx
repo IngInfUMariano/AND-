@@ -103,6 +103,16 @@ const TEMPORADAS_PREDEFINIDAS = [
 
 const ANIOS_TEMPORADA = ['2026', '2027', '2028']
 
+// Helper para extraer el booleano del estado de forma estricta
+const obtenerEstadoBooleano = (item) => {
+  if (typeof item?.estado === 'boolean') return item.estado
+  if (typeof item?.activo === 'boolean') return item.activo
+  if (typeof item?.is_active === 'boolean') return item.is_active
+  if (item?.estado !== undefined && item?.estado !== null) return Boolean(item.estado)
+  if (item?.activo !== undefined && item?.activo !== null) return Boolean(item.activo)
+  return true
+}
+
 export default function Catalogos() {
   const [tabActiva, setTabActiva] = useState('categorias')
   const [items, setItems] = useState([])
@@ -140,9 +150,8 @@ export default function Catalogos() {
   const cargarDatos = async () => {
     setLoading(true)
     try {
-      const res = await catalogoService.listar(tabActiva)
+      const res = await catalogoService.listar(tabActiva, { incluirInactivos: true, todos: true })
       
-      // Extrae la lista desde cualquier envoltura que devuelva el backend
       const lista = Array.isArray(res)
         ? res
         : Array.isArray(res?.datos)
@@ -165,7 +174,7 @@ export default function Catalogos() {
   }
 
   // Métricas
-  const totalActivos = useMemo(() => items.filter((i) => i.estado ?? true).length, [items])
+  const totalActivos = useMemo(() => items.filter((i) => obtenerEstadoBooleano(i)).length, [items])
   const totalInactivos = useMemo(() => items.length - totalActivos, [items, totalActivos])
 
   // Filtrado de elementos
@@ -177,7 +186,7 @@ export default function Catalogos() {
         item.descripcion?.toLowerCase().includes(busqueda.toLowerCase()) ||
         (tabActiva === 'colores' && item.hex?.toLowerCase().includes(busqueda.toLowerCase()))
 
-      const estadoItem = item.estado ?? true
+      const estadoItem = obtenerEstadoBooleano(item)
       const cumpleEstado =
         filtroEstado === 'TODOS' ||
         (filtroEstado === 'ACTIVO' && estadoItem) ||
@@ -208,11 +217,13 @@ export default function Catalogos() {
 
   const abrirModalEditar = (item) => {
     setItemEditar(item)
+    const estadoActual = obtenerEstadoBooleano(item)
+
     setFormData({
       nombre: item.nombre || item.codigo || '',
       descripcion: item.descripcion || '',
       hex: item.hex || '#000000',
-      estado: item.estado ?? true,
+      estado: estadoActual,
     })
     setModalAbierto(true)
   }
@@ -225,14 +236,21 @@ export default function Catalogos() {
 
     setGuardando(true)
 
-    // Formatear payload específico según la entidad requerida por la BD
-    let payload = { ...formData }
+    let payload = {
+      nombre: formData.nombre,
+      descripcion: formData.descripcion,
+      estado: Boolean(formData.estado),
+      activo: Boolean(formData.estado),
+    }
 
-    if (tabActiva === 'tallas') {
+    if (tabActiva === 'colores') {
+      payload.hex = formData.hex
+    } else if (tabActiva === 'tallas') {
       payload = {
         codigo: formData.nombre,
         descripcion: formData.descripcion || formData.nombre,
-        estado: formData.estado,
+        estado: Boolean(formData.estado),
+        activo: Boolean(formData.estado),
       }
     } else if (tabActiva === 'temporadas') {
       const matchAnio = formData.nombre.match(/\d{4}/)
@@ -241,20 +259,47 @@ export default function Catalogos() {
         nombre: formData.nombre,
         anio: anioExtraido,
         descripcion: formData.descripcion,
-        estado: formData.estado,
+        estado: Boolean(formData.estado),
+        activo: Boolean(formData.estado),
       }
     }
 
     try {
       if (itemEditar) {
         await catalogoService.actualizar(tabActiva, itemEditar.id, payload)
-        toast.success(`${tabActualInfo.singular} actualizada correctamente`)
+
+        const estadoAnterior = obtenerEstadoBooleano(itemEditar)
+        if (estadoAnterior && !formData.estado) {
+          try {
+            await catalogoService.desactivar(tabActiva, itemEditar.id)
+          } catch (e) {
+            // Silencioso si la API prefiere baja lógica por PUT
+          }
+        }
+
+        // Actualización optimista de estado
+        setItems((prevItems) =>
+          prevItems.map((item) =>
+            item.id === itemEditar.id
+              ? {
+                  ...item,
+                  ...payload,
+                  estado: formData.estado,
+                  activo: formData.estado,
+                }
+              : item
+          )
+        )
+
+        toast.success(
+          `${tabActualInfo.singular} actualizada (${formData.estado ? 'Activo' : 'Inactivo'})`
+        )
       } else {
         await catalogoService.crear(tabActiva, payload)
         toast.success(`${tabActualInfo.singular} creada correctamente`)
+        cargarDatos()
       }
       setModalAbierto(false)
-      cargarDatos()
     } catch (error) {
       if (error?.response?.status === 409) {
         toast.error(`Ya existe un registro con el nombre "${formData.nombre}"`)
@@ -266,15 +311,24 @@ export default function Catalogos() {
     }
   }
 
-  const handleEliminar = async (id) => {
-    if (!confirm(`¿Estás seguro de desactivar/eliminar esta ${tabActualInfo.singular.toLowerCase()}?`)) return
+  const handleEliminar = async (item) => {
+    const itemId = typeof item === 'object' ? item.id : item
+    const itemNombre = typeof item === 'object' ? (item.nombre || item.codigo) : ''
+
+    if (!confirm(`¿Estás seguro de desactivar ${tabActualInfo.singular.toLowerCase()} "${itemNombre}"?`)) return
 
     try {
-      await catalogoService.eliminar(tabActiva, id)
+      await catalogoService.eliminar(tabActiva, itemId)
       toast.success(`${tabActualInfo.singular} desactivada correctamente`)
       cargarDatos()
     } catch (error) {
-      toast.error('Error al eliminar el registro')
+      try {
+        await catalogoService.actualizar(tabActiva, itemId, { estado: false, activo: false })
+        toast.success(`${tabActualInfo.singular} desactivada correctamente`)
+        cargarDatos()
+      } catch (errActualizar) {
+        toast.error(error?.response?.data?.message || 'Error al desactivar el registro')
+      }
     }
   }
 
@@ -469,7 +523,7 @@ export default function Catalogos() {
                 </tr>
               ) : (
                 itemsPaginados.map((item) => {
-                  const estadoActivo = item.estado ?? true
+                  const estadoActivo = obtenerEstadoBooleano(item)
                   return (
                     <tr
                       key={item.id}
@@ -528,7 +582,7 @@ export default function Catalogos() {
                             <Edit2 className="h-4 w-4" />
                           </button>
                           <button
-                            onClick={() => handleEliminar(item.id)}
+                            onClick={() => handleEliminar(item)}
                             title="Desactivar / Eliminar"
                             className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
                           >
