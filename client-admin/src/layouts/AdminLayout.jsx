@@ -11,13 +11,12 @@ const MENU = [
       { label: 'Proveedores', to: '/proveedores', perfiles: ['ADMIN', 'GERENTE'] },
     ],
   },
-  {
+    {
     grupo: 'Catálogo',
     perfiles: ['ADMIN', 'GERENTE'],
     items: [
       { label: 'Productos', to: '/productos' },
-      { label: 'Categorías', to: '/categorias' },
-      { label: 'Marcas', to: '/marcas' },
+      { label: 'Catálogos', to: '/catalogos' },
     ],
   },
   {
