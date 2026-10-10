@@ -13,6 +13,7 @@ import Despachos from '@/pages/Despachos'
 import Recepciones from '@/pages/Recepciones'
 import Referencia from '@/pages/Referencia'
 import Catalogos from '@/pages/Catalogos'
+import Productos from '@/pages/Productos'
 
 // Componente provisional para módulos pendientes o sin permisos
 function ModuloEnDesarrollo({ titulo }) {
@@ -89,19 +90,18 @@ export default function App() {
               }
             />
 
+            {/* Módulos de Productos y Catálogos */}
+            <Route path="productos" element={<Productos />} />
+            <Route path="catalogos" element={<Catalogos />} />
+            <Route path="categorias" element={<Catalogos />} />
+            <Route path="marcas" element={<Catalogos />} />
+
             {/* Módulos Pendientes de Desarrollo */}
             <Route path="traslados" element={<ModuloEnDesarrollo titulo="Traslados" />} />
             <Route path="comprobantes" element={<ModuloEnDesarrollo titulo="Comprobantes" />} />
             <Route path="clientes" element={<ModuloEnDesarrollo titulo="Clientes" />} />
             <Route path="empleados" element={<ModuloEnDesarrollo titulo="Empleados" />} />
             <Route path="proveedores" element={<ModuloEnDesarrollo titulo="Proveedores" />} />
-            <Route path="productos" element={<ModuloEnDesarrollo titulo="Productos" />} />
-            
-            {/* Catálogos */}
-            <Route path="catalogos" element={<Catalogos />} />
-            <Route path="categorias" element={<Catalogos />} />
-            <Route path="marcas" element={<Catalogos />} />
-
             <Route path="transacciones" element={<ModuloEnDesarrollo titulo="Transacciones" />} />
             <Route path="reportes" element={<ModuloEnDesarrollo titulo="Reportes" />} />
 
