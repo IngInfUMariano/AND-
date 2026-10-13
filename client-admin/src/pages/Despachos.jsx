@@ -1,174 +1,218 @@
-import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import inventarioService from '@/services/inventario.service'
+import { useState, useEffect, useCallback } from 'react'
+import { Truck, RefreshCw, CheckCircle2, ArrowRightLeft, Package } from 'lucide-react'
+import toast from 'react-hot-toast'
+import { inventarioService } from '@/services/inventario.service'
 
-export default function Despachos() {
-    const { trasladoIdParam } = useParams()
-    const navigate = useNavigate()
+const safeNumber = (val) => (isNaN(Number(val)) ? 0 : Number(val))
 
+export default function DespachosPage() {
     const [traslados, setTraslados] = useState([])
-    const [trasladoSeleccionado, setTrasladoSeleccionado] = useState(null)
+    const [trasladoSel, setTrasladoSel] = useState(null)
+    const [detallesSel, setDetallesSel] = useState([])
     const [cargando, setCargando] = useState(true)
-    const [procesando, setProcesando] = useState(false)
-    const [error, setError] = useState(null)
+    const [cargandoDetalle, setCargandoDetalle] = useState(false)
+    const [despachando, setDespachando] = useState(false)
 
-    // Carga e independiza el formato de lista retornado por la API
-    const cargarTraslados = async () => {
+    // Cargar traslados pendientes de despacho
+    const cargarTraslados = useCallback(async () => {
+        setCargando(true)
         try {
-            setCargando(true)
-            setError(null)
-            const res = await inventarioService.listarTraslados()
+            const res = await inventarioService.listarTraslados({ estado: 'EN_TRANSITO' })
+            let lista = []
+            if (Array.isArray(res)) lista = res
+            else if (Array.isArray(res?.rows)) lista = res.rows
+            else if (Array.isArray(res?.data)) lista = res.data
 
-            const listaBruta = Array.isArray(res) ? res : (res?.data || res?.traslados || [])
-
-            // Ordena: Primero activos ('PENDIENTE', 'SOLICITADO', 'EN_PROCESO'), luego por fecha reciente
-            const listaOrdenada = [...listaBruta].sort((a, b) => {
-                const estadosActivos = ['PENDIENTE', 'SOLICITADO', 'EN_PROCESO']
-                const aEsActivo = estadosActivos.includes(a.estado?.toUpperCase())
-                const bEsActivo = estadosActivos.includes(b.estado?.toUpperCase())
-
-                if (aEsActivo && !bEsActivo) return -1
-                if (!aEsActivo && bEsActivo) return 1
-
-                const fechaA = new Date(a.created_at || a.createdAt || a.fecha || 0)
-                const fechaB = new Date(b.created_at || b.createdAt || b.fecha || 0)
-                return fechaB - fechaA
-            })
-
-            setTraslados(listaOrdenada)
-
-            if (trasladoIdParam && listaOrdenada.length > 0) {
-                const encontrado = listaOrdenada.find((t) => String(t.id) === String(trasladoIdParam))
-                if (encontrado) setTrasladoSeleccionado(encontrado)
+            setTraslados(lista)
+            if (lista.length > 0) {
+                seleccionarTraslado(lista[0])
+            } else {
+                setTrasladoSel(null)
+                setDetallesSel([])
             }
         } catch (err) {
-            console.error('Error al cargar despachos:', err)
-            setError('No se pudo cargar la lista de despachos.')
-            setTraslados([])
+            console.error('Error al cargar traslados para despacho:', err)
+            toast.error('Error al obtener lista de despachos')
         } finally {
             setCargando(false)
         }
-    }
+    }, [])
 
     useEffect(() => {
         cargarTraslados()
-    }, [trasladoIdParam])
+    }, [cargarTraslados])
 
-    const handleDespachar = async (id) => {
+    // Seleccionar traslado y cargar sus ítems reales mediante /traslado-detalles
+    const seleccionarTraslado = useCallback(async (t) => {
+        setTrasladoSel(t)
+        setCargandoDetalle(true)
         try {
-            setProcesando(true)
-            await inventarioService.despacharTraslado(id, {})
-            await cargarTraslados()
-            setTrasladoSeleccionado(null)
-            navigate('/despachos')
+            const res = await inventarioService.listarTrasladoDetalles({ traslado_id: t.id })
+            let items = []
+            if (Array.isArray(res)) items = res
+            else if (Array.isArray(res?.rows)) items = res.rows
+            else if (Array.isArray(res?.data)) items = res.data
+
+            setDetallesSel(items)
         } catch (err) {
-            console.error('Error al procesar despacho:', err)
-            alert(err?.response?.data?.message || 'Error al procesar el despacho.')
+            console.error('Error al cargar items del traslado:', err)
+            setDetallesSel([])
         } finally {
-            setProcesando(false)
+            setCargandoDetalle(false)
+        }
+    }, [])
+
+    // Despachar el traslado seleccionado desde la sucursal origen
+    const handleConfirmarDespacho = async () => {
+        if (!trasladoSel) return
+        setDespachando(true)
+        try {
+            await inventarioService.despacharTraslado(trasladoSel.id, {})
+            toast.success(`Traslado ${trasladoSel.numero || `#${trasladoSel.id}`} despachado correctamente`)
+            cargarTraslados()
+        } catch (err) {
+            console.error('Error al despachar:', err)
+            toast.error(err.response?.data?.error?.mensaje || 'Error al procesar el despacho')
+        } finally {
+            setDespachando(false)
         }
     }
 
+    const getOrigen = (t) => t?.sucursalOrigen?.nombre || t?.sucursal_origen?.nombre || 'Origen N/A'
+    const getDestino = (t) => t?.sucursalDestino?.nombre || t?.sucursal_destino?.nombre || 'Destino N/A'
+
     return (
-        <div className="space-y-6 p-4">
+        <div className="flex flex-col gap-5 p-6 max-w-[1600px] mx-auto" translate="no">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Despachos (Salidas por Traslado)</h1>
-                    <p className="text-sm text-muted-foreground">
-                        Verificación y salida física de mercadería entre sucursales.
+                    <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+                        <Truck className="text-primary" /> Despachos (Salidas por Traslado)
+                    </h1>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                        Verificación y salida física de mercadería entre sucursales
                     </p>
                 </div>
                 <button
                     onClick={cargarTraslados}
-                    className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent"
+                    disabled={cargando}
+                    className="inline-flex items-center gap-2 rounded-lg border bg-card px-3.5 py-2 text-xs font-medium hover:bg-muted"
                 >
-                    Refrescar
+                    <RefreshCw size={15} className={cargando ? 'animate-spin' : ''} /> Refrescar
                 </button>
             </div>
 
-            {cargando ? (
-                <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-                    Cargando traslados pendientes...
-                </div>
-            ) : error ? (
-                <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
-                    {error}
-                </div>
-            ) : traslados.length === 0 ? (
-                <div className="flex h-48 flex-col items-center justify-center rounded-lg border border-dashed p-6 text-center">
-                    <p className="font-medium">No hay despachos registrados</p>
-                    <p className="text-sm text-muted-foreground">
-                        No existen traslados pendientes de salida actualmente.
-                    </p>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    {/* Lista de Traslados */}
-                    <div className="space-y-2 md:col-span-1">
-                        {traslados.map((item) => (
-                            <div
-                                key={item.id}
-                                onClick={() => setTrasladoSeleccionado(item)}
-                                className={`cursor-pointer rounded-lg border p-3 transition-colors ${trasladoSeleccionado?.id === item.id ? 'border-primary bg-accent' : 'hover:bg-accent/50'
-                                    }`}
-                            >
-                                <div className="flex items-center justify-between">
-                                    <span className="font-semibold">Traslado #{item.id}</span>
-                                    <span className="rounded bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-                                        {item.estado || 'PENDIENTE'}
-                                    </span>
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
+                {/* Panel Izquierdo: Lista de Traslados */}
+                <div className="md:col-span-5 flex flex-col gap-3">
+                    <h2 className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Traslados Pendientes</h2>
+                    {cargando ? (
+                        <div className="py-12 text-center text-muted-foreground border rounded-xl bg-card">
+                            <RefreshCw size={20} className="animate-spin mx-auto mb-2" /> Cargando despachos...
+                        </div>
+                    ) : traslados.length === 0 ? (
+                        <div className="py-12 text-center border rounded-xl bg-card text-muted-foreground text-xs">
+                            No hay traslados pendientes de despacho.
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            {traslados.map((t) => (
+                                <div
+                                    key={t.id}
+                                    onClick={() => seleccionarTraslado(t)}
+                                    className={`p-4 rounded-xl border cursor-pointer transition-all bg-card ${trasladoSel?.id === t.id ? 'ring-2 ring-primary border-transparent shadow-md' : 'hover:border-primary/50'
+                                        }`}
+                                >
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="font-bold text-sm text-foreground">{t.numero || `Traslado #${t.id}`}</span>
+                                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 border border-blue-200">
+                                            {t.estado}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                        <span>Origen: <strong className="text-foreground">{getOrigen(t)}</strong></span>
+                                        <ArrowRightLeft size={12} />
+                                        <span>Destino: <strong className="text-foreground">{getDestino(t)}</strong></span>
+                                    </div>
                                 </div>
-                                <div className="mt-2 text-xs text-muted-foreground">
-                                    Origen: {item.sucursal_origen?.nombre || item.origen_id || 'N/A'} <br />
-                                    Destino: {item.sucursal_destino?.nombre || item.destino_id || 'N/A'}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
 
-                    {/* Detalle del Traslado */}
-                    <div className="rounded-lg border p-4 md:col-span-2">
-                        {trasladoSeleccionado ? (
-                            <div className="space-y-4">
-                                <div className="border-b pb-3">
-                                    <h2 className="text-lg font-bold">Detalle de Traslado #{trasladoSeleccionado.id}</h2>
-                                    <p className="text-xs text-muted-foreground">Estado: {trasladoSeleccionado.estado}</p>
+                {/* Panel Derecho: Detalle del Traslado Seleccionado */}
+                <div className="md:col-span-7">
+                    <div className="rounded-xl border bg-card p-5 shadow-sm space-y-4">
+                        {trasladoSel ? (
+                            <>
+                                <div className="flex items-center justify-between border-b pb-3">
+                                    <div>
+                                        <h3 className="font-bold text-base text-foreground">
+                                            Detalle de {trasladoSel.numero || `Traslado #${trasladoSel.id}`}
+                                        </h3>
+                                        <p className="text-xs text-muted-foreground">
+                                            Origen: <strong className="text-foreground">{getOrigen(trasladoSel)}</strong> ➔ Destino: <strong className="text-foreground">{getDestino(trasladoSel)}</strong>
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={handleConfirmarDespacho}
+                                        disabled={despachando || detallesSel.length === 0}
+                                        className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow hover:bg-primary/90 disabled:opacity-50"
+                                    >
+                                        <CheckCircle2 size={16} />
+                                        {despachando ? 'Procesando...' : 'Confirmar Despacho'}
+                                    </button>
                                 </div>
 
-                                <div className="space-y-2">
-                                    <p className="text-sm font-semibold">Ítems a despachar:</p>
-                                    {(trasladoSeleccionado.detalles || trasladoSeleccionado.items || []).length === 0 ? (
-                                        <p className="text-xs text-muted-foreground">Sin detalles de ítems.</p>
+                                <div>
+                                    <h4 className="font-semibold text-xs text-foreground mb-2 flex items-center gap-1.5">
+                                        <Package size={14} /> Ítems a despachar:
+                                    </h4>
+                                    {cargandoDetalle ? (
+                                        <div className="py-8 text-center text-muted-foreground text-xs">
+                                            <RefreshCw size={18} className="animate-spin mx-auto mb-2" /> Cargando renglones del traslado...
+                                        </div>
+                                    ) : detallesSel.length === 0 ? (
+                                        <div className="py-8 text-center border border-dashed rounded-lg text-muted-foreground text-xs">
+                                            Sin detalles de ítems.
+                                        </div>
                                     ) : (
-                                        <ul className="divide-y rounded border text-sm">
-                                            {(trasladoSeleccionado.detalles || trasladoSeleccionado.items || []).map((det, idx) => (
-                                                <li key={idx} className="flex justify-between p-2">
-                                                    <span>{det.producto?.nombre || det.variante?.sku || `Ítem ${idx + 1}`}</span>
-                                                    <span className="font-mono font-bold">{det.cantidad} u.</span>
-                                                </li>
-                                            ))}
-                                        </ul>
+                                        <div className="border rounded-lg overflow-hidden divide-y text-xs">
+                                            <table className="w-full text-left">
+                                                <thead className="bg-muted/50 text-muted-foreground font-medium border-b">
+                                                    <tr>
+                                                        <th className="px-3 py-2">SKU</th>
+                                                        <th className="px-3 py-2">Producto / Variante</th>
+                                                        <th className="px-3 py-2 text-center">Cantidad Solicitada</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y">
+                                                    {detallesSel.map((d) => {
+                                                        const sku = d.variante?.sku ?? d.sku ?? 'N/A'
+                                                        const prod = d.variante?.producto?.nombre ?? d.producto_nombre ?? 'Producto'
+                                                        const cant = safeNumber(d.cantidad_despachada ?? d.cantidad ?? d.cant)
+
+                                                        return (
+                                                            <tr key={d.id} className="hover:bg-muted/20">
+                                                                <td className="px-3 py-2 font-mono text-xs font-medium">{sku}</td>
+                                                                <td className="px-3 py-2 font-medium">{prod}</td>
+                                                                <td className="px-3 py-2 text-center font-bold text-xs">{cant} u.</td>
+                                                            </tr>
+                                                        )
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     )}
                                 </div>
-
-                                {['PENDIENTE', 'SOLICITADO', 'EN_PROCESO'].includes(trasladoSeleccionado.estado?.toUpperCase()) && (
-                                    <button
-                                        disabled={procesando}
-                                        onClick={() => handleDespachar(trasladoSeleccionado.id)}
-                                        className="w-full rounded-md bg-primary py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-                                    >
-                                        {procesando ? 'Procesando Salida...' : 'Confirmar Salida de Bodega'}
-                                    </button>
-                                )}
-                            </div>
+                            </>
                         ) : (
-                            <div className="flex h-full min-h-[200px] items-center justify-center text-sm text-muted-foreground">
-                                Selecciona un traslado de la lista para ver su detalle.
+                            <div className="py-16 text-center text-muted-foreground text-xs">
+                                Selecciona un traslado de la lista para gestionar su despacho.
                             </div>
                         )}
                     </div>
                 </div>
-            )}
+            </div>
         </div>
     )
 }

@@ -15,7 +15,7 @@
   "type": "commonjs",
   "main": "server.js",
   "scripts": {
-    "dev": "cross-env DB_SYNC=true node server.js",
+    "dev": "node server.js",
     "seed": "node src/scripts/seed.js",
     "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"

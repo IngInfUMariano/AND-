@@ -12,6 +12,8 @@ import Inventario from '@/pages/Inventario'
 import Despachos from '@/pages/Despachos'
 import Recepciones from '@/pages/Recepciones'
 import Referencia from '@/pages/Referencia'
+import Movimiento from '@/pages/MovimientosPage'
+import Traslado from '@/pages/TrasladosPage'
 
 // Componente provisional para módulos pendientes o sin permisos
 function ModuloEnDesarrollo({ titulo }) {
@@ -49,9 +51,12 @@ export default function App() {
             <Route path="existencias" element={<Inventario />} />
             <Route
               path="movimientos"
-              element={<ModuloEnDesarrollo titulo="Movimientos / Kardex General" />}
+              element={<Movimiento />}
             />
-
+            <Route
+              path="traslados"
+              element={<Traslado />}
+            />
             {/* Despachos (Salidas por Traslado) */}
             <Route
               path="despachos"
