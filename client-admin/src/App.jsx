@@ -14,6 +14,7 @@ import Recepciones from '@/pages/Recepciones'
 import Referencia from '@/pages/Referencia'
 import Catalogos from '@/pages/Catalogos'
 import Productos from '@/pages/Productos'
+import Precios from '@/pages/Precios'
 
 // Componente provisional para módulos pendientes o sin permisos
 function ModuloEnDesarrollo({ titulo }) {
@@ -46,6 +47,7 @@ export default function App() {
           >
             <Route index element={<Dashboard />} />
             <Route path="dashboard" element={<Dashboard />} />
+            <Route path="precios" element={<Precios />} />
 
             {/* Existencias y Movimientos */}
             <Route path="existencias" element={<Inventario />} />
