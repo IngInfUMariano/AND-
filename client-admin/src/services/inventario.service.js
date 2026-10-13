@@ -53,7 +53,11 @@ export const recibirTraslado = async (id, payload) => {
     return data
 }
 
-// 🟢 MÉTODOS PARA DETALLES DE TRASLADO (/api/traslado-detalles)
+export const anularTraslado = async (id, payload) => {
+    const { data } = await api.post(`/traslados/${id}/anular`, payload)
+    return data
+}
+
 export const listarTrasladoDetalles = async (params) => {
     const { data } = await api.get('/traslado-detalles', { params: limpiarParams(params) })
     return data
@@ -78,6 +82,7 @@ export const inventarioService = {
     despacharTraslado,
     crearTraslado,
     recibirTraslado,
+    anularTraslado,
     listarTrasladoDetalles,
     obtenerTrasladoDetallePorId,
     registrarRecepcionItem,

@@ -16,11 +16,18 @@ const obtener = asyncHandler(async (req, res) => {
     ok(res, traslado);
 });
 
-// POST /api/traslados
+// POST /api/traslados (Crea solicitud en estado PENDIENTE)
 const crear = asyncHandler(async (req, res) => {
-    const despachadoPor = req.usuario.id;
-    const traslado = await TrasladoService.crear(req.body, despachadoPor);
+    const solicitadoPor = req.usuario.id;
+    const traslado = await TrasladoService.crear(req.body, solicitadoPor);
     creado(res, traslado);
+});
+
+// POST /api/traslados/:id/despachar (Confirma salida física en bodega y pasa a EN_TRANSITO)
+const despachar = asyncHandler(async (req, res) => {
+    const usuarioId = req.usuario.id;
+    const traslado = await TrasladoService.despachar(req.params.id, usuarioId);
+    ok(res, traslado);
 });
 
 // POST /api/traslados/:id/recibir
@@ -39,4 +46,4 @@ const anular = asyncHandler(async (req, res) => {
     ok(res, traslado);
 });
 
-module.exports = { listar, obtener, crear, recibir, anular };
+module.exports = { listar, obtener, crear, despachar, recibir, anular };

@@ -4,13 +4,7 @@ import {
     Calendar,
     RefreshCw,
     ArrowRightLeft,
-    ArrowUpRight,
-    ArrowDownLeft,
     Building2,
-    Download,
-    ChevronLeft,
-    ChevronRight,
-    FilterX,
     Eye,
     Truck,
     Ban,
@@ -18,7 +12,8 @@ import {
     Plus,
     X,
     FileText,
-    Package
+    Package,
+    AlertTriangle
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { inventarioService } from '@/services/inventario.service'
@@ -29,7 +24,6 @@ const safeNumber = (val) => {
     return isNaN(n) ? 0 : n
 }
 
-// Extrae con precisión los alias devueltos por la API (sucursalOrigen y sucursalDestino)
 const getOrigenNombre = (t) => {
     if (!t) return 'Origen N/A'
     const origen = t.sucursalOrigen?.nombre ?? t.sucursal_origen?.nombre ?? t.origen_nombre ?? t.origen
@@ -81,7 +75,11 @@ export default function TrasladosPage() {
     // Modal de Detalle Profundo
     const [modalDetalle, setModalDetalle] = useState({ abierto: false, traslado: null, detalles: [], cargandoDetalle: false })
 
-    // Formulario de Solicitud de Traslado
+    // Modal de Anulación
+    const [modalAnular, setModalAnular] = useState({ abierto: false, traslado: null, motivo: '' })
+    const [anulando, setAnulando] = useState(false)
+
+    // Formulario de Solicitud
     const [nuevoForm, setNuevoForm] = useState({
         sucursal_origen_id: '',
         sucursal_destino_id: '',
@@ -89,7 +87,6 @@ export default function TrasladosPage() {
         detalles: []
     })
 
-    // Autoseleccionar sucursal del usuario logueado
     useEffect(() => {
         try {
             const userStored = localStorage.getItem('usuario') || localStorage.getItem('user')
@@ -106,7 +103,6 @@ export default function TrasladosPage() {
         }
     }, [])
 
-    // Cargar Catálogo de Sucursales
     useEffect(() => {
         let activo = true
         const cargarSucursales = async () => {
@@ -123,7 +119,6 @@ export default function TrasladosPage() {
         return () => { activo = false }
     }, [])
 
-    // Cargar Historial de Traslados
     const cargarTraslados = useCallback(async () => {
         setCargando(true)
         try {
@@ -157,7 +152,6 @@ export default function TrasladosPage() {
         cargarTraslados()
     }, [cargarTraslados])
 
-    // Cargar existencias disponibles de la sucursal origen para la solicitud
     const cargarExistenciasOrigen = useCallback(async (sucursalId) => {
         if (!sucursalId) {
             setExistenciasOrigen([])
@@ -179,7 +173,6 @@ export default function TrasladosPage() {
         }
     }, [nuevoForm.sucursal_origen_id, cargarExistenciasOrigen])
 
-    // Fechas DD/MM/AAAA
     const parseDDMMYYYYtoYYYYMMDD = (strDDMMYYYY) => {
         if (!strDDMMYYYY) return null
         const limpio = strDDMMYYYY.trim().split(',')[0]
@@ -232,11 +225,9 @@ export default function TrasladosPage() {
         setPagina(1)
     }
 
-    // Abrir Modal de Detalle y cargar los renglones reales vía /traslado-detalles
     const abrirDetalleTraslado = async (traslado) => {
         setModalDetalle({ abierto: true, traslado, detalles: [], cargandoDetalle: true })
         try {
-            // Consulta directa a traslado-detalles usando el ID
             const res = await inventarioService.listarTrasladoDetalles({ traslado_id: traslado.id })
             let lista = []
             if (Array.isArray(res)) lista = res
@@ -251,7 +242,38 @@ export default function TrasladosPage() {
         }
     }
 
-    // Filtrado en memoria
+    const abrirModalAnular = (traslado) => {
+        setModalAnular({ abierto: true, traslado, motivo: '' })
+    }
+
+    const ejecutarAnulacion = async (e) => {
+        e.preventDefault()
+        if (!modalAnular.traslado) return
+        if (!modalAnular.motivo.trim()) {
+            toast.error('Debe indicar un motivo de anulación')
+            return
+        }
+
+        setAnulando(true)
+        try {
+            // Llamada directa al endpoint POST /api/traslados/:id/anular
+            await inventarioService.anularTraslado(modalAnular.traslado.id, {
+                observaciones: modalAnular.motivo
+            })
+
+            toast.success('Traslado anulado correctamente')
+            setModalAnular({ abierto: false, traslado: null, motivo: '' })
+
+            // Recargar la lista completa desde el servidor para reflejar el estado ANULADO
+            await cargarTraslados()
+        } catch (err) {
+            console.error('Error al anular traslado:', err)
+            toast.error(err.response?.data?.error?.mensaje || 'Error al anular el traslado')
+        } finally {
+            setAnulando(false)
+        }
+    }
+
     const trasladosFiltrados = useMemo(() => {
         if (!Array.isArray(traslados)) return []
 
@@ -296,7 +318,6 @@ export default function TrasladosPage() {
         return d.toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
     }
 
-    // Formulario de Solicitud
     const agregarItemForm = (item) => {
         if (!item) return
         const varId = item.variante_id || item.variante?.id || item.id
@@ -333,7 +354,6 @@ export default function TrasladosPage() {
         }))
     }
 
-    // Enviar la Solicitud
     const handleCrearSolicitud = async (e) => {
         e.preventDefault()
 
@@ -380,6 +400,12 @@ export default function TrasladosPage() {
     const renderEstado = (estado) => {
         const est = String(estado || '').toUpperCase()
         switch (est) {
+            case 'PENDIENTE':
+                return (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-600 border border-amber-200">
+                        Pendiente
+                    </span>
+                )
             case 'EN_TRANSITO':
                 return (
                     <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-medium text-blue-600 border border-blue-200">
@@ -409,7 +435,6 @@ export default function TrasladosPage() {
 
     return (
         <div className="flex flex-col gap-5 p-6 max-w-[1600px] mx-auto" translate="no">
-            {/* Encabezado */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
@@ -438,7 +463,6 @@ export default function TrasladosPage() {
                 </div>
             </div>
 
-            {/* Barra de Filtros */}
             <div className="rounded-xl border bg-card p-4 shadow-sm flex flex-col gap-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-center">
                     <div className="relative lg:col-span-3">
@@ -488,6 +512,7 @@ export default function TrasladosPage() {
                             className="w-full rounded-lg border bg-background px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-ring"
                         >
                             <option value="TODOS">Todos los Estados</option>
+                            <option value="PENDIENTE">Pendiente</option>
                             <option value="EN_TRANSITO">En Tránsito</option>
                             <option value="RECIBIDO">Recibido</option>
                             <option value="ANULADO">Anulado</option>
@@ -514,13 +539,12 @@ export default function TrasladosPage() {
                             className="w-full bg-transparent text-center text-xs outline-none"
                         />
                         <button onClick={resetFiltros} className="p-1 text-muted-foreground hover:text-foreground" title="Limpiar filtros">
-                            <FilterX size={14} />
+                            <X size={14} />
                         </button>
                     </div>
                 </div>
             </div>
 
-            {/* Tabla de Resultados */}
             <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
@@ -553,6 +577,8 @@ export default function TrasladosPage() {
                                 trasladosPaginados.map((t) => {
                                     const origen = getOrigenNombre(t)
                                     const destino = getDestinoNombre(t)
+                                    const est = String(t.estado || '').toUpperCase()
+                                    const puedeAnular = est === 'PENDIENTE' || est === 'EN_TRANSITO'
 
                                     return (
                                         <tr key={t.id} className="hover:bg-muted/30 transition-colors">
@@ -582,13 +608,24 @@ export default function TrasladosPage() {
                                                 {t.fecha_recepcion ? formatFecha(t.fecha_recepcion) : <span className="text-muted-foreground/50">Pendiente</span>}
                                             </td>
                                             <td className="px-4 py-3 text-right">
-                                                <button
-                                                    onClick={() => abrirDetalleTraslado(t)}
-                                                    className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md transition-colors"
-                                                    title="Ver Productos y Detalle"
-                                                >
-                                                    <Eye size={16} />
-                                                </button>
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <button
+                                                        onClick={() => abrirDetalleTraslado(t)}
+                                                        className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md transition-colors"
+                                                        title="Ver Productos y Detalle"
+                                                    >
+                                                        <Eye size={16} />
+                                                    </button>
+                                                    {puedeAnular && (
+                                                        <button
+                                                            onClick={() => abrirModalAnular(t)}
+                                                            className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-md transition-colors"
+                                                            title="Anular Traslado"
+                                                        >
+                                                            <Ban size={16} />
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     )
@@ -598,7 +635,6 @@ export default function TrasladosPage() {
                     </table>
                 </div>
 
-                {/* Footer Paginación */}
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t px-4 py-3 bg-muted/20 text-xs text-muted-foreground">
                     <div>
                         Mostrando <span className="font-medium text-foreground">{trasladosFiltrados.length > 0 ? (pagina - 1) * ELEMENTOS_POR_PAGINA + 1 : 0} - {Math.min(pagina * ELEMENTOS_POR_PAGINA, trasladosFiltrados.length)}</span> de{' '}
@@ -611,7 +647,7 @@ export default function TrasladosPage() {
                             disabled={pagina === 1 || cargando}
                             className="rounded-md border bg-card px-2.5 py-1 font-medium text-foreground hover:bg-muted disabled:opacity-40"
                         >
-                            <ChevronLeft size={14} /> Anterior
+                            Anterior
                         </button>
                         <span className="px-2">
                             Página <span className="font-semibold text-foreground">{pagina}</span> de <span className="font-semibold text-foreground">{totalPaginas}</span>
@@ -621,11 +657,63 @@ export default function TrasladosPage() {
                             disabled={pagina >= totalPaginas || cargando}
                             className="rounded-md border bg-card px-2.5 py-1 font-medium text-foreground hover:bg-muted disabled:opacity-40"
                         >
-                            Siguiente <ChevronRight size={14} />
+                            Siguiente
                         </button>
                     </div>
                 </div>
             </div>
+
+            {/* Modal: Anular Traslado */}
+            {modalAnular.abierto && modalAnular.traslado && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="bg-card border rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
+                        <div className="flex items-center justify-between border-b px-5 py-4 bg-muted/30">
+                            <h2 className="font-bold text-sm text-foreground flex items-center gap-2 text-rose-600">
+                                <Ban size={18} /> Anular Traslado: {modalAnular.traslado.numero}
+                            </h2>
+                            <button onClick={() => setModalAnular({ abierto: false, traslado: null, motivo: '' })} className="text-muted-foreground hover:text-foreground">
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <form onSubmit={ejecutarAnulacion} className="p-5 space-y-4 text-xs">
+                            <div className="bg-rose-500/10 border border-rose-200 text-rose-800 p-3 rounded-lg flex items-start gap-2">
+                                <AlertTriangle size={16} className="shrink-0 mt-0.5 text-rose-600" />
+                                <div>
+                                    <strong>¡Acción irreversible!</strong> Si el traslado ya estaba en tránsito (con stock descontado en origen), la anulación devolverá automáticamente las existencias a la bodega de origen.
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block font-semibold text-foreground mb-1">Motivo o justificación de anulación (Obligatorio):</label>
+                                <textarea
+                                    value={modalAnular.motivo}
+                                    onChange={(e) => setModalAnular({ ...modalAnular, motivo: e.target.value })}
+                                    placeholder="Indique el motivo de la anulación..."
+                                    className="w-full rounded-lg border bg-background p-2 text-xs outline-none focus:ring-2 focus:ring-rose-500 h-20"
+                                    required
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-end gap-2 border-t pt-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setModalAnular({ abierto: false, traslado: null, motivo: '' })}
+                                    className="rounded-lg border px-4 py-2 font-medium hover:bg-muted"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={anulando || !modalAnular.motivo.trim()}
+                                    className="rounded-lg bg-rose-600 px-4 py-2 font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+                                >
+                                    {anulando ? 'Anulando...' : 'Confirmar Anulación'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             {/* Modal: Solicitar Traslado */}
             {modalCrearAbierto && (
@@ -763,7 +851,7 @@ export default function TrasladosPage() {
                 </div>
             )}
 
-            {/* Modal de Detalle Profundo con ítems devueltos por /traslado-detalles */}
+            {/* Modal de Detalle Profundo */}
             {modalDetalle.abierto && modalDetalle.traslado && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
                     <div className="bg-card border rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh]">
@@ -823,7 +911,7 @@ export default function TrasladosPage() {
                                                 <tr>
                                                     <th className="px-3 py-2">SKU</th>
                                                     <th className="px-3 py-2">Producto / Variante</th>
-                                                    <th className="px-3 py-2 text-center">Cant. Despachada</th>
+                                                    <th className="px-3 py-2 text-center">Cant. Solicitada / Despachada</th>
                                                     <th className="px-3 py-2 text-center">Cant. Recibida</th>
                                                 </tr>
                                             </thead>
