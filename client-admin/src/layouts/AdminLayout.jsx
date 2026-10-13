@@ -30,6 +30,7 @@ const MENU = [
       { label: 'Recepciones (Entradas)', to: '/recepciones' },
       { label: 'Traslados', to: '/traslados' },
       { label: 'Comprobantes', to: '/comprobantes' },
+      { label: 'Mermas y Pérdidas', to: '/mermas' },
     ],
   },
   {

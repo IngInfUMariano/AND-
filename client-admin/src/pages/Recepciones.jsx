@@ -40,7 +40,8 @@ export default function Recepciones() {
 
     const [modalVerificacionAbierto, setModalVerificacionAbierto] = useState(false)
     const [cantidadesRecibidas, setCantidadesRecibidas] = useState({})
-    const [motivoDiscrepancia, setMotivoDiscrepancia] = useState('')
+    const [observacionesDiferencia, setObservacionesDiferencia] = useState({})
+    const [motivoGeneralDiscrepancia, setMotivoGeneralDiscrepancia] = useState('')
 
     useEffect(() => {
         try {
@@ -115,27 +116,19 @@ export default function Recepciones() {
 
             const listaBruta = Array.isArray(res) ? res : (res?.data || res?.traslados || [])
 
-            const listaOrdenada = [...listaBruta].sort((a, b) => {
-                const estadosActivos = ['EN_TRANSITO', 'DESPACHADO']
-                const aEsActivo = estadosActivos.includes(a.estado?.toUpperCase())
-                const bEsActivo = estadosActivos.includes(b.estado?.toUpperCase())
-
-                if (aEsActivo && !bEsActivo) return -1
-                if (!aEsActivo && bEsActivo) return 1
-
-                const fechaA = new Date(a.created_at || a.createdAt || a.fecha || 0)
-                const fechaB = new Date(b.created_at || b.createdAt || b.fecha || 0)
-                return fechaB - fechaA
+            const listaValida = listaBruta.filter((t) => {
+                const est = String(t.estado || '').toUpperCase()
+                return est !== 'RECIBIDO' && est !== 'ANULADO'
             })
 
-            setTraslados(listaOrdenada)
+            setTraslados(listaValida)
 
-            if (trasladoIdParam && listaOrdenada.length > 0) {
-                const encontrado = listaOrdenada.find((t) => String(t.id) === String(trasladoIdParam))
+            if (trasladoIdParam && listaValida.length > 0) {
+                const encontrado = listaValida.find((t) => String(t.id) === String(trasladoIdParam))
                 if (encontrado) seleccionarTraslado(encontrado)
-            } else if (listaOrdenada.length > 0 && !trasladoSeleccionado) {
-                seleccionarTraslado(listaOrdenada[0])
-            } else if (listaOrdenada.length === 0) {
+            } else if (listaValida.length > 0 && !trasladoSeleccionado) {
+                seleccionarTraslado(listaValida[0])
+            } else if (listaValida.length === 0) {
                 setTrasladoSeleccionado(null)
                 setDetallesSeleccionados([])
             }
@@ -161,22 +154,26 @@ export default function Recepciones() {
             if (Array.isArray(res)) items = res
             else if (Array.isArray(res?.rows)) items = res.rows
             else if (Array.isArray(res?.data)) items = res.data
+            else if (Array.isArray(res?.traslado_detalles)) items = res.traslado_detalles
 
             setDetallesSeleccionados(items)
 
             const mapaCantidades = {}
             items.forEach((d) => {
-                mapaCantidades[d.id] = safeNumber(d.cantidad_despachada ?? d.cantidad)
+                const despachada = safeNumber(d.cantidad_despachada ?? d.cantidad)
+                mapaCantidades[d.id] = despachada
             })
             setCantidadesRecibidas(mapaCantidades)
-            setMotivoDiscrepancia('')
+            setObservacionesDiferencia({})
+            setMotivoGeneralDiscrepancia('')
         } catch (err) {
             console.error('Error al cargar detalles de recepción:', err)
-            setDetallesSeleccionados(item.detalles || item.items || [])
+            const fallbackItems = item.traslado_detalles || item.detalles || item.items || []
+            setDetallesSeleccionados(fallbackItems)
             const mapaCantidades = {}
-                ; (item.detalles || item.items || []).forEach((d, idx) => {
-                    mapaCantidades[d.id || idx] = safeNumber(d.cantidad_despachada ?? d.cantidad)
-                })
+            fallbackItems.forEach((d) => {
+                mapaCantidades[d.id] = safeNumber(d.cantidad_despachada ?? d.cantidad)
+            })
             setCantidadesRecibidas(mapaCantidades)
         } finally {
             setCargandoDetalle(false)
@@ -191,10 +188,9 @@ export default function Recepciones() {
         }))
     }
 
-    const hayDiscrepancias = detallesSeleccionados.some((d, idx) => {
-        const key = d.id || idx
+    const hayDiscrepancias = detallesSeleccionados.some((d) => {
         const despachado = safeNumber(d.cantidad_despachada ?? d.cantidad)
-        const recibido = safeNumber(cantidadesRecibidas[key])
+        const recibido = safeNumber(cantidadesRecibidas[d.id])
         return recibido !== despachado
     })
 
@@ -203,9 +199,14 @@ export default function Recepciones() {
         if (esAdminOGerente()) return true
 
         const destinoId = Number(trasladoSeleccionado.sucursal_destino_id || trasladoSeleccionado.sucursalDestino?.id)
-        const usuarioSucId = Number(sucursalAsignadaUsuario)
+        const sucursalComboId = Number(sucursalSeleccionadaId)
 
-        if (Number(sucursalSeleccionadaId) !== destinoId) {
+        if (destinoId === sucursalComboId) {
+            return true
+        }
+
+        const usuarioSucId = Number(sucursalAsignadaUsuario)
+        if (usuarioSucId && destinoId !== usuarioSucId) {
             toast.error('Acceso denegado: Solo puedes recibir traslados destinados a tu sucursal seleccionada.')
             return false
         }
@@ -216,17 +217,65 @@ export default function Recepciones() {
         if (!trasladoSeleccionado) return
         if (!validarPermisoRecepcion()) return
 
-        if (hayDiscrepancias && !motivoDiscrepancia.trim()) {
-            toast.error('Has modificado cantidades respecto al despacho. Debes indicar un motivo o justificación obligatoria.')
+        const estActual = String(trasladoSeleccionado.estado || '').toUpperCase()
+        if (estActual === 'PENDIENTE') {
+            toast.error('No se puede registrar recepción en un traslado en estado PENDIENTE. Debe ser despachado primero.')
+            return
+        }
+
+        if (hayDiscrepancias && !motivoGeneralDiscrepancia.trim()) {
+            toast.error('Has modificado cantidades. Debes indicar un motivo o justificación obligatoria.')
             return
         }
 
         setProcesando(true)
         try {
-            await inventarioService.recibirTraslado(trasladoSeleccionado.id, {
-                cantidades_recibidas: cantidadesRecibidas,
-                observaciones_recepcion: motivoDiscrepancia.trim() || null
+            // 1. Enviar el PATCH individual por cada ítem recibido
+            const promesasDetalles = detallesSeleccionados.map((d) => {
+                const recibido = safeNumber(cantidadesRecibidas[d.id] ?? d.cantidad_despachada ?? d.cantidad)
+                const despachado = safeNumber(d.cantidad_despachada ?? d.cantidad)
+                const obs = observacionesDiferencia[d.id] || (recibido !== despachado ? motivoGeneralDiscrepancia.trim() : null)
+
+                return inventarioService.registrarRecepcionItem(d.id, {
+                    cantidad_recibida: recibido,
+                    observacion_diferencia: obs
+                })
             })
+
+            await Promise.all(promesasDetalles)
+
+            // 2. Confirmar recepción general en el backend
+            await inventarioService.recibirTraslado(trasladoSeleccionado.id, {
+                observaciones_recepcion: motivoGeneralDiscrepancia.trim() || null
+            }).catch(() => { })
+
+            // 3. Registrar automáticamente la merma si hay faltantes
+            const promesasMermas = []
+            detallesSeleccionados.forEach((d) => {
+                const enviado = safeNumber(d.cantidad_despachada ?? d.cantidad)
+                const recibido = safeNumber(cantidadesRecibidas[d.id] ?? enviado)
+
+                if (recibido < enviado) {
+                    const faltante = enviado - recibido
+                    const varianteId = d.variante_id || d.variante?.id
+                    const sucursalDestinoId = trasladoSeleccionado.sucursal_destino_id || trasladoSeleccionado.sucursalDestino?.id || sucursalSeleccionadaId
+
+                    promesasMermas.push(
+                        inventarioService.registrarMerma({
+                            sucursal_id: Number(sucursalDestinoId),
+                            variante_id: Number(varianteId),
+                            cantidad: Number(faltante),
+                            motivo: `Faltante detectado en Recepción de Traslado #${trasladoSeleccionado.numero || trasladoSeleccionado.id}: ${motivoGeneralDiscrepancia.trim()}`
+                        })
+                    )
+                }
+            })
+
+            if (promesasMermas.length > 0) {
+                await Promise.all(promesasMermas)
+                toast.success('Se han generado los registros de merma correspondientes por el faltante detectado.')
+            }
+
             toast.success(`Recepción confirmada correctamente para el traslado #${trasladoSeleccionado.id}`)
             setModalVerificacionAbierto(false)
             await cargarTraslados()
@@ -251,7 +300,7 @@ export default function Recepciones() {
                         <PackageCheck className="text-primary" /> Recepciones (Entradas por Traslado)
                     </h1>
                     <p className="text-sm text-muted-foreground mt-0.5">
-                        Conteo e ingreso físico de mercadería recibida de otras sucursales.
+                        Conteo e ingreso físico de mercancía recibida de otras sucursales.
                     </p>
                 </div>
 
@@ -262,15 +311,8 @@ export default function Recepciones() {
                             <span className="text-[10px] uppercase font-semibold text-muted-foreground">Sucursal de Destino</span>
                             <select
                                 value={sucursalSeleccionadaId}
-                                onChange={(e) => {
-                                    if (!esAdminOGerente() && e.target.value !== String(sucursalAsignadaUsuario)) {
-                                        toast.error('Solo puedes operar en tu sucursal asignada.')
-                                        return
-                                    }
-                                    setSucursalSeleccionadaId(e.target.value)
-                                }}
-                                disabled={!esAdminOGerente()}
-                                className="bg-transparent text-xs font-bold text-foreground outline-none cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed"
+                                onChange={(e) => setSucursalSeleccionadaId(e.target.value)}
+                                className="bg-transparent text-xs font-bold text-foreground outline-none cursor-pointer"
                             >
                                 {sucursales.map((s) => (
                                     <option key={s.id} value={s.id}>
@@ -296,7 +338,7 @@ export default function Recepciones() {
                     Cargando recepciones pendientes...
                 </div>
             ) : error ? (
-                <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+                <div className="rounded-lg border border-destructive/25 bg-destructive/10 p-4 text-sm text-destructive">
                     {error}
                 </div>
             ) : traslados.length === 0 ? (
@@ -309,7 +351,7 @@ export default function Recepciones() {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
                     <div className="md:col-span-5 flex flex-col gap-3">
-                        <h2 className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Traslados en Tránsito / Pendientes de Recibir</h2>
+                        <h2 className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Traslados Pendientes / En Tránsito</h2>
                         <div className="space-y-2">
                             {traslados.map((item) => (
                                 <div
@@ -319,9 +361,9 @@ export default function Recepciones() {
                                         }`}
                                 >
                                     <div className="flex items-center justify-between mb-2">
-                                        <span className="font-bold text-sm text-foreground">Traslado #{item.id}</span>
-                                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-200">
-                                            {item.estado || 'EN_TRANSITO'}
+                                        <span className="font-bold text-sm text-foreground">{item.numero || `Traslado #${item.id}`}</span>
+                                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 border border-amber-200">
+                                            {item.estado || 'PENDIENTE'}
                                         </span>
                                     </div>
                                     <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -341,31 +383,34 @@ export default function Recepciones() {
                                     <div className="flex items-center justify-between border-b pb-3">
                                         <div>
                                             <h3 className="font-bold text-base text-foreground">
-                                                Revisión de Recepción #{trasladoSeleccionado.id}
+                                                Revisión de Recepción {trasladoSeleccionado.numero || `#${trasladoSeleccionado.id}`}
                                             </h3>
                                             <p className="text-xs text-muted-foreground">
                                                 Origen: <strong className="text-foreground">{getOrigenNombre(trasladoSeleccionado)}</strong> ➔ Destino: <strong className="text-foreground">{getDestinoNombre(trasladoSeleccionado)}</strong>
                                             </p>
                                         </div>
-                                        {['EN_TRANSITO', 'DESPACHADO'].includes(trasladoSeleccionado.estado?.toUpperCase()) && (
-                                            <button
-                                                onClick={() => {
-                                                    if (validarPermisoRecepcion()) setModalVerificacionAbierto(true)
-                                                }}
-                                                disabled={detallesSeleccionados.length === 0}
-                                                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow hover:bg-emerald-700 disabled:opacity-50"
-                                            >
-                                                <ShieldCheck size={16} /> Verificar e Ingresar Inventario
-                                            </button>
-                                        )}
+                                        <button
+                                            onClick={() => {
+                                                const est = String(trasladoSeleccionado.estado || '').toUpperCase()
+                                                if (est === 'PENDIENTE') {
+                                                    toast.error('Este traslado aún está en estado PENDIENTE. Debe ser despachado antes de recibirlo.')
+                                                    return
+                                                }
+                                                if (validarPermisoRecepcion()) setModalVerificacionAbierto(true)
+                                            }}
+                                            disabled={detallesSeleccionados.length === 0}
+                                            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow hover:bg-emerald-700 disabled:opacity-50"
+                                        >
+                                            <ShieldCheck size={16} /> Verificar e Ingresar Inventario
+                                        </button>
                                     </div>
 
                                     <div>
                                         <h4 className="font-semibold text-xs text-foreground mb-2 flex items-center gap-1.5">
-                                            <Package size={14} /> Ítems en este envío:
+                                            <Package size={14} /> Items en este envío:
                                         </h4>
                                         {cargandoDetalle ? (
-                                            <div className="py-8 text-center text-muted-foreground text-xs">Cargando ítems...</div>
+                                            <div className="py-8 text-center text-muted-foreground text-xs">Cargando items...</div>
                                         ) : (
                                             <div className="border rounded-lg overflow-hidden divide-y text-xs">
                                                 <table className="w-full text-left">
@@ -378,7 +423,7 @@ export default function Recepciones() {
                                                     <tbody className="divide-y">
                                                         {detallesSeleccionados.map((det, idx) => (
                                                             <tr key={det.id || idx} className="hover:bg-muted/20">
-                                                                <td className="px-3 py-2 font-medium">{det.producto?.nombre || det.variante?.producto?.nombre || det.variante?.sku || `Ítem ${idx + 1}`}</td>
+                                                                <td className="px-3 py-2 font-medium">{det.producto?.nombre || det.variante?.producto?.nombre || det.variante?.sku || `Item ${idx + 1}`}</td>
                                                                 <td className="px-3 py-2 text-center font-bold text-xs">{safeNumber(det.cantidad_despachada ?? det.cantidad)} u.</td>
                                                             </tr>
                                                         ))}
@@ -413,12 +458,12 @@ export default function Recepciones() {
                             <div className="bg-amber-500/10 border border-amber-200 text-amber-800 p-3 rounded-lg flex items-start gap-2">
                                 <AlertTriangle size={16} className="shrink-0 mt-0.5 text-amber-600" />
                                 <div>
-                                    <strong>Atención Bodega:</strong> Cuente físicamente lo recibido frente a lo enviado. Si hay diferencias (faltantes o sobrantes), deberá registrar una justificación obligatoria.
+                                    <strong>Atención Bodega:</strong> Cuente físicamente lo recibido frente a lo enviado. Si hay diferencias, deberá registrar una justificación obligatoria.
                                 </div>
                             </div>
 
                             <div className="border rounded-lg p-3 space-y-1 bg-muted/20">
-                                <div><strong>Traslado:</strong> #{trasladoSeleccionado?.id}</div>
+                                <div><strong>Traslado:</strong> {trasladoSeleccionado?.numero || `#${trasladoSeleccionado?.id}`}</div>
                                 <div><strong>Origen:</strong> {getOrigenNombre(trasladoSeleccionado)} | <strong>Destino:</strong> {getDestinoNombre(trasladoSeleccionado)}</div>
                             </div>
 
@@ -435,11 +480,10 @@ export default function Recepciones() {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y">
-                                            {detallesSeleccionados.map((d, idx) => {
-                                                const key = d.id || idx
-                                                const prodNombre = d.producto?.nombre || d.variante?.producto?.nombre || d.variante?.sku || `Ítem ${idx + 1}`
+                                            {detallesSeleccionados.map((d) => {
+                                                const prodNombre = d.producto?.nombre || d.variante?.producto?.nombre || 'Producto'
                                                 const enviado = safeNumber(d.cantidad_despachada ?? d.cantidad)
-                                                const recibido = cantidadesRecibidas[key] !== undefined ? cantidadesRecibidas[key] : enviado
+                                                const recibido = cantidadesRecibidas[d.id] !== undefined ? cantidadesRecibidas[d.id] : enviado
 
                                                 let badgeAlerta = <span className="text-emerald-600 font-medium">Exacto</span>
                                                 if (recibido < enviado) {
@@ -449,7 +493,7 @@ export default function Recepciones() {
                                                 }
 
                                                 return (
-                                                    <tr key={key} className="hover:bg-muted/20">
+                                                    <tr key={d.id} className="hover:bg-muted/20">
                                                         <td className="px-3 py-2">
                                                             <div className="font-semibold text-foreground">{prodNombre}</div>
                                                             <div className="text-[11px] font-mono text-muted-foreground">SKU: {d.variante?.sku ?? d.sku ?? 'N/A'}</div>
@@ -462,7 +506,7 @@ export default function Recepciones() {
                                                                 type="number"
                                                                 min={0}
                                                                 value={recibido}
-                                                                onChange={(e) => cambiarCantidadRecibida(key, e.target.value)}
+                                                                onChange={(e) => cambiarCantidadRecibida(d.id, e.target.value)}
                                                                 className="w-20 rounded border bg-background px-2 py-1 text-center font-bold text-foreground outline-none focus:ring-2 focus:ring-ring"
                                                             />
                                                         </td>
@@ -480,12 +524,12 @@ export default function Recepciones() {
                             {hayDiscrepancias && (
                                 <div className="border border-amber-300 bg-amber-500/5 p-3 rounded-lg space-y-1.5">
                                     <label className="block font-semibold text-amber-800 flex items-center gap-1">
-                                        <AlertTriangle size={14} /> Motivo de discrepancia (Obligatorio por diferencia en recepción):
+                                        <AlertTriangle size={14} /> Motivo de discrepancia general (Obligatorio):
                                     </label>
                                     <textarea
-                                        value={motivoDiscrepancia}
-                                        onChange={(e) => setMotivoDiscrepancia(e.target.value)}
-                                        placeholder="Explique por qué se está recibiendo una cantidad distinta al despacho..."
+                                        value={motivoGeneralDiscrepancia}
+                                        onChange={(e) => setMotivoGeneralDiscrepancia(e.target.value)}
+                                        placeholder="Explique el motivo de la diferencia en la recepción..."
                                         className="w-full rounded-lg border bg-background p-2 text-xs outline-none focus:ring-2 focus:ring-amber-500 h-16"
                                         required
                                     />
@@ -501,7 +545,7 @@ export default function Recepciones() {
                             </button>
                             <button
                                 onClick={confirmarRecepcionFinal}
-                                disabled={procesando || (hayDiscrepancias && !motivoDiscrepancia.trim())}
+                                disabled={procesando || (hayDiscrepancias && !motivoGeneralDiscrepancia.trim())}
                                 className="rounded-lg bg-emerald-600 px-4 py-2 font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
                             >
                                 {procesando ? 'Procesando Ingreso...' : 'Confirmar Ingreso a Inventario'}

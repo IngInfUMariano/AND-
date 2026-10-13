@@ -5,7 +5,6 @@ import { inventarioService } from '@/services/inventario.service'
 
 const safeNumber = (val) => (isNaN(Number(val)) ? 0 : Number(val))
 
-// Función auxiliar para decodificar JWT de forma segura
 const parseJwt = (token) => {
     try {
         const base64Url = token.split('.')[1]
@@ -38,19 +37,15 @@ export default function DespachosPage() {
     const [cantidadesEnviadas, setCantidadesEnviadas] = useState({})
     const [motivoDiscrepancia, setMotivoDiscrepancia] = useState('')
 
-    // 1. Detección exhaustiva de la sesión del usuario
     useEffect(() => {
         try {
             let u = null
-
-            // Intento 1: Leer desde objeto 'usuario' o 'user' en localStorage
             const userStored = localStorage.getItem('usuario') || localStorage.getItem('user') || localStorage.getItem('auth')
             if (userStored) {
                 const parsed = JSON.parse(userStored)
                 u = parsed.data?.usuario || parsed.usuario || parsed.user || parsed
             }
 
-            // Intento 2: Si no hay usuario en objeto, decodificar el token JWT
             if (!u || !u.perfil) {
                 const token = localStorage.getItem('token') || localStorage.getItem('jwt')
                 if (token) {
@@ -59,19 +54,16 @@ export default function DespachosPage() {
                 }
             }
 
-            console.log('Usuario detectado en Despachos:', u)
             setUsuarioActual(u)
-
             const sucUser = u?.sucursal_id || u?.sucursal?.id
             if (sucUser) {
                 setSucursalSeleccionadaId(String(sucUser))
             }
         } catch (err) {
-            console.error('Error al detectar sesión de usuario:', err)
+            console.error('Error al leer sesion de usuario:', err)
         }
     }, [])
 
-    // 2. Cargar lista de sucursales
     useEffect(() => {
         let activo = true
         const cargarSucursales = async () => {
@@ -92,10 +84,8 @@ export default function DespachosPage() {
         return () => { activo = false }
     }, [sucursalSeleccionadaId])
 
-    // Verificar si el usuario es Admin o Gerente
-    const esAdminOGerente = useCallback(() => {
-        if (!usuarioActual) return true // Por seguridad ante carga tardía, permitir la acción si no hay usuario estricto bloqueado
-
+    const esAdminOGerente = () => {
+        if (!usuarioActual) return true
         const rol = String(
             usuarioActual.perfil ||
             usuarioActual.rol ||
@@ -103,9 +93,8 @@ export default function DespachosPage() {
             usuarioActual.tipo ||
             ''
         ).toUpperCase()
-
         return rol.includes('ADMIN') || rol.includes('GERENTE') || usuarioActual.perfil === 'ADMIN'
-    }, [usuarioActual])
+    }
 
     const sucursalAsignadaUsuario = usuarioActual?.sucursal_id || usuarioActual?.sucursal?.id
 
@@ -185,21 +174,16 @@ export default function DespachosPage() {
 
     const validarPermisoDespacho = () => {
         if (!trasladoSel) return false
-
-        // Si es Admin/Gerente, siempre se permite el despacho
-        if (esAdminOGerente()) {
-            return true
-        }
+        if (esAdminOGerente()) return true
 
         const origenId = Number(trasladoSel.sucursal_origen_id || trasladoSel.sucursalOrigen?.id)
-        const usuarioSucId = Number(sucursalAsignadaUsuario)
-
-        // Si la sucursal seleccionada en el combo coincide con el origen del traslado, autorizar
         const sucursalComboId = Number(sucursalSeleccionadaId)
+
         if (origenId === sucursalComboId) {
             return true
         }
 
+        const usuarioSucId = Number(sucursalAsignadaUsuario)
         if (usuarioSucId && origenId !== usuarioSucId) {
             toast.error('Acceso denegado: Solo puedes despachar traslados cuya sucursal de origen sea la tuya asignada.')
             return false
@@ -213,7 +197,7 @@ export default function DespachosPage() {
         if (!validarPermisoDespacho()) return
 
         if (hayDiscrepancias && !motivoDiscrepancia.trim()) {
-            toast.error('Has modificado cantidades. Debes indicar un motivo o justificación obligatoria.')
+            toast.error('Has modificado cantidades. Debes indicar un motivo o justificacion obligatoria.')
             return
         }
 
@@ -242,10 +226,10 @@ export default function DespachosPage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-                        <Truck className="text-primary" /> Despachos y Verificación de Carga
+                        <Truck className="text-primary" /> Despachos y Verificacion de Carga
                     </h1>
                     <p className="text-sm text-muted-foreground mt-0.5">
-                        Control de salida física y conteo de mercadería por sucursal
+                        Control de salida fisica y conteo de mercaderia por sucursal
                     </p>
                 </div>
 
@@ -253,7 +237,7 @@ export default function DespachosPage() {
                     <div className="flex items-center gap-2 bg-card border rounded-lg px-3.5 py-2 shadow-sm">
                         <Building2 size={16} className="text-primary" />
                         <div className="flex flex-col">
-                            <span className="text-[10px] uppercase font-semibold text-muted-foreground">Sucursal de Operación</span>
+                            <span className="text-[10px] uppercase font-semibold text-muted-foreground">Sucursal de Operacion</span>
                             <select
                                 value={sucursalSeleccionadaId}
                                 onChange={(e) => setSucursalSeleccionadaId(e.target.value)}
@@ -320,7 +304,7 @@ export default function DespachosPage() {
                                 <div className="flex items-center justify-between border-b pb-3">
                                     <div>
                                         <h3 className="font-bold text-base text-foreground">
-                                            Revisión de {trasladoSel.numero || `Solicitud #${trasladoSel.id}`}
+                                            Revision de {trasladoSel.numero || `Solicitud #${trasladoSel.id}`}
                                         </h3>
                                         <p className="text-xs text-muted-foreground">
                                             Origen: <strong className="text-foreground">{getOrigen(trasladoSel)}</strong> ➔ Destino: <strong className="text-foreground">{getDestino(trasladoSel)}</strong>
@@ -339,10 +323,10 @@ export default function DespachosPage() {
 
                                 <div>
                                     <h4 className="font-semibold text-xs text-foreground mb-2 flex items-center gap-1.5">
-                                        <Package size={14} /> Ítems solicitados en origen:
+                                        <Package size={14} /> Items solicitados en origen:
                                     </h4>
                                     {cargandoDetalle ? (
-                                        <div className="py-8 text-center text-muted-foreground text-xs">Cargando ítems...</div>
+                                        <div className="py-8 text-center text-muted-foreground text-xs">Cargando items...</div>
                                     ) : (
                                         <div className="border rounded-lg overflow-hidden divide-y text-xs">
                                             <table className="w-full text-left">
@@ -381,7 +365,7 @@ export default function DespachosPage() {
                     <div className="bg-card border rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
                         <div className="flex items-center justify-between border-b px-5 py-4 bg-muted/30">
                             <h2 className="font-bold text-sm text-foreground flex items-center gap-2">
-                                <ShieldCheck size={18} className="text-primary" /> Conteo Físico y Verificación de Carga
+                                <ShieldCheck size={18} className="text-primary" /> Conteo Fisico y Verificacion de Carga
                             </h2>
                             <button onClick={() => setModalVerificacionAbierto(false)} className="text-muted-foreground hover:text-foreground">
                                 <X size={18} />
@@ -391,7 +375,7 @@ export default function DespachosPage() {
                             <div className="bg-amber-500/10 border border-amber-200 text-amber-800 p-3 rounded-lg flex items-start gap-2">
                                 <AlertTriangle size={16} className="shrink-0 mt-0.5 text-amber-600" />
                                 <div>
-                                    <strong>Atención Bodega:</strong> Verifique físicamente cada producto. Si despacha una cantidad distinta a la solicitada, deberá registrar una justificación.
+                                    <strong>Atencion Bodega:</strong> Verifique fisicamente cada producto. Si despacha una cantidad distinta a la solicitada, debera registrar una justificacion.
                                 </div>
                             </div>
 
@@ -408,7 +392,7 @@ export default function DespachosPage() {
                                             <tr>
                                                 <th className="px-3 py-2">Producto / SKU</th>
                                                 <th className="px-3 py-2 text-center">Cant. Solicitada</th>
-                                                <th className="px-3 py-2 text-center">Cant. en Carga (Física)</th>
+                                                <th className="px-3 py-2 text-center">Cant. en Carga (Fisica)</th>
                                                 <th className="px-3 py-2 text-center">Estado / Alerta</th>
                                             </tr>
                                         </thead>
@@ -463,7 +447,7 @@ export default function DespachosPage() {
                                     <textarea
                                         value={motivoDiscrepancia}
                                         onChange={(e) => setMotivoDiscrepancia(e.target.value)}
-                                        placeholder="Explique por qué se está enviando una cantidad distinta..."
+                                        placeholder="Explique por que se esta enviando una cantidad distinta..."
                                         className="w-full rounded-lg border bg-background p-2 text-xs outline-none focus:ring-2 focus:ring-amber-500 h-16"
                                         required
                                     />

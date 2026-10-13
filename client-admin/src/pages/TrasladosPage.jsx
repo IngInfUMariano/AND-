@@ -226,15 +226,23 @@ export default function TrasladosPage() {
     }
 
     const abrirDetalleTraslado = async (traslado) => {
-        setModalDetalle({ abierto: true, traslado, detalles: [], cargandoDetalle: true })
+        const detallesIniciales = traslado.traslado_detalles || traslado.detalles || traslado.items || []
+        setModalDetalle({ abierto: true, traslado, detalles: detallesIniciales, cargandoDetalle: true })
+
         try {
             const res = await inventarioService.listarTrasladoDetalles({ traslado_id: traslado.id })
             let lista = []
             if (Array.isArray(res)) lista = res
             else if (Array.isArray(res?.rows)) lista = res.rows
             else if (Array.isArray(res?.data)) lista = res.data
+            else if (Array.isArray(res?.traslado_detalles)) lista = res.traslado_detalles
+            else if (res?.data?.traslado_detalles) lista = res.data.traslado_detalles
 
-            setModalDetalle((prev) => ({ ...prev, detalles: lista, cargandoDetalle: false }))
+            setModalDetalle((prev) => ({
+                ...prev,
+                detalles: lista.length > 0 ? lista : detallesIniciales,
+                cargandoDetalle: false
+            }))
         } catch (err) {
             console.error('Error al cargar detalles del traslado:', err)
             toast.error('No se pudieron obtener los productos de este traslado')
@@ -256,15 +264,12 @@ export default function TrasladosPage() {
 
         setAnulando(true)
         try {
-            // Llamada directa al endpoint POST /api/traslados/:id/anular
             await inventarioService.anularTraslado(modalAnular.traslado.id, {
                 observaciones: modalAnular.motivo
             })
 
             toast.success('Traslado anulado correctamente')
             setModalAnular({ abierto: false, traslado: null, motivo: '' })
-
-            // Recargar la lista completa desde el servidor para reflejar el estado ANULADO
             await cargarTraslados()
         } catch (err) {
             console.error('Error al anular traslado:', err)
@@ -922,6 +927,10 @@ export default function TrasladosPage() {
                                                     const talla = det.variante?.talla?.codigo || ''
                                                     const color = det.variante?.color?.nombre || ''
                                                     const atributos = [talla, color].filter(Boolean).join(' / ')
+                                                    const despachada = safeNumber(det.cantidad_despachada ?? det.cantidad)
+
+                                                    const recibidaRaw = det.cantidad_recibida ?? det.cantidadRecibida ?? det.cantidad_ingresada ?? det.cant_recibida
+                                                    const recibida = recibidaRaw !== undefined && recibidaRaw !== null ? safeNumber(recibidaRaw) : null
 
                                                     return (
                                                         <tr key={det.id} className="hover:bg-muted/20">
@@ -930,9 +939,15 @@ export default function TrasladosPage() {
                                                                 <div className="font-medium">{prodNombre}</div>
                                                                 {atributos && <div className="text-[10px] text-muted-foreground">{atributos}</div>}
                                                             </td>
-                                                            <td className="px-3 py-2 text-center font-bold text-xs">{det.cantidad_despachada ?? det.cantidad ?? 0} u.</td>
+                                                            <td className="px-3 py-2 text-center font-bold text-xs">{despachada} u.</td>
                                                             <td className="px-3 py-2 text-center font-bold text-xs">
-                                                                {det.cantidad_recibida !== null && det.cantidad_recibida !== undefined ? `${det.cantidad_recibida} u.` : '-'}
+                                                                {recibida !== null ? (
+                                                                    <span className={recibida < despachada ? 'text-amber-600 font-extrabold' : 'text-emerald-600'}>
+                                                                        {recibida} u.
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-muted-foreground font-normal">-</span>
+                                                                )}
                                                             </td>
                                                         </tr>
                                                     )

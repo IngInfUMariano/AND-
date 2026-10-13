@@ -14,6 +14,7 @@ import Recepciones from '@/pages/Recepciones'
 import Referencia from '@/pages/Referencia'
 import Movimiento from '@/pages/MovimientosPage'
 import Traslado from '@/pages/TrasladosPage'
+import MermasPage from '@/pages/MermasPage'
 
 // Componente provisional para módulos pendientes o sin permisos
 function ModuloEnDesarrollo({ titulo }) {
@@ -57,6 +58,7 @@ export default function App() {
               path="traslados"
               element={<Traslado />}
             />
+
             {/* Despachos (Salidas por Traslado) */}
             <Route
               path="despachos"
@@ -93,8 +95,17 @@ export default function App() {
               }
             />
 
+            {/* Módulo de Mermas y Pérdidas */}
+            <Route
+              path="mermas"
+              element={
+                <RoleRoute roles={['ADMIN', 'GERENTE', 'BODEGUERO']}>
+                  <MermasPage />
+                </RoleRoute>
+              }
+            />
+
             {/* Módulos Pendientes de Desarrollo */}
-            <Route path="traslados" element={<ModuloEnDesarrollo titulo="Traslados" />} />
             <Route path="comprobantes" element={<ModuloEnDesarrollo titulo="Comprobantes" />} />
             <Route path="clientes" element={<ModuloEnDesarrollo titulo="Clientes" />} />
             <Route path="empleados" element={<ModuloEnDesarrollo titulo="Empleados" />} />

@@ -73,6 +73,29 @@ export const registrarRecepcionItem = async (id, payload) => {
     return data
 }
 
+export const listarMermas = async (params = {}) => {
+    const { data } = await api.get("/movimientos", {
+        params: { ...params, tipo: "SALIDA_MERMA" }
+    });
+    return data;
+};
+
+export const registrarMerma = async (payload) => {
+    const body = {
+        tipo: "SALIDA_MERMA",
+        cantidad: Number(payload.cantidad),
+        motivo: payload.motivo,
+        variante_id: Number(payload.variante_id),
+        sucursal_id: Number(payload.sucursal_id)
+    };
+    const { data } = await api.post("/movimientos", body);
+    return data;
+};
+
+export const resolverMerma = async (id, payload) => {
+    const { data } = await api.put(`/movimientos/${id}`, payload);
+    return data;
+};
 export const inventarioService = {
     listar,
     listarSucursales,
@@ -86,6 +109,9 @@ export const inventarioService = {
     listarTrasladoDetalles,
     obtenerTrasladoDetallePorId,
     registrarRecepcionItem,
+    listarMermas,
+    registrarMerma,
+    resolverMerma,
 }
 
 export default inventarioService
