@@ -5,7 +5,7 @@ info:
 
 http:
   method: POST
-  url: "{{base_url}}/api/carrito/revalidar"
+  url: "{{base_url}}api/carrito/revalidar"
   auth:
     type: bearer
     token: "{{token_tienda}}"
@@ -13,7 +13,7 @@ http:
 runtime:
   variables:
     - name: token_tienda
-      value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NSwicGVyZmlsIjoiQ0xJRU5URSIsInN1Y3Vyc2FsX2lkIjpudWxsLCJjbGllbnRlX2lkIjoxLCJ0aXBvX2NsaWVudGUiOiJNSU5PUklTVEEiLCJhcHAiOiJ0aWVuZGEiLCJpYXQiOjE3ODk2NjI4NTcsImV4cCI6MTc5MjI1NDg1N30.p4t05_XH6VzkAZkzOymXugtHatl3U4wuy7zjWOp4yR4
+      value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6OSwicGVyZmlsIjoiQ0xJRU5URSIsInN1Y3Vyc2FsX2lkIjpudWxsLCJjbGllbnRlX2lkIjo3LCJ0aXBvX2NsaWVudGUiOiJNSU5PUklTVEEiLCJhcHAiOiJ0aWVuZGEiLCJpYXQiOjE3ODk3NTAzMjYsImV4cCI6MTc5MjM0MjMyNn0.mVD6GWEz16tKpz8fP2Db8UgZQjNbPhnM8B5XSfktC4E
 
 settings:
   encodeUrl: true

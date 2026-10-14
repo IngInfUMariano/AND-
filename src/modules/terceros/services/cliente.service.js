@@ -241,14 +241,30 @@ const listarDirecciones = async (clienteId, query = {}) => {
   });
 };
 
+// ─── _resolverZona ────────────────────────────────────────────────────────────
+// Busca la zona_envio cuya lista de departamentos incluye al dado.
+// Devuelve el id de la zona o null si no hay coincidencia.
+const _resolverZona = async (departamento) => {
+  if (!departamento) return null;
+  const zonas = await db.zona_envio.findAll({ where: { activo: true } });
+  const zona = zonas.find(z => {
+    if (!z.departamentos) return false;
+    return z.departamentos.split(",").map(d => d.trim()).includes(departamento.trim());
+  });
+  return zona ? zona.id : null;
+};
+
 // ─── crearDireccion ───────────────────────────────────────────────────────────
 // Si es_predeterminada=true desmarca la anterior.
+// La zona_envio_id se resuelve automáticamente desde el departamento si no se provee.
 const crearDireccion = async (clienteId, datos) => {
   const cliente = await db.cliente.findByPk(clienteId);
   if (!cliente) throw AppError.noEncontrado("Cliente");
 
   const { alias, destinatario, direccion, referencia, municipio,
           departamento, telefono, zona_envio_id, es_predeterminada } = datos;
+
+  const zonaId = zona_envio_id || await _resolverZona(departamento);
 
   if (es_predeterminada) {
     await db.direccion_cliente.update(
@@ -263,7 +279,7 @@ const crearDireccion = async (clienteId, datos) => {
     referencia:        referencia || null,
     municipio, departamento,
     telefono:          telefono || null,
-    zona_envio_id:     zona_envio_id || null,
+    zona_envio_id:     zonaId,
     es_predeterminada: es_predeterminada || false,
     activo:            true,
   });
@@ -271,6 +287,7 @@ const crearDireccion = async (clienteId, datos) => {
 
 // ─── actualizarDireccion ──────────────────────────────────────────────────────
 // Verifica que la dirección pertenezca al cliente del parámetro.
+// Si cambia el departamento y no se provee zona_envio_id, se re-resuelve automáticamente.
 const actualizarDireccion = async (clienteId, direccionId, datos) => {
   const dir = await db.direccion_cliente.findOne({
     where: { id: direccionId, cliente_id: clienteId },
@@ -290,6 +307,11 @@ const actualizarDireccion = async (clienteId, direccionId, datos) => {
   const campos = {};
   for (const c of editables) {
     if (c in datos) campos[c] = datos[c];
+  }
+
+  // Si cambió el departamento sin especificar zona, re-resolver zona automáticamente
+  if ("departamento" in datos && !("zona_envio_id" in datos)) {
+    campos.zona_envio_id = await _resolverZona(datos.departamento);
   }
 
   return dir.update(campos);

@@ -12,6 +12,8 @@ import Inventario from '@/pages/Inventario'
 import EntradasInventario from '@/pages/EntradasInventario'
 import Despachos from '@/pages/Despachos'
 import Recepciones from '@/pages/Recepciones'
+import Traslado from '@/pages/TrasladosPage'
+import MermasPage from '@/pages/MermasPage'
 import Referencia from '@/pages/Referencia'
 
 // Componente auxiliar para módulos en desarrollo o sin permisos
@@ -111,6 +113,26 @@ export default function AppRoutes() {
                     }
                 />
 
+                {/* Traslados */}
+                <Route
+                    path="/traslados"
+                    element={
+                        <RoleRoute roles={['ADMIN', 'GERENTE', 'BODEGUERO']}>
+                            <Traslado />
+                        </RoleRoute>
+                    }
+                />
+
+                {/* Módulo de Mermas */}
+                <Route
+                    path="/mermas"
+                    element={
+                        <RoleRoute roles={['ADMIN', 'GERENTE', 'BODEGUERO']}>
+                            <MermasPage />
+                        </RoleRoute>
+                    }
+                />
+
                 {/* Módulos en desarrollo del menú */}
                 <Route path="/clientes" element={<ModuloEnDesarrollo titulo="Clientes" />} />
                 <Route path="/empleados" element={<ModuloEnDesarrollo titulo="Empleados" />} />
@@ -118,7 +140,6 @@ export default function AppRoutes() {
                 <Route path="/productos" element={<ModuloEnDesarrollo titulo="Productos" />} />
                 <Route path="/categorias" element={<ModuloEnDesarrollo titulo="Categorías" />} />
                 <Route path="/marcas" element={<ModuloEnDesarrollo titulo="Marcas" />} />
-                <Route path="/traslados" element={<ModuloEnDesarrollo titulo="Traslados" />} />
                 <Route path="/comprobantes" element={<ModuloEnDesarrollo titulo="Comprobantes" />} />
                 <Route path="/pedidos" element={<ModuloEnDesarrollo titulo="Pedidos" />} />
                 <Route path="/transacciones" element={<ModuloEnDesarrollo titulo="Transacciones" />} />

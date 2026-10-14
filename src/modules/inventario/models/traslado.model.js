@@ -9,8 +9,8 @@ module.exports = (sequelize, Sequelize) => {
     },
     estado: {
       // ENUM restringe los valores permitidos a nivel de base de datos
-      type: Sequelize.ENUM("EN_TRANSITO", "RECIBIDO", "ANULADO"),
-      defaultValue: "EN_TRANSITO"
+      type: Sequelize.ENUM("PENDIENTE", "EN_TRANSITO", "RECIBIDO", "ANULADO"),
+      defaultValue: "PENDIENTE"
     },
     fecha_despacho: {
       type: Sequelize.DATE,

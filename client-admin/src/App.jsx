@@ -15,6 +15,9 @@ import Referencia from '@/pages/Referencia'
 import Catalogos from '@/pages/Catalogos'
 import Productos from '@/pages/Productos'
 import Precios from '@/pages/Precios'
+import Movimiento from '@/pages/MovimientosPage'
+import Traslado from '@/pages/TrasladosPage'
+import MermasPage from '@/pages/MermasPage'
 
 // Componente provisional para módulos pendientes o sin permisos
 function ModuloEnDesarrollo({ titulo }) {
@@ -51,10 +54,8 @@ export default function App() {
 
             {/* Existencias y Movimientos */}
             <Route path="existencias" element={<Inventario />} />
-            <Route
-              path="movimientos"
-              element={<ModuloEnDesarrollo titulo="Movimientos / Kardex General" />}
-            />
+            <Route path="movimientos" element={<Movimiento />} />
+            <Route path="traslados" element={<Traslado />} />
 
             {/* Despachos (Salidas por Traslado) */}
             <Route
@@ -98,8 +99,17 @@ export default function App() {
             <Route path="categorias" element={<Catalogos />} />
             <Route path="marcas" element={<Catalogos />} />
 
+            {/* Módulo de Mermas y Pérdidas */}
+            <Route
+              path="mermas"
+              element={
+                <RoleRoute roles={['ADMIN', 'GERENTE', 'BODEGUERO']}>
+                  <MermasPage />
+                </RoleRoute>
+              }
+            />
+
             {/* Módulos Pendientes de Desarrollo */}
-            <Route path="traslados" element={<ModuloEnDesarrollo titulo="Traslados" />} />
             <Route path="comprobantes" element={<ModuloEnDesarrollo titulo="Comprobantes" />} />
             <Route path="clientes" element={<ModuloEnDesarrollo titulo="Clientes" />} />
             <Route path="empleados" element={<ModuloEnDesarrollo titulo="Empleados" />} />

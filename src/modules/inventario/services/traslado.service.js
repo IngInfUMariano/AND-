@@ -7,7 +7,6 @@ const { parsearPaginacion } = require("../../../core/utils/paginacion");
 
 const SORTABLES = ["numero", "fecha_despacho", "fecha_recepcion", "estado", "created_at"];
 
-// Generador auxiliar de número correlativo de traslado (ej. TR-2026-00001)
 const generarNumeroTraslado = async (transaction) => {
     const anioActual = new Date().getFullYear();
     const ultimo = await db.traslado.findOne({
@@ -27,10 +26,8 @@ const generarNumeroTraslado = async (transaction) => {
     return `TR-${anioActual}-${String(secuencia).padStart(5, "0")}`;
 };
 
-//  listar 
 const listar = async (query) => {
     const { limit, offset, order, page } = parsearPaginacion(query, SORTABLES);
-
     const where = {};
 
     if (query.q) where.numero = { [Op.iLike]: `%${query.q}%` };
@@ -42,7 +39,7 @@ const listar = async (query) => {
         where,
         limit,
         offset,
-        order: order.length ? order : [["fecha_despacho", "desc"]],
+        order: order.length ? order : [["createdAt", "desc"]],
         include: [
             { model: db.sucursal, as: "sucursalOrigen", attributes: ["id", "codigo", "nombre"] },
             { model: db.sucursal, as: "sucursalDestino", attributes: ["id", "codigo", "nombre"] },
@@ -54,7 +51,6 @@ const listar = async (query) => {
     return { rows, count, page, limit };
 };
 
-//  obtener 
 const obtener = async (id) => {
     const traslado = await db.traslado.findByPk(id, {
         include: [
@@ -83,8 +79,8 @@ const obtener = async (id) => {
     return traslado;
 };
 
-//  crear (Despachar Traslado) 
-const crear = async (datos, despachado_por) => {
+// Crear solicitud en estado PENDIENTE con fecha de despacho temporal para evitar errores de validación
+const crear = async (datos, solicitado_por) => {
     const { sucursal_origen_id, sucursal_destino_id, observaciones, detalles } = datos;
 
     if (sucursal_origen_id === sucursal_destino_id) {
@@ -103,66 +99,22 @@ const crear = async (datos, despachado_por) => {
         const traslado = await db.traslado.create(
             {
                 numero,
-                estado: "EN_TRANSITO",
-                fecha_despacho: new Date(),
+                estado: "PENDIENTE",
+                fecha_despacho: new Date(), // Asigna fecha temporal para cumplir restricciones de modelo si es allowNull: false
                 observaciones: observaciones || null,
                 sucursal_origen_id,
                 sucursal_destino_id,
-                despachado_por
+                despachado_por: solicitado_por
             },
             { transaction: t }
         );
 
         for (const item of detalles) {
-            const { variante_id, cantidad } = item;
-
-            // 1. Verificar existencia en sucursal de origen
-            const existenciaOrigen = await db.existencia.findOne({
-                where: { variante_id, sucursal_id: sucursal_origen_id },
-                transaction: t,
-                lock: t.LOCK.UPDATE
-            });
-
-            const stockFisico = existenciaOrigen ? existenciaOrigen.cantidad_fisica : 0;
-            if (stockFisico < cantidad) {
-                throw AppError.reglaNegocio(
-                    "Stock insuficiente en sucursal de origen para despachar el traslado",
-                    [`Variante ID: ${variante_id}, Stock disponible: ${stockFisico}, Requerido: ${cantidad}`]
-                );
-            }
-
-            const saldoAnterior = stockFisico;
-            const saldoResultante = saldoAnterior - cantidad;
-
-            // 2. Descuento de stock en Origen
-            await existenciaOrigen.update(
-                { cantidad_fisica: saldoResultante },
-                { transaction: t }
-            );
-
-            // 3. Kardex de Salida por Traslado en Origen
-            await db.movimiento_inventario.create(
-                {
-                    tipo: "SALIDA_TRASLADO",
-                    cantidad,
-                    saldo_anterior: saldoAnterior,
-                    saldo_resultante: saldoResultante,
-                    referencia_tipo: "traslado",
-                    referencia_id: traslado.id,
-                    motivo: `Traslado saliente N° ${numero} hacia sucursal ID ${sucursal_destino_id}`,
-                    variante_id,
-                    sucursal_id: sucursal_origen_id,
-                    usuario_id: despachado_por
-                },
-                { transaction: t }
-            );
-
-            // 4. Detalle del traslado
             await db.traslado_detalle.create(
                 {
                     traslado_id: traslado.id,
-                    variante_id,
-                    cantidad_despachada: cantidad
+                    variante_id: item.variante_id,
+                    cantidad_despachada: item.cantidad
                 },
                 { transaction: t }
             );
@@ -172,7 +124,68 @@ const crear = async (datos, despachado_por) => {
     });
 };
 
-//  recibir 
+// Despachar (Confirmación de bodega: actualiza fecha real, descuenta stock y pasa a EN_TRANSITO)
+const despachar = async (id, usuario_id) => {
+    return db.sequelize.transaction(async (t) => {
+        const traslado = await db.traslado.findByPk(id, {
+            include: [{ model: db.traslado_detalle }],
+            transaction: t
+        });
+
+        if (!traslado) throw new AppError("Traslado no encontrado", 404);
+        if (traslado.estado !== "PENDIENTE") {
+            throw AppError.reglaNegocio(`El traslado ya se encuentra en estado ${traslado.estado}`);
+        }
+
+        for (const detalle of traslado.traslado_detalles) {
+            const existenciaOrigen = await db.existencia.findOne({
+                where: { variante_id: detalle.variante_id, sucursal_id: traslado.sucursal_origen_id },
+                transaction: t,
+                lock: t.LOCK.UPDATE
+            });
+
+            const stockFisico = existenciaOrigen ? existenciaOrigen.cantidad_fisica : 0;
+            if (stockFisico < detalle.cantidad_despachada) {
+                throw AppError.reglaNegocio(
+                    `Stock insuficiente en sucursal de origen para la variante ID ${detalle.variante_id}. Disponible: ${stockFisico}, Requerido: ${detalle.cantidad_despachada}`
+                );
+            }
+
+            const saldoAnterior = stockFisico;
+            const saldoResultante = saldoAnterior - detalle.cantidad_despachada;
+
+            await existenciaOrigen.update({ cantidad_fisica: saldoResultante }, { transaction: t });
+
+            await db.movimiento_inventario.create(
+                {
+                    tipo: "SALIDA_TRASLADO",
+                    cantidad: detalle.cantidad_despachada,
+                    saldo_anterior: saldoAnterior,
+                    saldo_resultante: saldoResultante,
+                    referencia_tipo: "traslado",
+                    referencia_id: traslado.id,
+                    motivo: `Despacho de traslado N° ${traslado.numero} hacia sucursal ID ${traslado.sucursal_destino_id}`,
+                    variante_id: detalle.variante_id,
+                    sucursal_id: traslado.sucursal_origen_id,
+                    usuario_id
+                },
+                { transaction: t }
+            );
+        }
+
+        await traslado.update(
+            {
+                estado: "EN_TRANSITO",
+                fecha_despacho: new Date(), // Fecha definitiva de salida física
+                despachado_por: usuario_id
+            },
+            { transaction: t }
+        );
+
+        return traslado;
+    });
+};
+
 const recibir = async (id, recibido_por, observaciones) => {
     return db.sequelize.transaction(async (t) => {
         const traslado = await db.traslado.findByPk(id, {
@@ -185,7 +198,6 @@ const recibir = async (id, recibido_por, observaciones) => {
             throw AppError.reglaNegocio(`No se puede recibir un traslado en estado ${traslado.estado}`);
         }
 
-        // 1. Actualizar estado del traslado
         await traslado.update(
             {
                 estado: "RECIBIDO",
@@ -196,7 +208,6 @@ const recibir = async (id, recibido_por, observaciones) => {
             { transaction: t }
         );
 
-        // 2. Incrementar stock en sucursal destino
         for (const detalle of traslado.traslado_detalles) {
             let existenciaDestino = await db.existencia.findOne({
                 where: { variante_id: detalle.variante_id, sucursal_id: traslado.sucursal_destino_id },
@@ -220,12 +231,8 @@ const recibir = async (id, recibido_por, observaciones) => {
             const saldoAnterior = existenciaDestino.cantidad_fisica;
             const saldoResultante = saldoAnterior + detalle.cantidad_despachada;
 
-            await existenciaDestino.update(
-                { cantidad_fisica: saldoResultante },
-                { transaction: t }
-            );
+            await existenciaDestino.update({ cantidad_fisica: saldoResultante }, { transaction: t });
 
-            // Kardex de Entrada por Traslado en Destino
             await db.movimiento_inventario.create(
                 {
                     tipo: "ENTRADA_TRASLADO",
@@ -247,7 +254,6 @@ const recibir = async (id, recibido_por, observaciones) => {
     });
 };
 
-//  anular 
 const anular = async (id, usuario_id, observaciones) => {
     return db.sequelize.transaction(async (t) => {
         const traslado = await db.traslado.findByPk(id, {
@@ -256,11 +262,12 @@ const anular = async (id, usuario_id, observaciones) => {
         });
 
         if (!traslado) throw new AppError("Traslado no encontrado", 404);
-        if (traslado.estado !== "EN_TRANSITO") {
+        if (traslado.estado !== "EN_TRANSITO" && traslado.estado !== "PENDIENTE") {
             throw AppError.reglaNegocio(`No se puede anular un traslado en estado ${traslado.estado}`);
         }
 
-        // 1. Cambiar estado a ANULADO
+        const estabaEnTransito = traslado.estado === "EN_TRANSITO";
+
         await traslado.update(
             {
                 estado: "ANULADO",
@@ -269,42 +276,39 @@ const anular = async (id, usuario_id, observaciones) => {
             { transaction: t }
         );
 
-        // 2. Reversar salidas restableciendo stock en origen
-        for (const detalle of traslado.traslado_detalles) {
-            const existenciaOrigen = await db.existencia.findOne({
-                where: { variante_id: detalle.variante_id, sucursal_id: traslado.sucursal_origen_id },
-                transaction: t,
-                lock: t.LOCK.UPDATE
-            });
+        if (estabaEnTransito) {
+            for (const detalle of traslado.traslado_detalles) {
+                const existenciaOrigen = await db.existencia.findOne({
+                    where: { variante_id: detalle.variante_id, sucursal_id: traslado.sucursal_origen_id },
+                    transaction: t,
+                    lock: t.LOCK.UPDATE
+                });
 
-            const saldoAnterior = existenciaOrigen ? existenciaOrigen.cantidad_fisica : 0;
-            const saldoResultante = saldoAnterior + detalle.cantidad_despachada;
+                const saldoAnterior = existenciaOrigen ? existenciaOrigen.cantidad_fisica : 0;
+                const saldoResultante = saldoAnterior + detalle.cantidad_despachada;
 
-            await existenciaOrigen.update(
-                { cantidad_fisica: saldoResultante },
-                { transaction: t }
-            );
+                await existenciaOrigen.update({ cantidad_fisica: saldoResultante }, { transaction: t });
 
-            // Kardex de Reversión en Origen
-            await db.movimiento_inventario.create(
-                {
-                    tipo: "ENTRADA_TRASLADO",
-                    cantidad: detalle.cantidad_despachada,
-                    saldo_anterior: saldoAnterior,
-                    saldo_resultante: saldoResultante,
-                    referencia_tipo: "traslado",
-                    referencia_id: traslado.id,
-                    motivo: `Reversión por anulación de traslado N° ${traslado.numero}`,
-                    variante_id: detalle.variante_id,
-                    sucursal_id: traslado.sucursal_origen_id,
-                    usuario_id
-                },
-                { transaction: t }
-            );
+                await db.movimiento_inventario.create(
+                    {
+                        tipo: "ENTRADA_TRASLADO",
+                        cantidad: detalle.cantidad_despachada,
+                        saldo_anterior: saldoAnterior,
+                        saldo_resultante: saldoResultante,
+                        referencia_tipo: "traslado",
+                        referencia_id: traslado.id,
+                        motivo: `Reversión por anulación de traslado N° ${traslado.numero}`,
+                        variante_id: detalle.variante_id,
+                        sucursal_id: traslado.sucursal_origen_id,
+                        usuario_id
+                    },
+                    { transaction: t }
+                );
+            }
         }
 
         return traslado;
     });
 };
 
-module.exports = { listar, obtener, crear, recibir, anular };
+module.exports = { listar, obtener, crear, despachar, recibir, anular };

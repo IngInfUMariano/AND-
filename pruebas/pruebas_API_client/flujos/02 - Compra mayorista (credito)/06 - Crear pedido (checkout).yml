@@ -1,12 +1,7 @@
 info:
-  name: "06 - Crear pedido (checkout)"
+  name: 06 - Crear pedido (checkout)
   type: http
   seq: 6
-
-# PASO 6
-# Hacer el checkout con forma_pago CREDITO.
-# El servidor crea el pedido en estado PENDIENTE_PAGO.
-# Guardar el "id" del pedido de la respuesta para los pasos 7 y 8.
 
 http:
   method: POST
@@ -28,8 +23,14 @@ http:
     type: bearer
     token: "{{token_mayorista}}"
 
+runtime:
+  variables:
+    - name: token_mayorista
+      value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NiwicGVyZmlsIjoiQ0xJRU5URSIsInN1Y3Vyc2FsX2lkIjpudWxsLCJjbGllbnRlX2lkIjoyLCJ0aXBvX2NsaWVudGUiOiJNQVlPUklTVEEiLCJhcHAiOiJ0aWVuZGEiLCJpYXQiOjE3ODk3NDg1MjgsImV4cCI6MTc5MjM0MDUyOH0.EaLGAGWye4Li3Yd0JxCMjFFJkeH7oCjRko66YKWy5S8
+
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+  forwardAuthorizationHeader: true

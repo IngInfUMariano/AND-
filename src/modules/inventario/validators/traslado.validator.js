@@ -2,7 +2,6 @@
 
 const { body, param } = require("express-validator");
 
-//  crearValidator 
 const crearValidator = [
     body("sucursal_origen_id")
         .notEmpty()
@@ -45,11 +44,17 @@ const crearValidator = [
         .notEmpty()
         .withMessage("Cada ítem debe incluir una cantidad")
         .isInt({ min: 1 })
-        .withMessage("La cantidad trasladada debe ser un entero positivo mayor o igual a 1")
+        .withMessage("La cantidad trasladada debe ser mayor o igual a 1")
         .toInt()
 ];
 
-//  recibirValidator 
+const despacharValidator = [
+    param("id")
+        .isInt({ min: 1 })
+        .withMessage("El id del traslado debe ser un entero positivo")
+        .toInt()
+];
+
 const recibirValidator = [
     param("id")
         .isInt({ min: 1 })
@@ -63,7 +68,6 @@ const recibirValidator = [
         .withMessage("Las observaciones no pueden superar 250 caracteres")
 ];
 
-//  anularValidator 
 const anularValidator = [
     param("id")
         .isInt({ min: 1 })
@@ -77,4 +81,4 @@ const anularValidator = [
         .withMessage("Las observaciones de anulación no pueden superar 250 caracteres")
 ];
 
-module.exports = { crearValidator, recibirValidator, anularValidator };
+module.exports = { crearValidator, despacharValidator, recibirValidator, anularValidator };

@@ -139,7 +139,8 @@ const obtener = async (id, usuario) => {
         model: db.pedido_detalle,
         include: [{ model: db.variante }]
       },
-      { model: db.pedido_historial }
+      { model: db.pedido_historial },
+      { model: db.sucursal, attributes: ["id", "nombre", "codigo"] }
     ]
   });
 
