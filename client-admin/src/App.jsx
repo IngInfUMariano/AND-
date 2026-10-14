@@ -15,6 +15,7 @@ import Referencia from '@/pages/Referencia'
 import Movimiento from '@/pages/MovimientosPage'
 import Traslado from '@/pages/TrasladosPage'
 import MermasPage from '@/pages/MermasPage'
+import Pedidos from '@/pages/PedidosInternos'
 
 // Componente provisional para módulos pendientes o sin permisos
 function ModuloEnDesarrollo({ titulo }) {
@@ -105,6 +106,16 @@ export default function App() {
               }
             />
 
+            {/* Módulo de Pedidos Internos */}
+            <Route
+              path="pedidos"
+              element={
+                <RoleRoute roles={['ADMIN', 'GERENTE', 'VENDEDOR', 'BODEGUERO']}>
+                  <Pedidos />
+                </RoleRoute>
+              }
+            />
+
             {/* Módulos Pendientes de Desarrollo */}
             <Route path="comprobantes" element={<ModuloEnDesarrollo titulo="Comprobantes" />} />
             <Route path="clientes" element={<ModuloEnDesarrollo titulo="Clientes" />} />
@@ -113,7 +124,7 @@ export default function App() {
             <Route path="productos" element={<ModuloEnDesarrollo titulo="Productos" />} />
             <Route path="categorias" element={<ModuloEnDesarrollo titulo="Categorías" />} />
             <Route path="marcas" element={<ModuloEnDesarrollo titulo="Marcas" />} />
-            <Route path="pedidos" element={<ModuloEnDesarrollo titulo="Pedidos" />} />
+            
             <Route path="transacciones" element={<ModuloEnDesarrollo titulo="Transacciones" />} />
             <Route path="reportes" element={<ModuloEnDesarrollo titulo="Reportes" />} />
 

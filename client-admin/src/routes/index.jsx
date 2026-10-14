@@ -15,6 +15,7 @@ import Recepciones from '@/pages/Recepciones'
 import Traslado from '@/pages/TrasladosPage'
 import MermasPage from '@/pages/MermasPage'
 import Referencia from '@/pages/Referencia'
+import Pedidos from '@/pages/PedidosInternos'
 
 // Componente auxiliar para módulos en desarrollo o sin permisos
 function ModuloEnDesarrollo({ titulo }) {
@@ -132,7 +133,16 @@ export default function AppRoutes() {
                         </RoleRoute>
                     }
                 />
-
+                
+                {/* Módulo de Pedidos Internos */}
+                <Route
+                    path="/pedidos"
+                    element={
+                        <RoleRoute roles={['ADMIN', 'GERENTE', 'VENDEDOR', 'BODEGUERO']}>
+                            <Pedidos />
+                        </RoleRoute>
+                    }
+                />
                 {/* Módulos en desarrollo del menú */}
                 <Route path="/clientes" element={<ModuloEnDesarrollo titulo="Clientes" />} />
                 <Route path="/empleados" element={<ModuloEnDesarrollo titulo="Empleados" />} />
@@ -141,7 +151,7 @@ export default function AppRoutes() {
                 <Route path="/categorias" element={<ModuloEnDesarrollo titulo="Categorías" />} />
                 <Route path="/marcas" element={<ModuloEnDesarrollo titulo="Marcas" />} />
                 <Route path="/comprobantes" element={<ModuloEnDesarrollo titulo="Comprobantes" />} />
-                <Route path="/pedidos" element={<ModuloEnDesarrollo titulo="Pedidos" />} />
+                
                 <Route path="/transacciones" element={<ModuloEnDesarrollo titulo="Transacciones" />} />
                 <Route path="/reportes" element={<ModuloEnDesarrollo titulo="Reportes" />} />
                 <Route path="/referencia" element={<Referencia />} />
