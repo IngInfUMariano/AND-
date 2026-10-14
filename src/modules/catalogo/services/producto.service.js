@@ -40,7 +40,8 @@ const listar = async (query) => {
         include: [
             { model: db.categoria, attributes: ["id", "nombre"] },
             { model: db.marca, attributes: ["id", "nombre"] },
-            { model: db.temporada, attributes: ["id", "nombre"] }
+            { model: db.temporada, attributes: ["id", "nombre"] },
+            { model: db.imagen_producto, attributes: ["id", "url", "es_principal"], separate: true, order: [["orden", "ASC"]] }
         ]
     });
     return { rows, count, page, limit };

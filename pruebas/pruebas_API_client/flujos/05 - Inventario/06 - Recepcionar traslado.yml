@@ -3,10 +3,6 @@ info:
   type: http
   seq: 6
 
-# La sucursal destino confirma que recibió la mercadería.
-# El stock se acredita en la sucursal destino y el traslado cierra como RECIBIDO.
-# Reemplazar traslado_id con el id devuelto en el paso 05.
-
 http:
   method: POST
   url: "{{base_url}}api/traslados/{{traslado_id}}/recibir"
@@ -26,10 +22,13 @@ http:
 runtime:
   variables:
     - name: traslado_id
-      value: "1"
+      value: "3"
+    - name: token_admin
+      value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwicGVyZmlsIjoiQURNSU4iLCJzdWN1cnNhbF9pZCI6MSwiY2xpZW50ZV9pZCI6bnVsbCwidGlwb19jbGllbnRlIjpudWxsLCJhcHAiOiJpbnRlcm5vIiwiaWF0IjoxNzg5NzQ4ODA1LCJleHAiOjE3ODk3Nzc2MDV9.10thKnBfo8_WYVwAEsfJ6ioNfjjaE-_LB3myX38eCH4
 
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+  forwardAuthorizationHeader: true
