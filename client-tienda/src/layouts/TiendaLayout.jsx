@@ -1,12 +1,15 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom'
+import { ShoppingCart } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
+import { useCart } from '@/context/CartContext'
 
 export default function TiendaLayout() {
-  const { usuario, logout } = useAuth()
+  const { usuario, cerrarSesion } = useAuth()
+  const { totalItems } = useCart()
   const navigate = useNavigate()
 
   const handleLogout = () => {
-    logout()
+    cerrarSesion()
     navigate('/login', { replace: true })
   }
 
@@ -20,8 +23,20 @@ export default function TiendaLayout() {
 
           <nav className="flex items-center gap-4 text-sm">
             <Link to="/productos" className="hover:underline">Tienda</Link>
-            <Link to="/mis-pedidos" className="hover:underline">Mis pedidos</Link>
-            <Link to="/carrito" className="hover:underline">Carrito</Link>
+            {usuario && (
+              <Link to="/pedidos" className="hover:underline">Mis pedidos</Link>
+            )}
+            {usuario && (
+              <Link to="/cuenta" className="hover:underline">Mi cuenta</Link>
+            )}
+            <Link to="/carrito" className="relative hover:underline">
+              <ShoppingCart size={18} />
+              {totalItems > 0 && (
+                <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                  {totalItems > 9 ? '9+' : totalItems}
+                </span>
+              )}
+            </Link>
             {usuario
               ? <button onClick={handleLogout} className="hover:underline">Salir</button>
               : <Link to="/login" className="hover:underline">Ingresar</Link>

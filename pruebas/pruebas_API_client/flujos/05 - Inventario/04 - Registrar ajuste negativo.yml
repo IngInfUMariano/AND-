@@ -3,12 +3,9 @@ info:
   type: http
   seq: 4
 
-# Registra una reducción de stock por causa no comercial: merma, robo, daño, etc.
-# Se diferencia de una venta porque no genera movimiento financiero.
-
 http:
   method: POST
-  url: "{{base_url}}api/movimientos"
+  url: "{{base_url}}/api/movimientos"
   headers:
     - name: Content-Type
       value: application/json
@@ -16,18 +13,24 @@ http:
     type: json
     data: |-
       {
-        "tipo": "AJUSTE_NEGATIVO",
+        "tipo": "SALIDA_MERMA",
+        "cantidad": 1,
+        "motivo": "Empaque dañado durante traslado interno",
         "variante_id": 1,
-        "sucursal_id": 1,
-        "cantidad": 3,
-        "observaciones": "Merma por producto dañado en bodega"
+        "sucursal_id": 1
       }
   auth:
     type: bearer
     token: "{{token_admin}}"
+
+runtime:
+  variables:
+    - name: token_admin
+      value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwicGVyZmlsIjoiQURNSU4iLCJzdWN1cnNhbF9pZCI6MSwiY2xpZW50ZV9pZCI6bnVsbCwidGlwb19jbGllbnRlIjpudWxsLCJhcHAiOiJpbnRlcm5vIiwiaWF0IjoxNzg5NzQ4ODA1LCJleHAiOjE3ODk3Nzc2MDV9.10thKnBfo8_WYVwAEsfJ6ioNfjjaE-_LB3myX38eCH4
 
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+  forwardAuthorizationHeader: true

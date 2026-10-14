@@ -8,6 +8,7 @@ http:
   url: "{{base_url}}api/pedidos"
   auth:
     type: bearer
+    token: ""
 
 settings:
   encodeUrl: true

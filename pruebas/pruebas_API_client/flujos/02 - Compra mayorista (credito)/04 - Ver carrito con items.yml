@@ -1,21 +1,23 @@
 info:
-  name: "04 - Ver carrito con items"
+  name: 04 - Ver carrito con items
   type: http
   seq: 4
 
-# PASO 4
-# Confirmar los items y el total del carrito antes de hacer checkout.
-# El total debe ser menor o igual al crédito disponible del paso 2.
-
 http:
   method: GET
-  url: "{{base_url}}api/carrito"
+  url: "{{base_url}}/api/carrito"
   auth:
     type: bearer
     token: "{{token_mayorista}}"
+
+runtime:
+  variables:
+    - name: token_mayorista
+      value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NiwicGVyZmlsIjoiQ0xJRU5URSIsInN1Y3Vyc2FsX2lkIjpudWxsLCJjbGllbnRlX2lkIjoyLCJ0aXBvX2NsaWVudGUiOiJNQVlPUklTVEEiLCJhcHAiOiJ0aWVuZGEiLCJpYXQiOjE3ODk3NDg1MjgsImV4cCI6MTc5MjM0MDUyOH0.EaLGAGWye4Li3Yd0JxCMjFFJkeH7oCjRko66YKWy5S8
 
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+  forwardAuthorizationHeader: true

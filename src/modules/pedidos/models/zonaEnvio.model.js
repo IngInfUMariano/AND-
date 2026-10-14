@@ -18,6 +18,12 @@ module.exports = (sequelize, Sequelize) => {
       type: Sequelize.SMALLINT,
       allowNull: true
     },
+    departamentos: {
+      // Departamentos de Guatemala cubiertos por esta zona, separados por coma.
+      // Ej: "Guatemala,Sacatepéquez" — se usa para auto-asignar zona desde la dirección del cliente.
+      type: Sequelize.TEXT,
+      allowNull: true
+    },
     activo: {
       // Las bajas son lógicas: no se elimina el registro, se desactiva
       type: Sequelize.BOOLEAN,
