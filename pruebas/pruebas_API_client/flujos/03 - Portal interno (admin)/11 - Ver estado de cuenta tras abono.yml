@@ -1,0 +1,21 @@
+info:
+  name: 11 - Ver estado de cuenta tras abono
+  type: http
+  seq: 11
+
+# Verifica que el crédito utilizado bajó después del abono.
+# La respuesta muestra el nuevo saldo disponible y el movimiento tipo ABONO en el historial.
+
+http:
+  method: GET
+  url: "{{base_url}}api/clientes/2/estado-cuenta"
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

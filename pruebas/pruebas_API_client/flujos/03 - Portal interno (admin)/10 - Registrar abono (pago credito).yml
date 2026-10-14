@@ -1,0 +1,32 @@
+info:
+  name: 10 - Registrar abono (pago credito)
+  type: http
+  seq: 10
+
+# El cliente mayorista pagó fuera del sistema (transferencia bancaria).
+# El admin registra el abono para reducir el crédito utilizado.
+# Solo ADMIN puede hacer esto.
+
+http:
+  method: POST
+  url: "{{base_url}}api/clientes/2/abonos"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "monto": 500.00,
+        "referencia": "Transferencia 00123"
+      }
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
