@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
-  DollarSign,
+  Tag,
   Plus,
   Search,
   RefreshCw,
@@ -68,35 +68,35 @@ export default function Precios() {
         : []
       setProductos(listaProds)
     } catch (e) {
-      toast.error('Error al cargar la lista de productos')
+      console.error('Error al cargar lista de productos:', e)
     }
   }
 
+  // Consulta 'todos' los registros para conservar métricas globales estables
   const cargarPrecios = async () => {
     setLoading(true)
     try {
-      const res = await precioService.listarPrecios({ vigente: filtroVigencia })
-      const lista = Array.isArray(res)
-        ? res
-        : Array.isArray(res?.datos)
-        ? res.datos
-        : Array.isArray(res?.data)
-        ? res.data
-        : Array.isArray(res?.rows)
-        ? res.rows
-        : []
+      const res = await precioService.listarPrecios({ vigente: 'todos' })
+      let lista = []
+      if (Array.isArray(res)) {
+        lista = res
+      } else if (Array.isArray(res?.datos)) {
+        lista = res.datos
+      } else if (Array.isArray(res?.data)) {
+        lista = res.data
+      } else if (Array.isArray(res?.rows)) {
+        lista = res.rows
+      } else if (Array.isArray(res?.data?.data)) {
+        lista = res.data.data
+      }
       setPrecios(lista)
     } catch (error) {
-      toast.error('Error al cargar la lista de precios')
+      console.error('Error al cargar precios:', error)
       setPrecios([])
     } finally {
       setLoading(false)
     }
   }
-
-  useEffect(() => {
-    cargarPrecios()
-  }, [filtroVigencia])
 
   // Carga variantes al seleccionar un producto en el modal
   useEffect(() => {
@@ -127,31 +127,82 @@ export default function Precios() {
     cargarVars()
   }, [productoSeleccionadoId])
 
-  // Métricas
+  // Formateador inteligente de nombres de prenda
+  const obtenerNombrePrenda = (p) => {
+    if (p.variante?.producto?.nombre) return p.variante.producto.nombre
+    if (p.productoNombre) return p.productoNombre
+    if (p.producto_nombre) return p.producto_nombre
+
+    const sku = p.variante?.sku || p.sku || ''
+    if (sku) {
+      const partes = sku.split('-')
+      if (partes.length >= 3) {
+        const prefijo = partes[0].toUpperCase()
+        const talla = partes[1].toUpperCase()
+        const color = partes[2].toUpperCase()
+
+        const diccionario = {
+          CAM: 'Camisa',
+          PAN: 'Pantalón',
+          PLAY: 'Playera',
+          BLU: 'Blusa',
+          SUD: 'Sudadera',
+          CHAQ: 'Chaqueta'
+        }
+
+        const tipoPrenda = diccionario[prefijo] || prefijo
+        return `${tipoPrenda} (Talla ${talla} - ${color})`
+      }
+      return sku
+    }
+
+    return `Prenda #${p.variante_id || p.id}`
+  }
+
+  // Evaluación unificada de vigencia
+  const esPrecioVigente = (p) => {
+    if (p.esVigente !== undefined) return p.esVigente === true || p.esVigente === 'true'
+    if (p.estado !== undefined) return p.estado === 'Activo'
+    return p.vigente_hasta === null || p.vigente_hasta === undefined
+  }
+
+  // Métricas globales fijas
   const totalVigentes = useMemo(
-    () => precios.filter((p) => p.vigente_hasta === null).length,
+    () => precios.filter((p) => esPrecioVigente(p)).length,
     [precios]
   )
   const totalCaducados = useMemo(
-    () => precios.filter((p) => p.vigente_hasta !== null).length,
+    () => precios.filter((p) => !esPrecioVigente(p)).length,
     [precios]
   )
 
-  // Filtrado
+  // Filtrado reactivo en cliente (Búsqueda + Tipo + Pestaña de Vigencia)
   const preciosFiltrados = useMemo(() => {
     return precios.filter((p) => {
-      const skuVariante = p.variante?.sku || ''
-      const emailUsuario = p.registrador?.email || ''
-      const cumpleBusqueda =
-        skuVariante.toLowerCase().includes(busqueda.toLowerCase()) ||
-        emailUsuario.toLowerCase().includes(busqueda.toLowerCase()) ||
-        String(p.monto).includes(busqueda)
+      const esVig = esPrecioVigente(p)
 
+      // Filtro Pestañas (Vigentes / Caducados / Todos)
+      if (filtroVigencia === 'true' && !esVig) return false
+      if (filtroVigencia === 'false' && esVig) return false
+
+      // Búsqueda
+      const nombrePrenda = obtenerNombrePrenda(p)
+      const skuVariante = p.variante?.sku || p.sku || ''
+      const emailUsuario = p.registrador?.email || p.usuario || ''
+      const termino = busqueda.toLowerCase()
+
+      const cumpleBusqueda =
+        nombrePrenda.toLowerCase().includes(termino) ||
+        skuVariante.toLowerCase().includes(termino) ||
+        emailUsuario.toLowerCase().includes(termino) ||
+        String(p.monto).includes(termino)
+
+      // Tipo
       const cumpleTipo = !filtroTipo || p.tipo === filtroTipo
 
       return cumpleBusqueda && cumpleTipo
     })
-  }, [precios, busqueda, filtroTipo])
+  }, [precios, busqueda, filtroTipo, filtroVigencia])
 
   // Paginación
   const totalPaginas = Math.ceil(preciosFiltrados.length / itemsPorPagina) || 1
@@ -219,7 +270,7 @@ export default function Precios() {
             Tarifario & Gestión de Precios
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Administra precios de venta, costos y promociones con historial de vigencia.
+            Administra precios de venta, costos y promociones en Quetzales (Q) con historial de vigencia.
           </p>
         </div>
         <button
@@ -231,11 +282,11 @@ export default function Precios() {
         </button>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs con ícono Tag para Registros Totales */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="rounded-xl bg-slate-100 p-3 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-            <DollarSign className="h-6 w-6" />
+            <Tag className="h-6 w-6" />
           </div>
           <div>
             <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
@@ -279,7 +330,7 @@ export default function Precios() {
             <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Buscar por SKU, registrado por o monto..."
+              placeholder="Buscar por prenda, SKU, registrado por o monto..."
               value={busqueda}
               onChange={(e) => {
                 setBusqueda(e.target.value)
@@ -314,8 +365,11 @@ export default function Precios() {
               ].map((v) => (
                 <button
                   key={v.key}
-                  onClick={() => setFiltroVigencia(v.key)}
-                  className={`rounded-lg px-3 py-1 text-xs font-semibold ${
+                  onClick={() => {
+                    setFiltroVigencia(v.key)
+                    setPaginaActual(1)
+                  }}
+                  className={`rounded-lg px-3 py-1 text-xs font-semibold transition-colors ${
                     filtroVigencia === v.key
                       ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white'
                       : 'text-slate-500'
@@ -340,11 +394,10 @@ export default function Precios() {
           <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
             <thead className="bg-slate-50/70 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:bg-slate-800/50">
               <tr>
-                <th className="px-6 py-3.5">SKU Variante</th>
+                <th className="px-6 py-3.5">Prenda / Producto</th>
                 <th className="px-6 py-3.5">Tipo</th>
                 <th className="px-6 py-3.5">Monto</th>
-                <th className="px-6 py-3.5">Vigente Desde</th>
-                <th className="px-6 py-3.5">Vigente Hasta</th>
+                <th className="px-6 py-3.5">Estado</th>
                 <th className="px-6 py-3.5">Registrado Por</th>
                 <th className="px-6 py-3.5 text-right">Acción</th>
               </tr>
@@ -352,29 +405,35 @@ export default function Precios() {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                  <td colSpan={6} className="py-12 text-center text-slate-400">
                     Cargando tarifario...
                   </td>
                 </tr>
               ) : preciosPaginados.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                  <td colSpan={6} className="py-12 text-center text-slate-400">
                     No se encontraron precios registrados.
                   </td>
                 </tr>
               ) : (
                 preciosPaginados.map((p) => {
-                  const esVigente = p.vigente_hasta === null
+                  const esVig = esPrecioVigente(p)
                   const tipoObj = TIPOS_PRECIO.find((t) => t.id === p.tipo)
+
+                  const nombreFormateado = obtenerNombrePrenda(p)
+                  const skuCodigo = p.variante?.sku || p.sku || ''
 
                   return (
                     <tr
                       key={p.id}
                       className="transition-colors hover:bg-slate-50/60 dark:hover:bg-slate-800/40"
                     >
-                      <td className="px-6 py-4 font-mono text-xs font-semibold text-slate-900 dark:text-white">
-                        {p.variante?.sku || `Var #${p.variante_id}`}
+                      {/* Prenda / Producto limpia */}
+                      <td className="px-6 py-4 font-semibold text-slate-900 dark:text-white">
+                        {obtenerNombrePrenda(p)}
                       </td>
+
+                      {/* Tipo */}
                       <td className="px-6 py-4">
                         <span
                           className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
@@ -384,24 +443,35 @@ export default function Precios() {
                           {tipoObj?.label || p.tipo}
                         </span>
                       </td>
+
+                      {/* Monto */}
                       <td className="px-6 py-4 font-mono font-bold text-slate-900 dark:text-white">
                         Q.{Number(p.monto).toFixed(2)}
                       </td>
-                      <td className="px-6 py-4 font-mono text-xs">{p.vigente_desde}</td>
-                      <td className="px-6 py-4 font-mono text-xs">
-                        {esVigente ? (
-                          <span className="text-emerald-600 font-semibold dark:text-emerald-400">
+
+                      {/* Estado */}
+                      <td className="px-6 py-4 text-xs font-medium">
+                        {esVig ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-950/40 dark:text-emerald-400">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 dark:bg-emerald-400"></span>
                             Activo
                           </span>
                         ) : (
-                          <span className="text-slate-400">{p.vigente_hasta}</span>
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 ring-1 ring-inset ring-slate-500/10 dark:bg-slate-800 dark:text-slate-400">
+                            <span className="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
+                            Caducado
+                          </span>
                         )}
                       </td>
+
+                      {/* Registrado Por */}
                       <td className="px-6 py-4 text-xs text-slate-500">
-                        {p.registrador?.email || `#${p.registrado_por}`}
+                        {p.registrador?.email || p.usuario || `#${p.registrado_por || 'admin'}`}
                       </td>
+
+                      {/* Acción */}
                       <td className="px-6 py-4 text-right">
-                        {esVigente && (
+                        {esVig && (
                           <button
                             onClick={() => setPrecioACaducar(p)}
                             title="Caducar Precio Actual"
@@ -533,7 +603,7 @@ export default function Precios() {
         </div>
       )}
 
-      {/* Modal / Pop-up Flotante de Confirmación para Caducar */}
+      {/* Pop-up Flotante de Confirmación para Caducar */}
       {precioACaducar && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
           <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
@@ -546,7 +616,7 @@ export default function Precios() {
                   ¿Caducar Precio?
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  SKU: <span className="font-mono font-bold text-slate-700 dark:text-slate-200">{precioACaducar.variante?.sku}</span>
+                  Prenda: <span className="font-semibold text-slate-700 dark:text-slate-200">{obtenerNombrePrenda(precioACaducar)}</span>
                 </p>
               </div>
             </div>
@@ -555,7 +625,7 @@ export default function Precios() {
               ¿Deseas dar por caducado el precio de tipo{' '}
               <span className="font-semibold">{precioACaducar.tipo}</span> por un monto de{' '}
               <span className="font-bold text-slate-900 dark:text-white">Q.{Number(precioACaducar.monto).toFixed(2)}</span>?
-              Esta acción marcará su fecha de fin como hoy.
+              Esta acción marcará su fecha de fin como inactiva.
             </p>
 
             <div className="mt-6 flex items-center justify-end gap-2">
