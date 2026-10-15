@@ -11,10 +11,13 @@ import {
   X,
   Grid,
   Zap,
+  Image as ImageIcon,
+  ZoomIn,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import productoService from '@/services/producto.service'
 import catalogoService from '@/services/catalogo.service'
+import ImageUploader from '@/components/ImageUploader'
 
 export default function Productos() {
   const [productos, setProductos] = useState([])
@@ -32,12 +35,16 @@ export default function Productos() {
   const [paginaActual, setPaginaActual] = useState(1)
   const itemsPorPagina = 8
 
-  // Modales
+  // Modales y Pestañas
   const [modalAbierto, setModalAbierto] = useState(false)
   const [productoEditar, setProductoEditar] = useState(null)
-  const [pestañaModal, setPestañaModal] = useState('general') // 'general' | 'variantes'
+  const [productoCreadoId, setProductoCreadoId] = useState(null)
+  const [pestañaModal, setPestañaModal] = useState('general') // 'general' | 'variantes' | 'imagen'
 
-  // Formulario Producto Base (incluye código requerido por backend)
+  // Modal para Ampliar Foto en Pop-up
+  const [imagenModal, setImagenModal] = useState({ open: false, url: '', titulo: '' })
+
+  // Formulario Producto Base
   const [formData, setFormData] = useState({
     codigo: '',
     nombre: '',
@@ -113,6 +120,54 @@ export default function Productos() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Extrae de forma defensiva la URL de la imagen del producto
+  const obtenerUrlImagen = (prod) => {
+    if (!prod) return null
+
+    // 1. Array de imágenes asociadas
+    if (prod.imagenes && Array.isArray(prod.imagenes) && prod.imagenes.length > 0) {
+      const img = prod.imagenes.find((i) => i.es_principal) || prod.imagenes[0]
+      return img?.url || img?.url_imagen || img?.path || null
+    }
+
+    if (prod.imagen_productos && Array.isArray(prod.imagen_productos) && prod.imagen_productos.length > 0) {
+      const img = prod.imagen_productos.find((i) => i.es_principal) || prod.imagen_productos[0]
+      return img?.url || img?.url_imagen || null
+    }
+
+    // 2. Propiedad de URL directa en el objeto producto
+    if (prod.imagen_url) return prod.imagen_url
+    if (prod.url_imagen) return prod.url_imagen
+    if (prod.url) return prod.url
+
+    return null
+  }
+
+  // Callback cuando ImageUploader completa la subida
+  const handleImagenSubida = (imagenRecord) => {
+    toast.success('Imagen guardada y asociada al catálogo')
+    
+    // Si viene la URL del registro devuelto por Cloudinary, la asignamos al estado local inmediatamente
+    const urlCreada = imagenRecord?.url || imagenRecord?.url_imagen
+    if (urlCreada && productoCreadoId) {
+      setProductos((prev) =>
+        prev.map((p) => {
+          if (p.id === productoCreadoId) {
+            const imagenesPrevias = p.imagenes || []
+            return {
+              ...p,
+              imagen_url: urlCreada,
+              imagenes: [{ url: urlCreada, es_principal: true }, ...imagenesPrevias],
+            }
+          }
+          return p;
+        })
+      )
+    }
+
+    cargarProductos()
   }
 
   // Generador de Combinaciones Talla x Color
@@ -199,6 +254,7 @@ export default function Productos() {
 
   const abrirModalCrear = () => {
     setProductoEditar(null)
+    setProductoCreadoId(null)
     setFormData({
       codigo: '',
       nombre: '',
@@ -219,6 +275,7 @@ export default function Productos() {
 
   const abrirModalEditar = async (prod) => {
     setProductoEditar(prod)
+    setProductoCreadoId(prod.id)
     setFormData({
       codigo: prod.codigo || '',
       nombre: prod.nombre || '',
@@ -248,13 +305,12 @@ export default function Productos() {
   }
 
   const handleGuardar = async (e) => {
-    e.preventDefault()
+    if (e) e.preventDefault()
     if (!formData.nombre.trim()) return toast.error('El nombre del producto es obligatorio')
     if (!formData.categoria_id) return toast.error('Seleccione una categoría')
 
     setGuardando(true)
 
-    // Autogenera código si no se ingresó explícitamente
     const codigoFinal =
       formData.codigo.trim() ||
       `${formData.nombre.substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-5)}`
@@ -281,6 +337,8 @@ export default function Productos() {
         toast.success('Producto creado correctamente')
       }
 
+      setProductoCreadoId(prodId)
+
       // Guardar variantes generadas
       if (prodId && variantes.length > 0) {
         for (const v of variantes) {
@@ -298,8 +356,8 @@ export default function Productos() {
         }
       }
 
-      setModalAbierto(false)
       cargarProductos()
+      setPestañaModal('imagen')
     } catch (error) {
       toast.error(
         error?.response?.data?.error?.mensaje ||
@@ -331,7 +389,7 @@ export default function Productos() {
             Catálogo de Productos
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Gestiona productos, precios, colores, tallas e inventario por variantes.
+            Gestiona productos, precios, colores, tallas e imágenes del catálogo.
           </p>
         </div>
         <button
@@ -447,6 +505,7 @@ export default function Productos() {
           <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
             <thead className="bg-slate-50/70 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:bg-slate-800/50">
               <tr>
+                <th className="px-4 py-3.5 w-12 text-center">Foto</th>
                 <th className="px-6 py-3.5">Código</th>
                 <th className="px-6 py-3.5">Producto</th>
                 <th className="px-6 py-3.5">Categoría</th>
@@ -458,13 +517,13 @@ export default function Productos() {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                  <td colSpan={7} className="py-12 text-center text-slate-400">
                     Cargando productos...
                   </td>
                 </tr>
               ) : productosPaginados.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                  <td colSpan={7} className="py-12 text-center text-slate-400">
                     No se encontraron productos registrados.
                   </td>
                 </tr>
@@ -477,11 +536,43 @@ export default function Productos() {
                   const marcaNombre =
                     marcas.find((m) => String(m.id) === String(prod.marca_id))?.nombre || 'Genérica'
 
+                  const imagenUrl = obtenerUrlImagen(prod)
+
                   return (
                     <tr
                       key={prod.id}
                       className="transition-colors hover:bg-slate-50/60 dark:hover:bg-slate-800/40"
                     >
+                      {/* Columna Miniatura con Animación Hover + Clic para Abrir Pop-up */}
+                      <td className="px-4 py-3 text-center">
+                        {imagenUrl ? (
+                          <div
+                            onClick={() =>
+                              setImagenModal({
+                                open: true,
+                                url: imagenUrl,
+                                titulo: prod.nombre,
+                              })
+                            }
+                            className="group relative h-10 w-10 mx-auto cursor-pointer overflow-hidden rounded-xl border border-slate-200 shadow-sm transition-all hover:border-slate-400 hover:shadow-md"
+                            title="Haz clic para ampliar la imagen"
+                          >
+                            <img
+                              src={imagenUrl}
+                              alt={prod.nombre}
+                              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center bg-slate-900/40 opacity-0 transition-opacity group-hover:opacity-100">
+                              <ZoomIn className="h-4 w-4 text-white" />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center mx-auto text-slate-400">
+                            <Package className="h-5 w-5" />
+                          </div>
+                        )}
+                      </td>
+
                       <td className="px-6 py-4 font-mono text-xs font-semibold text-slate-500">
                         {prod.codigo || `#${prod.id}`}
                       </td>
@@ -526,13 +617,13 @@ export default function Productos() {
         </div>
       </div>
 
-      {/* Modal Configuración/Creación de Producto y Variantes */}
+      {/* Modal Configuración / Creación de Producto */}
       {modalAbierto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
           <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-800">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                {productoEditar ? 'Editar Producto & Variantes' : 'Nuevo Producto & Generador'}
+                {productoEditar ? 'Editar Producto' : 'Nuevo Producto'}
               </h3>
               <button
                 onClick={() => setModalAbierto(false)}
@@ -545,6 +636,7 @@ export default function Productos() {
             {/* Pestañas Modal */}
             <div className="flex border-b border-slate-100 px-6 dark:border-slate-800">
               <button
+                type="button"
                 onClick={() => setPestañaModal('general')}
                 className={`py-3 text-sm font-semibold border-b-2 mr-6 ${
                   pestañaModal === 'general'
@@ -555,19 +647,32 @@ export default function Productos() {
                 1. Datos Generales
               </button>
               <button
+                type="button"
                 onClick={() => setPestañaModal('variantes')}
-                className={`py-3 text-sm font-semibold border-b-2 ${
+                className={`py-3 text-sm font-semibold border-b-2 mr-6 ${
                   pestañaModal === 'variantes'
                     ? 'border-slate-900 text-slate-900 dark:border-white dark:text-white'
                     : 'border-transparent text-slate-400'
                 }`}
               >
-                2. Matriz Talla x Color ({variantes.length})
+                2. Variantes ({variantes.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setPestañaModal('imagen')}
+                className={`py-3 text-sm font-semibold border-b-2 flex items-center gap-1.5 ${
+                  pestañaModal === 'imagen'
+                    ? 'border-slate-900 text-slate-900 dark:border-white dark:text-white'
+                    : 'border-transparent text-slate-400'
+                }`}
+              >
+                <ImageIcon className="h-4 w-4" />
+                <span>3. Imagen del Producto</span>
               </button>
             </div>
 
             <form onSubmit={handleGuardar} className="space-y-4 p-6">
-              {pestañaModal === 'general' ? (
+              {pestañaModal === 'general' && (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label className="mb-1 block text-xs font-semibold uppercase text-slate-600">
@@ -658,8 +763,9 @@ export default function Productos() {
                     </label>
                   </div>
                 </div>
-              ) : (
-                /* Pestaña Generador Talla x Color */
+              )}
+
+              {pestañaModal === 'variantes' && (
                 <div className="space-y-4">
                   <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-3 dark:border-slate-800 dark:bg-slate-800/40">
                     <div className="flex items-center gap-2 text-xs font-bold uppercase text-slate-700 dark:text-slate-300">
@@ -725,7 +831,7 @@ export default function Productos() {
                     <div className="grid grid-cols-2 gap-3 pt-2">
                       <div>
                         <label className="block text-[10px] font-bold uppercase text-slate-500">
-                          Precio Venta Base
+                          Precio Venta Base (Q)
                         </label>
                         <input
                           type="number"
@@ -769,7 +875,7 @@ export default function Productos() {
                             <th className="p-2">SKU</th>
                             <th className="p-2">Talla</th>
                             <th className="p-2">Color</th>
-                            <th className="p-2">Precio ($)</th>
+                            <th className="p-2">Precio (Q)</th>
                             <th className="p-2">Stock</th>
                           </tr>
                         </thead>
@@ -818,23 +924,89 @@ export default function Productos() {
                 </div>
               )}
 
+              {/* Pestaña Imagen del Producto */}
+              {pestañaModal === 'imagen' && (
+                <div className="py-4 space-y-4">
+                  {productoCreadoId ? (
+                    <ImageUploader
+                      productoId={productoCreadoId}
+                      esPrincipal={true}
+                      onSubida={handleImagenSubida}
+                      onError={(msg) => toast.error(msg)}
+                    />
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center dark:border-slate-700 dark:bg-slate-800/50">
+                      <ImageIcon className="mx-auto h-10 w-10 text-slate-400 mb-2" />
+                      <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                        Primero debes guardar los Datos Generales del Producto
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1 mb-4">
+                        Una vez guardado, el sistema generará el ID para vincular la imagen en Cloudinary.
+                      </p>
+                      <button
+                        type="button"
+                        disabled={guardando}
+                        onClick={handleGuardar}
+                        className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+                      >
+                        {guardando ? 'Guardando...' : 'Guardar Producto Ahora'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="flex items-center justify-end gap-2 pt-4">
                 <button
                   type="button"
                   onClick={() => setModalAbierto(false)}
                   className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100"
                 >
-                  Cancelar
+                  {pestañaModal === 'imagen' ? 'Cerrar / Finalizar' : 'Cancelar'}
                 </button>
-                <button
-                  type="submit"
-                  disabled={guardando}
-                  className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
-                >
-                  {guardando ? 'Guardando...' : 'Guardar Todo'}
-                </button>
+                {pestañaModal !== 'imagen' && (
+                  <button
+                    type="submit"
+                    disabled={guardando}
+                    className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                  >
+                    {guardando ? 'Guardando...' : 'Guardar y Continuar'}
+                  </button>
+                )}
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Pop-up Flotante Visor de Fotografía en Alta Resolución */}
+      {imagenModal.open && (
+        <div 
+          onClick={() => setImagenModal({ open: false, url: '', titulo: '' })}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-md p-4 transition-opacity"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()} 
+            className="relative max-w-2xl w-full rounded-2xl bg-white p-4 shadow-2xl dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
+          >
+            <div className="flex items-center justify-between pb-3 mb-2 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                {imagenModal.titulo}
+              </h3>
+              <button
+                onClick={() => setImagenModal({ open: false, url: '', titulo: '' })}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex items-center justify-center bg-slate-50 dark:bg-slate-950 rounded-xl overflow-hidden max-h-[70vh]">
+              <img
+                src={imagenModal.url}
+                alt={imagenModal.titulo}
+                className="max-h-[65vh] w-auto object-contain rounded-lg"
+              />
+            </div>
           </div>
         </div>
       )}
