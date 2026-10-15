@@ -17,6 +17,7 @@ import Productos from '@/pages/Productos'
 import Precios from '@/pages/Precios'
 import Clientes from '@/pages/Clientes'
 import Empleados from '@/pages/Empleados'
+import Proveedores from '@/pages/Proveedores'
 import Movimiento from '@/pages/MovimientosPage'
 import Traslado from '@/pages/TrasladosPage'
 import MermasPage from '@/pages/MermasPage'
@@ -55,6 +56,7 @@ export default function App() {
             <Route path="precios" element={<Precios />} />
             <Route path="clientes" element={<Clientes />} />
             <Route path="empleados" element={<Empleados />} />
+            <Route path="proveedores" element={<Proveedores />} />
 
             {/* Existencias y Movimientos */}
             <Route path="existencias" element={<Inventario />} />
@@ -115,7 +117,6 @@ export default function App() {
 
             {/* Módulos Pendientes de Desarrollo */}
             <Route path="comprobantes" element={<ModuloEnDesarrollo titulo="Comprobantes" />} />
-            <Route path="proveedores" element={<ModuloEnDesarrollo titulo="Proveedores" />} />
             <Route path="transacciones" element={<ModuloEnDesarrollo titulo="Transacciones" />} />
             <Route path="reportes" element={<ModuloEnDesarrollo titulo="Reportes" />} />
 
