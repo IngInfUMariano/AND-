@@ -35,7 +35,8 @@ const cambiarEstado = asyncHandler(async (req, res) => {
     req.params.id,
     req.body.estado,
     req.body.observacion,
-    req.usuario
+    req.usuario,
+    { numero_guia: req.body.numero_guia, courier: req.body.courier }
   );
   ok(res, pedido);
 });
