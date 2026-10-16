@@ -1,52 +1,108 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
 import toast from 'react-hot-toast'
 import pedidoService from '@/services/pedido.service'
 import { useAuth } from '@/context/AuthContext'
+import { useCart } from '@/context/CartContext'
+import MenuOverlay from '@/components/MenuOverlay'
 
-const COLORES_ESTADO = {
-  REGISTRADO:     'bg-gray-100 text-gray-700',
-  PENDIENTE_PAGO: 'bg-yellow-100 text-yellow-800',
-  PAGADO:         'bg-blue-100 text-blue-800',
-  EN_PREPARACION: 'bg-indigo-100 text-indigo-800',
-  DESPACHADO:     'bg-purple-100 text-purple-800',
-  ENTREGADO:      'bg-green-100 text-green-800',
-  ANULADO:        'bg-red-100 text-red-800',
-}
+const MONO    = { fontFamily: "'IBM Plex Mono', monospace" }
+const DISPLAY = { fontFamily: "'EB Garamond', Georgia, serif", fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.18em' }
+const NAV_H   = 52
 
 const LABEL_ESTADO = {
-  REGISTRADO:     'Registrado',
-  PENDIENTE_PAGO: 'Pendiente de pago',
-  PAGADO:         'Pagado',
-  EN_PREPARACION: 'En preparación',
-  DESPACHADO:     'Despachado',
-  ENTREGADO:      'Entregado',
-  ANULADO:        'Anulado',
+  REGISTRADO:     'registrado',
+  PENDIENTE_PAGO: 'pendiente pago',
+  PAGADO:         'pagado',
+  EN_PREPARACION: 'en preparación',
+  DESPACHADO:     'despachado',
+  ENTREGADO:      'entregado',
+  ANULADO:        'anulado',
+}
+
+const COLOR_ESTADO = {
+  ENTREGADO:      '#0a0a0a',
+  PAGADO:         'rgba(10,10,10,0.55)',
+  DESPACHADO:     'rgba(10,10,10,0.55)',
+  EN_PREPARACION: 'rgba(10,10,10,0.55)',
+  PENDIENTE_PAGO: 'rgba(180,120,0,0.7)',
+  ANULADO:        'rgba(180,0,0,0.5)',
 }
 
 const LABEL_ENTREGA = {
-  ENVIO:            'Entrega a domicilio',
-  RETIRO_SUCURSAL:  'Retiro en sucursal',
+  ENVIO:           'entrega a domicilio',
+  RETIRO_SUCURSAL: 'retiro en sucursal',
 }
 
 const LABEL_PAGO = {
-  EN_LINEA: 'Tarjeta de crédito/débito',
-  CREDITO:  'Crédito',
+  EN_LINEA: 'tarjeta de crédito/débito',
+  CREDITO:  'crédito',
 }
 
-const getPrecio = (variante, tipoCliente) => {
-  const precios = variante?.precios ?? []
-  const tipo = tipoCliente === 'MAYORISTA' ? 'MAYORISTA' : 'MINORISTA'
-  return parseFloat(precios.find(p => p.tipo === tipo)?.monto ?? precios[0]?.monto ?? 0)
+function NavHeader({ onOpenMenu }) {
+  const { usuario } = useAuth()
+  const { totalItems } = useCart()
+
+  return (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, background: '#ffffff' }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 1.75rem', height: `${NAV_H}px`,
+        color: '#0a0a0a', position: 'relative',
+      }}>
+        <button
+          onClick={onOpenMenu}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+            ...MONO, fontSize: '11px', letterSpacing: '0.18em', color: '#0a0a0a',
+            transition: 'opacity 0.18s ease',
+          }}
+          onMouseEnter={e => e.currentTarget.style.opacity = '0.45'}
+          onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+        >
+          MENU
+        </button>
+
+        <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
+          <Link to="/" style={{ textDecoration: 'none', color: '#0a0a0a' }}>
+            <h1 style={{ ...DISPLAY, fontSize: '1.12rem', lineHeight: 1, letterSpacing: '0.06em' }}>AND&</h1>
+          </Link>
+        </div>
+
+        <Link
+          to="/pedidos"
+          style={{ ...MONO, fontSize: '11px', letterSpacing: '0.16em', color: '#0a0a0a', textDecoration: 'none', transition: 'opacity 0.18s ease' }}
+          onMouseEnter={e => e.currentTarget.style.opacity = '0.45'}
+          onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+        >
+          ← VOLVER
+        </Link>
+      </div>
+      <div style={{ height: '1px', background: 'rgba(10,10,10,0.09)' }} />
+    </div>
+  )
+}
+
+function FilaInfo({ label, value }) {
+  if (!value) return null
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '0.85rem 0', borderBottom: '1px solid rgba(10,10,10,0.06)' }}>
+      <span style={{ ...MONO, fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.38)', minWidth: '120px' }}>
+        {label}
+      </span>
+      <span style={{ ...MONO, fontSize: '12px', color: 'rgba(10,10,10,0.78)', textAlign: 'right', maxWidth: '60%' }}>
+        {value}
+      </span>
+    </div>
+  )
 }
 
 export default function PedidoDetalle() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { usuario } = useAuth()
   const [pedido, setPedido] = useState(null)
   const [cargando, setCargando] = useState(true)
+  const [menuAbierto, setMenuAbierto] = useState(false)
 
   useEffect(() => {
     pedidoService.obtener(id)
@@ -56,111 +112,177 @@ export default function PedidoDetalle() {
   }, [id, navigate])
 
   if (cargando) return (
-    <div className="flex h-64 items-center justify-center text-muted-foreground">Cargando...</div>
+    <div style={{ minHeight: '100vh', background: '#ffffff' }}>
+      <NavHeader onOpenMenu={() => {}} />
+      <div style={{ paddingTop: `${NAV_H + 120}px`, textAlign: 'center' }}>
+        <span style={{ ...MONO, fontSize: '10px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.2)' }}>
+          cargando...
+        </span>
+      </div>
+    </div>
   )
 
   if (!pedido) return null
 
   const items = pedido.pedido_detalles ?? []
-  const total = items.reduce((acc, d) => {
-    return acc + getPrecio(d.variante, usuario?.tipo_cliente) * d.cantidad
-  }, 0)
-
+  const total = Number(pedido.total ?? items.reduce((acc, d) => acc + Number(d.subtotal ?? 0), 0))
+  const costoEnvio = pedido.costo_envio ? Number(pedido.costo_envio) : null
   const necesitaPago = pedido.estado === 'PENDIENTE_PAGO' && pedido.forma_pago === 'EN_LINEA'
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate('/pedidos')}
-          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft size={15} /> Mis pedidos
-        </button>
-      </div>
+    <div style={{ minHeight: '100vh', background: '#fafafa', color: '#0a0a0a' }}>
+      <NavHeader onOpenMenu={() => setMenuAbierto(true)} />
+      <MenuOverlay open={menuAbierto} onClose={() => setMenuAbierto(false)} />
 
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Pedido #{pedido.numero ?? pedido.id}</h1>
-        <span className={`rounded-full px-3 py-1 text-sm font-medium ${COLORES_ESTADO[pedido.estado] ?? 'bg-muted text-muted-foreground'}`}>
-          {LABEL_ESTADO[pedido.estado] ?? pedido.estado}
-        </span>
-      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '38% 1fr', paddingTop: `${NAV_H}px`, minHeight: `calc(100vh - ${NAV_H}px)` }}>
 
-      <div className="rounded-xl border p-5 space-y-2 text-sm">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Fecha</span>
-          <span>{new Date(pedido.createdAt).toLocaleDateString('es-GT', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Forma de pago</span>
-          <span>{LABEL_PAGO[pedido.forma_pago] ?? pedido.forma_pago}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Entrega</span>
-          <span>{LABEL_ENTREGA[pedido.entrega_tipo] ?? pedido.entrega_tipo}</span>
-        </div>
-        {pedido.entrega_tipo === 'ENVIO' && pedido.sucursal && (
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Atendido desde</span>
-            <span>{pedido.sucursal.nombre}</span>
+        {/* Columna izquierda: imagen sticky */}
+        <div style={{ position: 'sticky', top: `${NAV_H}px`, height: `calc(100vh - ${NAV_H}px)`, overflow: 'hidden' }}>
+          <img
+            src="https://picsum.photos/seed/andorderdetail/800/1100"
+            alt=""
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'grayscale(100%) brightness(0.55)' }}
+          />
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'flex-end', padding: '2.5rem' }}>
+            <div>
+              <p style={{ ...MONO, fontSize: '10px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', marginBottom: '0.5rem' }}>
+                pedido
+              </p>
+              <p style={{ ...DISPLAY, fontSize: 'clamp(1.6rem, 3vw, 2.4rem)', color: '#ffffff', lineHeight: 1 }}>
+                #{pedido.numero ?? pedido.id}
+              </p>
+              <p style={{
+                ...MONO, fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase',
+                color: COLOR_ESTADO[pedido.estado] ?? 'rgba(255,255,255,0.45)',
+                marginTop: '0.6rem',
+                background: 'rgba(250,250,250,0.1)',
+                padding: '4px 10px',
+                display: 'inline-block',
+              }}>
+                {LABEL_ESTADO[pedido.estado] ?? pedido.estado?.toLowerCase()}
+              </p>
+            </div>
           </div>
-        )}
-        {pedido.entrega_tipo === 'RETIRO_SUCURSAL' && pedido.sucursal && (
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Sucursal de retiro</span>
-            <span>{pedido.sucursal.nombre}</span>
-          </div>
-        )}
-        {pedido.entrega_direccion && (
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Dirección</span>
-            <span className="text-right max-w-[60%]">{pedido.entrega_direccion}</span>
-          </div>
-        )}
-      </div>
+        </div>
 
-      {/* Items */}
-      <div className="rounded-xl border overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-muted/50">
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Producto</th>
-              <th className="px-4 py-3 text-center font-medium text-muted-foreground">Cant.</th>
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Subtotal</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map(d => {
-              const precio = getPrecio(d.variante, usuario?.tipo_cliente)
-              return (
-                <tr key={d.id} className="border-b last:border-0">
-                  <td className="px-4 py-3">
-                    <p className="font-medium">{d.variante?.producto?.nombre ?? 'Producto'}</p>
-                    <p className="text-xs text-muted-foreground">SKU: {d.variante?.sku}</p>
-                  </td>
-                  <td className="px-4 py-3 text-center">{d.cantidad}</td>
-                  <td className="px-4 py-3 text-right">Q {(precio * d.cantidad).toFixed(2)}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-          <tfoot>
-            <tr className="border-t bg-muted/30">
-              <td colSpan={2} className="px-4 py-3 font-semibold">Total</td>
-              <td className="px-4 py-3 text-right font-semibold">Q {total.toFixed(2)}</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+        {/* Columna derecha */}
+        <div style={{ padding: '4rem 4rem 5rem 4.5rem' }}>
 
-      {necesitaPago && (
-        <Link
-          to={`/pago/${pedido.id}`}
-          className="block w-full rounded-md bg-primary py-3 text-center text-sm font-medium text-primary-foreground hover:opacity-90"
-        >
-          Completar pago
-        </Link>
-      )}
+          {/* Volver */}
+          <button
+            onClick={() => navigate('/pedidos')}
+            style={{
+              marginBottom: '3rem',
+              ...MONO, fontSize: '10px', letterSpacing: '0.28em', textTransform: 'uppercase',
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'rgba(10,10,10,0.38)', transition: 'color 0.16s ease',
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = '#0a0a0a'}
+            onMouseLeave={e => e.currentTarget.style.color = 'rgba(10,10,10,0.38)'}
+          >
+            ← mis pedidos
+          </button>
+
+          {/* Información del pedido */}
+          <section style={{ marginBottom: '3rem' }}>
+            <p style={{ ...MONO, fontSize: '10px', letterSpacing: '0.38em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.38)', marginBottom: '0.8rem' }}>
+              detalles
+            </p>
+            <div style={{ borderTop: '1px solid rgba(10,10,10,0.08)' }}>
+              <FilaInfo
+                label="fecha"
+                value={new Date(pedido.createdAt).toLocaleDateString('es-GT', { day: '2-digit', month: 'long', year: 'numeric' })}
+              />
+              <FilaInfo label="pago" value={LABEL_PAGO[pedido.forma_pago] ?? pedido.forma_pago} />
+              <FilaInfo label="entrega" value={LABEL_ENTREGA[pedido.entrega_tipo] ?? pedido.entrega_tipo} />
+              {pedido.sucursal && (
+                <FilaInfo
+                  label={pedido.entrega_tipo === 'RETIRO_SUCURSAL' ? 'sucursal' : 'atendido desde'}
+                  value={pedido.sucursal.nombre}
+                />
+              )}
+              {pedido.entrega_destinatario && <FilaInfo label="destinatario" value={pedido.entrega_destinatario} />}
+              {pedido.entrega_direccion && <FilaInfo label="dirección" value={`${pedido.entrega_direccion}, ${pedido.entrega_municipio ?? ''}, ${pedido.entrega_departamento ?? ''}`} />}
+              {pedido.numero_guia && (
+                <FilaInfo label="guía" value={`${pedido.courier ? pedido.courier + ' · ' : ''}${pedido.numero_guia}`} />
+              )}
+              {pedido.observaciones && <FilaInfo label="observaciones" value={pedido.observaciones} />}
+            </div>
+          </section>
+
+          {/* Productos */}
+          <section style={{ marginBottom: '3rem' }}>
+            <p style={{ ...MONO, fontSize: '10px', letterSpacing: '0.38em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.38)', marginBottom: '0.8rem' }}>
+              productos
+            </p>
+
+            <div style={{ borderTop: '1px solid rgba(10,10,10,0.08)' }}>
+              {/* Cabecera */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 90px', padding: '0.6rem 0', borderBottom: '1px solid rgba(10,10,10,0.06)' }}>
+                {['PRODUCTO', 'CANT.', 'SUBTOTAL'].map(h => (
+                  <span key={h} style={{ ...MONO, fontSize: '9px', letterSpacing: '0.35em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.3)', textAlign: h === 'SUBTOTAL' ? 'right' : 'left' }}>
+                    {h}
+                  </span>
+                ))}
+              </div>
+
+              {items.map(d => (
+                <div key={d.id} style={{ display: 'grid', gridTemplateColumns: '1fr 60px 90px', alignItems: 'center', padding: '1.1rem 0', borderBottom: '1px solid rgba(10,10,10,0.05)' }}>
+                  <div>
+                    <p style={{ ...MONO, fontSize: '13px', color: '#0a0a0a', marginBottom: '0.2rem' }}>
+                      {d.descripcion ?? d.variante?.producto?.nombre ?? 'Producto'}
+                    </p>
+                    {(d.sku ?? d.variante?.sku) && (
+                      <p style={{ ...MONO, fontSize: '10px', color: 'rgba(10,10,10,0.35)', letterSpacing: '0.06em' }}>
+                        {d.sku ?? d.variante?.sku}
+                      </p>
+                    )}
+                  </div>
+                  <span style={{ ...MONO, fontSize: '12px', color: 'rgba(10,10,10,0.55)', textAlign: 'center' }}>{d.cantidad}</span>
+                  <span style={{ ...MONO, fontSize: '13px', color: 'rgba(10,10,10,0.78)', textAlign: 'right' }}>
+                    Q {Number(d.subtotal ?? 0).toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Total */}
+          <div style={{ maxWidth: '300px', marginLeft: 'auto' }}>
+            {costoEnvio != null && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
+                <span style={{ ...MONO, fontSize: '11px', color: 'rgba(10,10,10,0.45)' }}>envío</span>
+                <span style={{ ...MONO, fontSize: '11px', color: 'rgba(10,10,10,0.45)' }}>Q {costoEnvio.toFixed(2)}</span>
+              </div>
+            )}
+            <div style={{ borderTop: '2px solid #0a0a0a', paddingTop: '1rem', display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ ...MONO, fontSize: '13px', color: '#0a0a0a' }}>total</span>
+              <span style={{ ...MONO, fontSize: '15px', color: '#0a0a0a' }}>Q {total.toFixed(2)}</span>
+            </div>
+          </div>
+
+          {/* CTA pago pendiente */}
+          {necesitaPago && (
+            <div style={{ marginTop: '3rem' }}>
+              <Link
+                to={`/pago/${pedido.id}`}
+                style={{
+                  display: 'block', textAlign: 'center',
+                  width: '100%', padding: '14px',
+                  background: '#0a0a0a', color: '#fafafa',
+                  ...MONO, fontSize: '11px', letterSpacing: '0.3em', textTransform: 'uppercase',
+                  textDecoration: 'none',
+                  transition: 'opacity 0.18s ease',
+                }}
+                onMouseEnter={e => e.currentTarget.style.opacity = '0.75'}
+                onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+              >
+                completar pago
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

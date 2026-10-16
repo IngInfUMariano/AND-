@@ -3,6 +3,9 @@ import { useNavigate, Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import api from '@/services/api'
 
+const MONO    = { fontFamily: "'IBM Plex Mono', monospace" }
+const DISPLAY = { fontFamily: "'EB Garamond', Georgia, serif", fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.18em' }
+
 export default function Registro() {
   const navigate = useNavigate()
   const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm()
@@ -22,81 +25,186 @@ export default function Registro() {
     }
   }
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40">
-      <div className="w-full max-w-sm rounded-xl border bg-card p-8 shadow-sm">
-        <h1 className="mb-2 text-2xl font-semibold">Crear cuenta</h1>
-        <p className="mb-6 text-sm text-muted-foreground">
-          ¿Ya tienes cuenta?{' '}
-          <Link to="/login" className="underline">Ingresar</Link>
-        </p>
+  const fieldStyle = (hasError) => ({
+    ...MONO, fontSize: '13px', letterSpacing: '0.03em',
+    width: '100%', background: 'transparent',
+    border: 'none',
+    borderBottom: `1px solid ${hasError ? 'rgba(255,100,100,0.7)' : 'rgba(255,255,255,0.3)'}`,
+    padding: '6px 0', outline: 'none',
+    color: '#fff', boxSizing: 'border-box',
+  })
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+  const labelStyle = {
+    ...MONO, fontSize: '10px', letterSpacing: '0.3em',
+    textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)',
+    display: 'block', marginBottom: '0.55rem',
+  }
+
+  const errorStyle = {
+    ...MONO, fontSize: '10px', letterSpacing: '0.1em',
+    color: 'rgba(255,120,120,0.85)', marginTop: '0.4rem',
+  }
+
+  return (
+    <div style={{ position: 'relative', minHeight: '100vh', overflow: 'hidden' }}>
+
+      {/* Video de fondo */}
+      <video
+        autoPlay loop muted playsInline
+        style={{
+          position: 'fixed', inset: 0,
+          width: '100%', height: '100%',
+          objectFit: 'cover',
+          filter: 'blur(10px) brightness(0.52)',
+          transform: 'scale(1.08)',
+        }}
+      >
+        <source src="/video/hero.mp4" type="video/mp4" />
+      </video>
+
+      {/* Overlay */}
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(10,10,10,0.42)' }} />
+
+      {/* Contenido */}
+      <div style={{
+        position: 'relative', zIndex: 10,
+        minHeight: '100vh',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        padding: '3rem 1.5rem',
+      }}>
+
+        {/* Volver */}
+        <Link
+          to="/login"
+          style={{
+            position: 'absolute', top: '2rem', left: '2.5rem',
+            ...MONO, fontSize: '10px', letterSpacing: '0.3em',
+            color: 'rgba(255,255,255,0.4)', textDecoration: 'none',
+            textTransform: 'uppercase',
+          }}
+        >
+          ← ingresar
+        </Link>
+
+        {/* Marca */}
+        <p style={{
+          ...MONO, fontSize: '10px', letterSpacing: '0.48em',
+          textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)',
+          marginBottom: '0.6rem',
+        }}>
+          nueva cuenta
+        </p>
+        <h1 style={{
+          ...DISPLAY, fontSize: 'clamp(3rem, 7vw, 5rem)',
+          lineHeight: 0.9, letterSpacing: '0.06em',
+          color: '#fff', marginBottom: '3rem',
+        }}>
+          AND&
+        </h1>
+
+        {/* Formulario */}
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          style={{ width: '100%', maxWidth: '320px', display: 'flex', flexDirection: 'column', gap: '1.8rem' }}
+        >
+          {/* Nombre */}
           <div>
-            <label className="mb-1 block text-sm font-medium">Nombre completo</label>
+            <label style={labelStyle}>nombre completo</label>
             <input
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              style={fieldStyle(!!errors.nombre)}
               {...register('nombre', { required: 'El nombre es obligatorio' })}
             />
-            {errors.nombre && <p className="mt-1 text-xs text-destructive">{errors.nombre.message}</p>}
+            {errors.nombre && <p style={errorStyle}>{errors.nombre.message}</p>}
           </div>
 
+          {/* Correo */}
           <div>
-            <label className="mb-1 block text-sm font-medium">Correo</label>
+            <label style={labelStyle}>correo</label>
             <input
               type="email"
               autoComplete="email"
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              style={fieldStyle(!!errors.email)}
               {...register('email', { required: 'El correo es obligatorio' })}
             />
-            {errors.email && <p className="mt-1 text-xs text-destructive">{errors.email.message}</p>}
+            {errors.email && <p style={errorStyle}>{errors.email.message}</p>}
           </div>
 
+          {/* Teléfono */}
           <div>
-            <label className="mb-1 block text-sm font-medium">Contraseña</label>
-            <input
-              type="password"
-              autoComplete="new-password"
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-              {...register('password', {
-                required: 'La contraseña es obligatoria',
-                minLength: { value: 8, message: 'Mínimo 8 caracteres' }
-              })}
-            />
-            {errors.password && <p className="mt-1 text-xs text-destructive">{errors.password.message}</p>}
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium">Confirmar contraseña</label>
-            <input
-              type="password"
-              autoComplete="new-password"
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-              {...register('confirmar', {
-                required: 'Confirma tu contraseña',
-                validate: v => v === password || 'Las contraseñas no coinciden'
-              })}
-            />
-            {errors.confirmar && <p className="mt-1 text-xs text-destructive">{errors.confirmar.message}</p>}
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium">Teléfono <span className="text-muted-foreground">(opcional)</span></label>
+            <label style={{ ...labelStyle, color: 'rgba(255,255,255,0.28)' }}>
+              teléfono <span style={{ fontSize: '9px' }}>(opcional)</span>
+            </label>
             <input
               type="tel"
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              style={fieldStyle(false)}
               {...register('telefono')}
             />
+          </div>
+
+          {/* Contraseña */}
+          <div>
+            <label style={labelStyle}>contraseña</label>
+            <input
+              type="password"
+              autoComplete="new-password"
+              style={fieldStyle(!!errors.password)}
+              {...register('password', {
+                required: 'La contraseña es obligatoria',
+                minLength: { value: 8, message: 'Mínimo 8 caracteres' },
+              })}
+            />
+            {errors.password && <p style={errorStyle}>{errors.password.message}</p>}
+          </div>
+
+          {/* Confirmar */}
+          <div>
+            <label style={labelStyle}>confirmar contraseña</label>
+            <input
+              type="password"
+              autoComplete="new-password"
+              style={fieldStyle(!!errors.confirmar)}
+              {...register('confirmar', {
+                required: 'Confirma tu contraseña',
+                validate: v => v === password || 'Las contraseñas no coinciden',
+              })}
+            />
+            {errors.confirmar && <p style={errorStyle}>{errors.confirmar.message}</p>}
           </div>
 
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+            style={{
+              ...MONO, fontSize: '11px', letterSpacing: '0.3em', textTransform: 'uppercase',
+              background: isSubmitting ? 'rgba(255,255,255,0.12)' : '#fff',
+              color: isSubmitting ? 'rgba(255,255,255,0.35)' : '#0a0a0a',
+              border: 'none', padding: '13px',
+              cursor: isSubmitting ? 'default' : 'pointer',
+              transition: 'background 0.2s ease, color 0.2s ease',
+              marginTop: '0.4rem',
+            }}
           >
-            {isSubmitting ? 'Creando cuenta...' : 'Crear cuenta'}
+            {isSubmitting ? 'creando cuenta...' : 'crear cuenta'}
           </button>
         </form>
+
+        <p style={{
+          ...MONO, fontSize: '10px', letterSpacing: '0.16em',
+          color: 'rgba(255,255,255,0.3)', marginTop: '2rem',
+        }}>
+          ¿Ya tienes cuenta?{' '}
+          <Link
+            to="/login"
+            style={{
+              color: 'rgba(255,255,255,0.7)', textDecoration: 'none',
+              borderBottom: '1px solid rgba(255,255,255,0.3)', paddingBottom: '1px',
+            }}
+          >
+            ingresar
+          </Link>
+        </p>
+
       </div>
     </div>
   )

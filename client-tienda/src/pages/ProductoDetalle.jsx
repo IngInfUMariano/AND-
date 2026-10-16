@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { ShoppingCart, ArrowLeft } from 'lucide-react'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import catalogoService from '@/services/catalogo.service'
 import carritoService from '@/services/carrito.service'
 import { useAuth } from '@/context/AuthContext'
 import { useCart } from '@/context/CartContext'
+import MenuOverlay from '@/components/MenuOverlay'
+
+const MONO    = { fontFamily: "'IBM Plex Mono', monospace" }
+const DISPLAY = { fontFamily: "'EB Garamond', Georgia, serif", fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.18em' }
+const NAV_H   = 52
 
 const getPrecio = (variante, tipoCliente) => {
   const precios = variante?.precios ?? []
@@ -13,11 +17,62 @@ const getPrecio = (variante, tipoCliente) => {
   return precios.find(p => p.tipo === tipo)?.monto ?? precios[0]?.monto ?? null
 }
 
+const imgUrl = (producto) => {
+  const imgs = producto?.imagen_productos ?? []
+  const principal = imgs.find(i => i.es_principal) ?? imgs[0]
+  return principal?.url ?? `https://picsum.photos/seed/andprod${producto?.id ?? 'x'}/900/1200`
+}
+
+function NavHeader({ onOpenMenu }) {
+  const { usuario } = useAuth()
+  const { totalItems } = useCart()
+
+  return (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, background: '#ffffff' }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 1.75rem', height: `${NAV_H}px`,
+        color: '#0a0a0a', position: 'relative',
+      }}>
+        <button
+          onClick={onOpenMenu}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+            ...MONO, fontSize: '11px', letterSpacing: '0.18em', color: '#0a0a0a',
+            transition: 'opacity 0.18s ease',
+          }}
+          onMouseEnter={e => e.currentTarget.style.opacity = '0.45'}
+          onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+        >
+          MENU
+        </button>
+
+        <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
+          <Link to="/" style={{ textDecoration: 'none', color: '#0a0a0a' }}>
+            <h1 style={{ ...DISPLAY, fontSize: '1.12rem', lineHeight: 1, letterSpacing: '0.06em' }}>AND&</h1>
+          </Link>
+        </div>
+
+        <Link
+          to="/carrito"
+          style={{ ...MONO, fontSize: '11px', letterSpacing: '0.16em', color: '#0a0a0a', textDecoration: 'none', transition: 'opacity 0.18s ease' }}
+          onMouseEnter={e => e.currentTarget.style.opacity = '0.45'}
+          onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+        >
+          CARRITO{totalItems > 0 ? ` (${totalItems})` : ''}
+        </Link>
+      </div>
+      <div style={{ height: '1px', background: 'rgba(10,10,10,0.09)' }} />
+    </div>
+  )
+}
+
 export default function ProductoDetalle() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { usuario } = useAuth()
   const { recargar } = useCart()
+  const [menuAbierto, setMenuAbierto] = useState(false)
 
   const [producto, setProducto] = useState(null)
   const [variantes, setVariantes] = useState([])
@@ -29,6 +84,7 @@ export default function ProductoDetalle() {
   const [agregando, setAgregando] = useState(false)
 
   useEffect(() => {
+    window.scrollTo(0, 0)
     Promise.all([
       catalogoService.obtenerProducto(id),
       catalogoService.listarVariantesProducto(id),
@@ -41,81 +97,120 @@ export default function ProductoDetalle() {
 
   const tallas = [...new Map(variantes.map(v => [v.talla?.id, v.talla])).values()].filter(Boolean)
   const colores = [...new Map(variantes.map(v => [v.color?.id, v.color])).values()].filter(Boolean)
-
-  const varianteActual = variantes.find(
-    v => v.talla?.id === tallaSeleccionada && v.color?.id === colorSeleccionado
-  )
-
-  const precio = varianteActual ? getPrecio(varianteActual, usuario?.tipo_cliente) : null
+  const varianteActual = variantes.find(v => v.talla?.id === tallaSeleccionada && v.color?.id === colorSeleccionado)
+  const precio = varianteActual
+    ? getPrecio(varianteActual, usuario?.tipo_cliente)
+    : producto?.precio_base != null ? Number(producto.precio_base) : null
 
   const agregarAlCarrito = async () => {
     if (!usuario) { navigate('/login'); return }
     if (!varianteActual) { toast.error('Selecciona talla y color'); return }
-
     setAgregando(true)
     try {
       await carritoService.agregar(varianteActual.id, cantidad)
       await recargar()
       toast.success('Producto agregado al carrito')
     } catch (err) {
-      const msg = err.response?.data?.error?.mensaje ?? 'Error al agregar al carrito'
-      toast.error(msg)
+      toast.error(err.response?.data?.error?.mensaje ?? 'Error al agregar al carrito')
     } finally {
       setAgregando(false)
     }
   }
 
+  const listo = (varianteActual || (tallas.length === 0 && colores.length === 0)) && !agregando
+  const combinacionNoDisponible = tallaSeleccionada && colorSeleccionado && !varianteActual
+
   if (cargando) return (
-    <div className="flex h-64 items-center justify-center text-muted-foreground">Cargando...</div>
+    <div style={{ minHeight: '100vh', background: '#ffffff' }}>
+      <NavHeader onOpenMenu={() => setMenuAbierto(true)} />
+      <MenuOverlay open={menuAbierto} onClose={() => setMenuAbierto(false)} />
+      <div style={{ paddingTop: `${NAV_H + 120}px`, textAlign: 'center' }}>
+        <span style={{ ...MONO, fontSize: '10px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.2)' }}>
+          cargando...
+        </span>
+      </div>
+    </div>
   )
 
-  if (!producto) return (
-    <div className="flex h-64 items-center justify-center text-muted-foreground">Producto no encontrado</div>
-  )
+  if (!producto) return null
 
   return (
-    <div className="space-y-6">
-      <button
-        onClick={() => navigate(-1)}
-        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft size={15} /> Volver
-      </button>
+    <div style={{ minHeight: '100vh', background: '#ffffff', color: '#0a0a0a' }}>
+      <NavHeader onOpenMenu={() => setMenuAbierto(true)} />
+      <MenuOverlay open={menuAbierto} onClose={() => setMenuAbierto(false)} />
 
-      <div className="grid gap-8 md:grid-cols-2">
-        {/* Imagen */}
-        <div className="flex aspect-square items-center justify-center rounded-xl bg-muted text-sm text-muted-foreground">
-          Imagen del producto
+      <div style={{ display: 'grid', gridTemplateColumns: '52% 1fr', paddingTop: `${NAV_H}px`, minHeight: `calc(100vh - ${NAV_H}px)` }}>
+
+        {/* Imagen — sticky */}
+        <div style={{ position: 'sticky', top: `${NAV_H}px`, height: `calc(100vh - ${NAV_H}px)`, overflow: 'hidden' }}>
+          <img
+            src={imgUrl(producto)}
+            alt={producto.nombre}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'grayscale(100%) brightness(0.75)' }}
+          />
         </div>
 
-        {/* Info */}
-        <div className="space-y-5">
-          <div>
-            <p className="text-sm text-muted-foreground">{producto.categoria?.nombre} · {producto.marca?.nombre}</p>
-            <h1 className="mt-1 text-2xl font-semibold">{producto.nombre}</h1>
+        {/* Panel derecho */}
+        <div style={{ padding: '4rem 4rem 5rem 4rem', display: 'flex', flexDirection: 'column' }}>
+
+          {/* Volver */}
+          <button
+            onClick={() => navigate(-1)}
+            style={{
+              alignSelf: 'flex-start', marginBottom: '3rem',
+              ...MONO, fontSize: '10px', letterSpacing: '0.28em', textTransform: 'uppercase',
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'rgba(10,10,10,0.4)', transition: 'color 0.16s ease',
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = '#0a0a0a'}
+            onMouseLeave={e => e.currentTarget.style.color = 'rgba(10,10,10,0.4)'}
+          >
+            ← volver
+          </button>
+
+          {/* Encabezado */}
+          <div style={{ marginBottom: '2.5rem' }}>
+            <p style={{ ...MONO, fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.38)', marginBottom: '0.7rem' }}>
+              {[producto.categoria?.nombre, producto.marca?.nombre].filter(Boolean).join(' · ')}
+            </p>
+            <h1 style={{ ...DISPLAY, fontSize: 'clamp(2rem, 3.5vw, 3rem)', lineHeight: 0.95, marginBottom: '1rem' }}>
+              {producto.nombre}
+            </h1>
             {producto.descripcion && (
-              <p className="mt-2 text-sm text-muted-foreground">{producto.descripcion}</p>
+              <p style={{ ...MONO, fontSize: '12px', lineHeight: '1.9', color: 'rgba(10,10,10,0.55)', maxWidth: '360px' }}>
+                {producto.descripcion}
+              </p>
             )}
           </div>
 
-          {precio !== null && (
-            <p className="text-2xl font-bold">Q {parseFloat(precio).toFixed(2)}</p>
+          {/* Precio */}
+          {precio != null && (
+            <p style={{ ...MONO, fontSize: '18px', color: 'rgba(10,10,10,0.7)', marginBottom: '2.5rem', fontWeight: 500 }}>
+              ₡ {Number(precio).toLocaleString('es-CR')}
+            </p>
           )}
 
-          {/* Selector de talla */}
+          <div style={{ height: '1px', background: 'rgba(10,10,10,0.08)', marginBottom: '2rem' }} />
+
+          {/* Tallas */}
           {tallas.length > 0 && (
-            <div>
-              <p className="mb-2 text-sm font-medium">Talla</p>
-              <div className="flex flex-wrap gap-2">
+            <div style={{ marginBottom: '1.8rem' }}>
+              <p style={{ ...MONO, fontSize: '10px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.55)', marginBottom: '0.75rem' }}>
+                TALLA
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {tallas.map(t => (
                   <button
                     key={t.id}
                     onClick={() => setTallaSeleccionada(t.id)}
-                    className={`rounded-md border px-3 py-1.5 text-sm transition-colors ${
-                      tallaSeleccionada === t.id
-                        ? 'border-primary bg-primary text-primary-foreground'
-                        : 'hover:bg-muted'
-                    }`}
+                    style={{
+                      ...MONO, fontSize: '10px', letterSpacing: '0.14em',
+                      padding: '5px 14px', cursor: 'pointer',
+                      border: `1px solid ${tallaSeleccionada === t.id ? '#0a0a0a' : 'rgba(10,10,10,0.14)'}`,
+                      background: tallaSeleccionada === t.id ? '#0a0a0a' : 'transparent',
+                      color: tallaSeleccionada === t.id ? '#fafafa' : 'rgba(10,10,10,0.5)',
+                      transition: 'all 0.18s ease',
+                    }}
                   >
                     {t.codigo}
                   </button>
@@ -124,20 +219,25 @@ export default function ProductoDetalle() {
             </div>
           )}
 
-          {/* Selector de color */}
+          {/* Colores */}
           {colores.length > 0 && (
-            <div>
-              <p className="mb-2 text-sm font-medium">Color</p>
-              <div className="flex flex-wrap gap-2">
+            <div style={{ marginBottom: '1.8rem' }}>
+              <p style={{ ...MONO, fontSize: '10px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.55)', marginBottom: '0.75rem' }}>
+                COLOR
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {colores.map(c => (
                   <button
                     key={c.id}
                     onClick={() => setColorSeleccionado(c.id)}
-                    className={`rounded-md border px-3 py-1.5 text-sm transition-colors ${
-                      colorSeleccionado === c.id
-                        ? 'border-primary bg-primary text-primary-foreground'
-                        : 'hover:bg-muted'
-                    }`}
+                    style={{
+                      ...MONO, fontSize: '10px', letterSpacing: '0.14em',
+                      padding: '5px 14px', cursor: 'pointer',
+                      border: `1px solid ${colorSeleccionado === c.id ? '#0a0a0a' : 'rgba(10,10,10,0.14)'}`,
+                      background: colorSeleccionado === c.id ? '#0a0a0a' : 'transparent',
+                      color: colorSeleccionado === c.id ? '#fafafa' : 'rgba(10,10,10,0.5)',
+                      transition: 'all 0.18s ease',
+                    }}
                   >
                     {c.nombre}
                   </button>
@@ -147,37 +247,57 @@ export default function ProductoDetalle() {
           )}
 
           {/* Cantidad */}
-          <div>
-            <p className="mb-2 text-sm font-medium">Cantidad</p>
-            <div className="flex items-center gap-2">
+          <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '1.4rem' }}>
+            <p style={{ ...MONO, fontSize: '10px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.55)' }}>
+              CANTIDAD
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <button
                 onClick={() => setCantidad(q => Math.max(1, q - 1))}
-                className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
-              >
-                −
-              </button>
-              <span className="w-10 text-center text-sm font-medium">{cantidad}</span>
+                style={{ ...MONO, fontSize: '18px', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(10,10,10,0.35)', lineHeight: 1 }}
+              >−</button>
+              <span style={{ ...MONO, fontSize: '13px', minWidth: '22px', textAlign: 'center' }}>{cantidad}</span>
               <button
                 onClick={() => setCantidad(q => q + 1)}
-                className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
-              >
-                +
-              </button>
+                style={{ ...MONO, fontSize: '18px', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(10,10,10,0.35)', lineHeight: 1 }}
+              >+</button>
             </div>
           </div>
 
+          {combinacionNoDisponible && (
+            <p style={{ ...MONO, fontSize: '10px', letterSpacing: '0.18em', color: 'rgba(160,0,0,0.6)', marginBottom: '0.8rem', textTransform: 'uppercase' }}>
+              combinación no disponible
+            </p>
+          )}
+
           <button
             onClick={agregarAlCarrito}
-            disabled={agregando || !varianteActual}
-            className="flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+            disabled={!listo}
+            style={{
+              width: '100%', padding: '14px',
+              background: listo ? '#0a0a0a' : 'rgba(10,10,10,0.07)',
+              color: listo ? '#fafafa' : 'rgba(10,10,10,0.2)',
+              border: 'none', cursor: listo ? 'pointer' : 'default',
+              ...MONO, fontSize: '11px', letterSpacing: '0.3em', textTransform: 'uppercase',
+              transition: 'background 0.22s ease, color 0.22s ease',
+            }}
           >
-            <ShoppingCart size={16} />
-            {agregando ? 'Agregando...' : 'Agregar al carrito'}
+            {agregando ? 'agregando...' : 'agregar al carrito'}
           </button>
 
-          {varianteActual === undefined && tallaSeleccionada && colorSeleccionado && (
-            <p className="text-xs text-destructive">Esta combinación no está disponible</p>
-          )}
+          <Link
+            to="/productos"
+            style={{
+              display: 'block', textAlign: 'center', marginTop: '1.2rem',
+              ...MONO, fontSize: '11px', letterSpacing: '0.18em',
+              color: 'rgba(10,10,10,0.35)', textDecoration: 'none',
+              transition: 'color 0.16s ease',
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = '#0a0a0a'}
+            onMouseLeave={e => e.currentTarget.style.color = 'rgba(10,10,10,0.35)'}
+          >
+            seguir comprando
+          </Link>
         </div>
       </div>
     </div>
