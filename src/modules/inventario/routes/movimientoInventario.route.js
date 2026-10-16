@@ -15,7 +15,7 @@ module.exports = (app) => {
     router.get("/", hasRole("ADMIN", "GERENTE", "BODEGUERO"), controlador.listar);
     router.get("/:id", hasRole("ADMIN", "GERENTE", "BODEGUERO"), controlador.obtener);
 
-    // Registro manual de ajuste/movimiento (No existen rutas PUT o DELETE)
+    // Registro manual de ajuste/movimiento
     router.post(
         "/",
         hasRole("ADMIN", "GERENTE", "BODEGUERO"),
@@ -23,6 +23,9 @@ module.exports = (app) => {
         validar,
         controlador.crear
     );
+
+    // NUEVA RUTA: Actualización parcial para resolver informes de mermas
+    router.patch("/:id", hasRole("ADMIN", "GERENTE", "BODEGUERO"), controlador.actualizar);
 
     app.use("/api/movimientos", router);
 };

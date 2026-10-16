@@ -21,6 +21,10 @@ import Proveedores from '@/pages/Proveedores'
 import Movimiento from '@/pages/MovimientosPage'
 import Traslado from '@/pages/TrasladosPage'
 import MermasPage from '@/pages/MermasPage'
+import Pedidos from '@/pages/PedidosInternos'
+import Comprobantes from '@/pages/ComprobantesPage'
+import EntradasInventario from '@/pages/EntradasInventario' 
+import ComprasInventario from '@/pages/ComprasInventario'
 
 // Componente provisional para módulos pendientes o sin permisos
 function ModuloEnDesarrollo({ titulo }) {
@@ -104,6 +108,15 @@ export default function App() {
             <Route path="catalogos" element={<Catalogos />} />
             <Route path="categorias" element={<Catalogos />} />
             <Route path="marcas" element={<Catalogos />} />
+            {/* RUTA AÑADIDA: Entradas y Conteo General */}
+            <Route
+              path="entradas"
+              element={
+                <RoleRoute roles={['ADMIN', 'GERENTE', 'BODEGUERO']}>
+                  <EntradasInventario />
+                </RoleRoute>
+              }
+            />
 
             {/* Módulo de Mermas y Pérdidas */}
             <Route
@@ -115,8 +128,37 @@ export default function App() {
               }
             />
 
+            {/* Módulo de Pedidos Internos */}
+            <Route
+              path="pedidos"
+              element={
+                <RoleRoute roles={['ADMIN', 'GERENTE', 'VENDEDOR', 'BODEGUERO']}>
+                  <Pedidos />
+                </RoleRoute>
+              }
+            />
+
+            {/* Modulo de Comprobantes */}
+            <Route
+              path="comprobantes"
+              element={
+                <RoleRoute roles={['ADMIN', 'GERENTE', 'VENDEDOR', 'BODEGUERO']}>
+                  <Comprobantes />
+                </RoleRoute>
+              }
+            />
+
+            {/*Modulo de compra de inventario*/ }
+            <Route
+            path="compras"
+            element={
+              <RoleRoute roles={['ADMIN', 'GERENTE']}>
+                <ComprasInventario />
+              </RoleRoute>
+            }
+            />
+
             {/* Módulos Pendientes de Desarrollo */}
-            <Route path="comprobantes" element={<ModuloEnDesarrollo titulo="Comprobantes" />} />
             <Route path="transacciones" element={<ModuloEnDesarrollo titulo="Transacciones" />} />
             <Route path="reportes" element={<ModuloEnDesarrollo titulo="Reportes" />} />
 
