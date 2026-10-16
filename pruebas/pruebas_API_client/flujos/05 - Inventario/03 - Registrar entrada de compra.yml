@@ -3,13 +3,9 @@ info:
   type: http
   seq: 3
 
-# Registra la llegada de mercadería nueva a una sucursal (compra a proveedor).
-# Incrementa el stock de la variante en la sucursal indicada.
-# Reemplazar variante_id con un id válido del paso 01.
-
 http:
   method: POST
-  url: "{{base_url}}api/movimientos"
+  url: "{{base_url}}/api/movimientos"
   headers:
     - name: Content-Type
       value: application/json
@@ -27,8 +23,14 @@ http:
     type: bearer
     token: "{{token_admin}}"
 
+runtime:
+  variables:
+    - name: token_admin
+      value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwicGVyZmlsIjoiQURNSU4iLCJzdWN1cnNhbF9pZCI6MSwiY2xpZW50ZV9pZCI6bnVsbCwidGlwb19jbGllbnRlIjpudWxsLCJhcHAiOiJpbnRlcm5vIiwiaWF0IjoxNzg5NzQ4ODA1LCJleHAiOjE3ODk3Nzc2MDV9.10thKnBfo8_WYVwAEsfJ6ioNfjjaE-_LB3myX38eCH4
+
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+  forwardAuthorizationHeader: true

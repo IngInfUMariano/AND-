@@ -8,6 +8,7 @@ module.exports = (app) => {
     const validar = require("../../../core/middlewares/validar");
     const {
         crearValidator,
+        despacharValidator,
         recibirValidator,
         anularValidator
     } = require("../validators/traslado.validator");
@@ -18,13 +19,22 @@ module.exports = (app) => {
     router.get("/", hasRole("ADMIN", "GERENTE", "BODEGUERO"), controlador.listar);
     router.get("/:id", hasRole("ADMIN", "GERENTE", "BODEGUERO"), controlador.obtener);
 
-    // Despachar traslado
+    // Crear solicitud de traslado (Estado PENDIENTE)
     router.post(
         "/",
         hasRole("ADMIN", "GERENTE", "BODEGUERO"),
         crearValidator,
         validar,
         controlador.crear
+    );
+
+    // Confirmar Despacho en bodega (Pasa de PENDIENTE a EN_TRANSITO y descuenta stock)
+    router.post(
+        "/:id/despachar",
+        hasRole("ADMIN", "GERENTE", "BODEGUERO"),
+        despacharValidator,
+        validar,
+        controlador.despachar
     );
 
     // Recepcionar traslado en destino
@@ -36,7 +46,7 @@ module.exports = (app) => {
         controlador.recibir
     );
 
-    // Anular traslado en tránsito
+    // Anular traslado
     router.post(
         "/:id/anular",
         hasRole("ADMIN", "GERENTE"),

@@ -11,7 +11,7 @@ http:
       value: application/x-www-form-urlencoded
   body:
     type: text
-    data: "payment_method=pm_card_visa&return_url=https%3A%2F%2Fand-2yw6.onrender.com%2Fpago-exitoso"
+    data: payment_method=pm_card_visa&return_url=https%3A%2F%2Fand-2yw6.onrender.com%2Fpago-exitoso
   auth:
     type: bearer
     token: "{{stripe_secret_key}}"
@@ -19,7 +19,7 @@ http:
 runtime:
   variables:
     - name: pi_id
-      value: pi_3UGiRwPyItOnfgCU2XSEyBXc
+      value: pi_3UH58zPyItOnfgCU1HhR2gnA
     - name: stripe_secret_key
       value: sk_test_51U1bMWPyItOnfgCUpSFotYgAljgE0uZl0NMq925rwD0CtSu6CQIJ2nWtQ821V3oeLgntjciP4cTw8KFDtliyO0bg003seMvcyk
 

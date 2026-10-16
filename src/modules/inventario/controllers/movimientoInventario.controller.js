@@ -18,10 +18,15 @@ const obtener = asyncHandler(async (req, res) => {
 
 // POST /api/movimientos-inventario
 const crear = asyncHandler(async (req, res) => {
-    // Se obtiene el usuario que ejecuta la operación desde la sesión JWT
     const usuarioId = req.usuario.id;
     const movimiento = await MovimientoService.crear(req.body, usuarioId);
     creado(res, movimiento);
 });
 
-module.exports = { listar, obtener, crear };
+// PATCH /api/movimientos/:id (NUEVO)
+const actualizar = asyncHandler(async (req, res) => {
+    const movimiento = await MovimientoService.actualizar(req.params.id, req.body);
+    ok(res, movimiento);
+});
+
+module.exports = { listar, obtener, crear, actualizar };

@@ -44,7 +44,9 @@ const obtenerCarrito = async (clienteId) => {
             model: db.variante,
             attributes: ["id", "sku"],
             include: [
-              { model: db.producto, attributes: ["id", "nombre"] },
+              { model: db.producto, attributes: ["id", "nombre"],
+                include: [{ model: db.imagen_producto, attributes: ["id", "url", "es_principal"], separate: true, order: [["orden", "ASC"]] }]
+              },
               { model: db.precio, attributes: ["tipo", "monto"] }
             ]
           }

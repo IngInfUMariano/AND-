@@ -16,6 +16,14 @@ module.exports = (sequelize, Sequelize) => {
       // Las bajas son lógicas: no se elimina el registro, se desactiva
       type: Sequelize.BOOLEAN,
       defaultValue: true
+    },
+    existencia_minima: {
+      type: Sequelize.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      validate: {
+        min: 0
+      }
     }
   }, {
     // Índice único: la combinación producto + talla + color no puede repetirse

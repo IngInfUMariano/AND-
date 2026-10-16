@@ -3,10 +3,6 @@ info:
   type: http
   seq: 6
 
-# REGLA DE NEGOCIO — Estado terminal
-# Un pedido en estado ENTREGADO o ANULADO no puede cambiar de estado nunca más.
-# Ejecutar después del paso 07 del flujo portal interno (pedido ya en ENTREGADO).
-
 http:
   method: PATCH
   url: "{{base_url}}api/pedidos/{{pedido_id}}/estado"
@@ -27,10 +23,11 @@ http:
 runtime:
   variables:
     - name: pedido_id
-      value: "21"
+      value: "9"
 
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+  forwardAuthorizationHeader: true
