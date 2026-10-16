@@ -24,6 +24,7 @@ const safeNumber = (val) => {
     return isNaN(n) ? 0 : n
 }
 
+
 const getProductoNombre = (m) => {
     if (!m) return 'Producto'
     return m.producto?.nombre ?? m.producto_nombre ?? m.variante?.producto?.nombre ?? m.nombre ?? 'Producto'

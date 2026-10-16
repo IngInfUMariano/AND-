@@ -115,6 +115,8 @@ export const anularPedido = async (id, payload) => {
     return data
 }
 
+
+
 export const inventarioService = {
     listar,
     listarSucursales,

@@ -3,10 +3,13 @@ import {
     Package,
     Truck,
     RefreshCw,
-    Plus,
     X,
-    ShoppingBag,
-    ClipboardCheck
+    ClipboardCheck,
+    Building2,
+    CheckCircle2,
+    ArrowRightLeft,
+    ShieldCheck,
+    AlertTriangle
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import inventarioService from '@/services/inventario.service'
@@ -14,7 +17,22 @@ import api from '@/services/api'
 
 const safeNumber = (val) => (isNaN(Number(val)) ? 0 : Number(val))
 
-// Helper para extraer arreglos de respuestas paginadas de Sequelize o Axios
+const parseJwt = (token) => {
+    try {
+        const base64Url = token.split('.')[1]
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+        const jsonPayload = decodeURIComponent(
+            window.atob(base64)
+                .split('')
+                .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                .join('')
+        )
+        return JSON.parse(jsonPayload)
+    } catch {
+        return null
+    }
+}
+
 const normalizarArreglo = (res) => {
     if (Array.isArray(res)) return res
     if (Array.isArray(res?.data)) return res.data
@@ -24,50 +42,110 @@ const normalizarArreglo = (res) => {
 }
 
 export default function PedidosInternos() {
-    const [pedidos, setPedidos] = useState([])
-    const [cargando, setCargando] = useState(true)
-    const [procesando, setProcesando] = useState(false)
-    const [filtroEstado, setFiltroEstado] = useState('PAGADO')
+    // Pestaña activa: 'pedidos' | 'despachos'
+    const [pestañaActiva, setPestañaActiva] = useState('pedidos')
 
-    // Modales de Operación
-    const [modalNuevoPedido, setModalNuevoPedido] = useState(false)
+    // Estados compartidos
+    const [sucursales, setSucursales] = useState([])
+    const [usuarioActual, setUsuarioActual] = useState(null)
+    const [sucursalSeleccionadaId, setSucursalSeleccionadaId] = useState('')
+    const [cargando, setCargando] = useState(true)
+
+    // Estados para Módulo de Pedidos
+    const [pedidos, setPedidos] = useState([])
+    const [filtroEstadoPedido, setFiltroEstadoPedido] = useState('PAGADO')
     const [modalVerificar, setModalVerificar] = useState(false)
     const [modalDespacho, setModalDespacho] = useState(false)
-
     const [pedidoSeleccionado, setPedidoSeleccionado] = useState(null)
-
-    // Formulario de Nuevo Pedido (Vendedor)
-    const [clientes, setClientes] = useState([])
-    const [sucursales, setSucursales] = useState([])
-    const [existencias, setExistencias] = useState([])
-    const [formNuevo, setFormNuevo] = useState({
-        cliente_id: '',
-        sucursal_id: '',
-        tipo_entrega: 'ENVIO',
-        metodo_pago: 'EFECTIVO',
-        direccion_envio: '',
-        observaciones: '',
-        items: []
-    })
-
-    // Items agregados temporalmente
-    const [itemTemp, setItemTemp] = useState({ variante_id: '', cantidad: 1, precio_unitario: 0 })
-
-    // Estado para Verificación de Empaque (Bodeguero)
     const [checklistItems, setChecklistItems] = useState({})
-
-    // Estado para Despacho y Guía Externa
     const [datosDespacho, setDatosDespacho] = useState({
         transportista: 'Cargo Expreso',
         numero_guia: '',
         observaciones: ''
     })
+    const [procesandoPedido, setProcesandoPedido] = useState(false)
 
-    // Cargar Pedidos de la API de forma segura
+    // Estados para Módulo de Despachos (Traslados)
+    const [trasladosPendientes, setTrasladosPendientes] = useState([])
+    const [trasladoSel, setTrasladoSel] = useState(null)
+    const [detallesSel, setDetallesSel] = useState([])
+    const [cargandoDetalle, setCargandoDetalle] = useState(false)
+    const [despachandoTraslado, setDespachandoTraslado] = useState(false)
+    const [modalVerificacionTraslado, setModalVerificacionTraslado] = useState(false)
+    const [cantidadesEnviadas, setCantidadesEnviadas] = useState({})
+    const [motivoDiscrepancia, setMotivoDiscrepancia] = useState('')
+
+    // 1. Lectura de Sesión y Usuario
+    useEffect(() => {
+        try {
+            let u = null
+            const userStored = localStorage.getItem('usuario') || localStorage.getItem('user') || localStorage.getItem('auth')
+            if (userStored) {
+                const parsed = JSON.parse(userStored)
+                u = parsed.data?.usuario || parsed.usuario || parsed.user || parsed
+            }
+
+            if (!u || !u.perfil) {
+                const token = localStorage.getItem('token') || localStorage.getItem('jwt')
+                if (token) {
+                    const decoded = parseJwt(token)
+                    if (decoded) u = decoded
+                }
+            }
+
+            setUsuarioActual(u)
+            const sucUser = u?.sucursal_id || u?.sucursal?.id
+            if (sucUser) {
+                setSucursalSeleccionadaId(String(sucUser))
+            }
+        } catch (err) {
+            console.error('Error al leer sesión de usuario:', err)
+        }
+    }, [])
+
+    // 2. Cargar Sucursales
+    useEffect(() => {
+        let activo = true
+        const cargarSucursales = async () => {
+            try {
+                const res = await inventarioService.listarSucursales()
+                if (!activo) return
+                const lista = Array.isArray(res) ? res : (res?.data || res?.datos || [])
+                setSucursales(lista)
+
+                if (!sucursalSeleccionadaId && lista.length > 0) {
+                    setSucursalSeleccionadaId(String(lista[0].id))
+                }
+            } catch (err) {
+                console.error('Error al obtener sucursales:', err)
+            }
+        }
+        cargarSucursales()
+        return () => { activo = false }
+    }, [sucursalSeleccionadaId])
+
+    const sucursalAsignadaUsuario = usuarioActual?.sucursal_id || usuarioActual?.sucursal?.id
+    const esAdminOGerente = () => {
+        if (!usuarioActual) return true
+        const rol = String(
+            usuarioActual.perfil ||
+            usuarioActual.rol ||
+            usuarioActual.role ||
+            usuarioActual.tipo ||
+            ''
+        ).toUpperCase()
+        return rol.includes('ADMIN') || rol.includes('GERENTE') || usuarioActual.perfil === 'ADMIN'
+    }
+
+    // 3. Cargar Pedidos
     const cargarPedidos = useCallback(async () => {
+        if (!sucursalSeleccionadaId) return
         try {
             setCargando(true)
-            const params = { estado: filtroEstado }
+            const params = {
+                estado: filtroEstadoPedido !== 'TODOS' ? filtroEstadoPedido : undefined,
+                sucursal_id: sucursalSeleccionadaId
+            }
             const res = inventarioService.listarPedidos
                 ? await inventarioService.listarPedidos(params)
                 : await api.get('/pedidos', { params })
@@ -80,160 +158,63 @@ export default function PedidosInternos() {
         } finally {
             setCargando(false)
         }
-    }, [filtroEstado])
+    }, [filtroEstadoPedido, sucursalSeleccionadaId])
 
-    // Cargar datos secundarios para la creación presencial
-    const cargarDatosCreacion = async () => {
+    // 4. Cargar Despachos (Traslados Pendientes de Origen)
+    const cargarTrasladosDespacho = useCallback(async () => {
+        if (!sucursalSeleccionadaId) return
+        setCargando(true)
         try {
-            const [resCli, resSuc] = await Promise.all([
-                api.get('/terceros/cliente').catch(() => api.get('/clientes')).catch(() => ({ data: [] })),
-                inventarioService.listarSucursales().catch(() => [])
-            ])
+            const params = {
+                estado: 'PENDIENTE',
+                sucursal_origen_id: sucursalSeleccionadaId
+            }
+            const res = await inventarioService.listarTraslados(params)
+            const lista = normalizarArreglo(res)
+            setTrasladosPendientes(lista)
 
-            const listCli = normalizarArreglo(resCli)
-            const listSuc = normalizarArreglo(resSuc)
-
-            setClientes(listCli)
-            setSucursales(listSuc)
-
-            if (listSuc.length > 0) {
-                setFormNuevo(prev => ({ ...prev, sucursal_id: String(listSuc[0].id) }))
-                cargarExistenciasSucursal(listSuc[0].id)
+            if (lista.length > 0) {
+                seleccionarTrasladoDespacho(lista[0])
+            } else {
+                setTrasladoSel(null)
+                setDetallesSel([])
             }
         } catch (err) {
-            console.error('Error al cargar clientes/sucursales:', err)
-            setClientes([])
-            setSucursales([])
+            console.error('Error al cargar despachos de traslados:', err)
+            toast.error('Error al obtener lista de despachos pendientes')
+        } finally {
+            setCargando(false)
         }
-    }
-
-    const cargarExistenciasSucursal = async (sucId) => {
-        if (!sucId) return
-        try {
-            const res = await inventarioService.listar({ sucursal_id: sucId, limit: 300 })
-            setExistencias(normalizarArreglo(res))
-        } catch (err) {
-            console.error('Error al cargar existencias:', err)
-            setExistencias([])
-        }
-    }
+    }, [sucursalSeleccionadaId])
 
     useEffect(() => {
-        cargarPedidos()
-    }, [cargarPedidos])
-
-    const abrirModalNuevoPedido = () => {
-        cargarDatosCreacion()
-        setFormNuevo({
-            cliente_id: '',
-            sucursal_id: '',
-            tipo_entrega: 'ENVIO',
-            metodo_pago: 'EFECTIVO',
-            direccion_envio: '',
-            observaciones: '',
-            items: []
-        })
-        setModalNuevoPedido(true)
-    }
-
-    const agregarItemAlPedido = () => {
-        if (!itemTemp.variante_id || itemTemp.cantidad <= 0) {
-            toast.error('Selecciona un producto y cantidad válida')
-            return
-        }
-
-        const exEncontrada = existencias.find(e => String(e.variante_id || e.id) === String(itemTemp.variante_id))
-        const prodNombre = exEncontrada?.variante?.producto?.nombre || exEncontrada?.producto_nombre || 'Producto'
-        const sku = exEncontrada?.variante?.sku || exEncontrada?.sku || 'SKU-N/A'
-        const precio = safeNumber(itemTemp.precio_unitario) || safeNumber(exEncontrada?.variante?.precio || 50)
-
-        const existeIndex = formNuevo.items.findIndex(i => String(i.variante_id) === String(itemTemp.variante_id))
-        if (existeIndex >= 0) {
-            const nuevos = [...formNuevo.items]
-            nuevos[existeIndex].cantidad += Number(itemTemp.cantidad)
-            nuevos[existeIndex].subtotal = nuevos[existeIndex].cantidad * nuevos[existeIndex].precio_unitario
-            setFormNuevo({ ...formNuevo, items: nuevos })
-        } else {
-            setFormNuevo({
-                ...formNuevo,
-                items: [
-                    ...formNuevo.items,
-                    {
-                        variante_id: itemTemp.variante_id,
-                        nombre: prodNombre,
-                        sku: sku,
-                        cantidad: Number(itemTemp.cantidad),
-                        precio_unitario: precio,
-                        subtotal: Number(itemTemp.cantidad) * precio
-                    }
-                ]
-            })
-        }
-
-        setItemTemp({ variante_id: '', cantidad: 1, precio_unitario: 0 })
-    }
-
-    const eliminarItemPedido = (idx) => {
-        const filtrados = formNuevo.items.filter((_, i) => i !== idx)
-        setFormNuevo({ ...formNuevo, items: filtrados })
-    }
-
-    const calcularTotalNuevoPedido = () => {
-        return formNuevo.items.reduce((acc, curr) => acc + curr.subtotal, 0)
-    }
-
-    // Registrar Pedido Presencial en Sistema
-    const handleGuardarNuevoPedido = async (e) => {
-        e.preventDefault()
-        if (formNuevo.items.length === 0) {
-            toast.error('Debes agregar al menos un producto al pedido.')
-            return
-        }
-
-        setProcesando(true)
-        try {
-            const payload = {
-                cliente_id: formNuevo.cliente_id ? Number(formNuevo.cliente_id) : null,
-                sucursal_id: Number(formNuevo.sucursal_id),
-                canal: 'INTERNO',
-                tipo_cliente: 'MINORISTA',
-                entrega_tipo: formNuevo.tipo_entrega,
-                forma_pago: formNuevo.metodo_pago,
-                entrega_direccion: formNuevo.direccion_envio || 'Venta Presencial en Tienda',
-                observaciones: formNuevo.observaciones,
-                detalles: formNuevo.items.map(i => ({
-                    variante_id: Number(i.variante_id),
-                    cantidad: i.cantidad,
-                    precio_unitario: i.precio_unitario
-                }))
-            }
-
-            const res = await api.post('/pedidos', payload)
-            const idCreado = res?.data?.id || res?.id
-
-            if (idCreado && formNuevo.metodo_pago !== 'CREDITO') {
-                await api.patch(`/pedidos/${idCreado}/estado`, {
-                    estado: 'PAGADO',
-                    observacion: 'Pago cobrado en caja presencial'
-                }).catch(() => { })
-            }
-
-            toast.success('Pedido registrado y procesado con éxito.')
-            setModalNuevoPedido(false)
+        if (pestañaActiva === 'pedidos') {
             cargarPedidos()
-        } catch (err) {
-            console.error('Error al crear pedido:', err)
-            toast.error(err?.response?.data?.error?.mensaje || 'No se pudo crear el pedido presencial.')
-        } finally {
-            setProcesando(false)
+        } else {
+            cargarTrasladosDespacho()
         }
-    }
+    }, [pestañaActiva, sucursalSeleccionadaId, filtroEstadoPedido, cargarPedidos, cargarTrasladosDespacho])
 
-    // Modal de Verificación / Empaque (Bodega)
-    const abrirModalVerificacion = (pedido) => {
+    // --- LÓGICA DE PEDIDOS ---
+    const abrirModalVerificacion = async (pedido) => {
         setPedidoSeleccionado(pedido)
+        if (String(pedido.estado || '').toUpperCase() === 'PAGADO') {
+            try {
+                await api.patch(`/pedidos/${pedido.id}/estado`, {
+                    estado: 'EN_PREPARACION',
+                    observacion: 'Iniciando empaque y verificación en bodega'
+                })
+                pedido.estado = 'EN_PREPARACION'
+                cargarPedidos()
+            } catch (err) {
+                console.error('Error al cambiar a en preparación:', err)
+                toast.error(err?.response?.data?.error?.mensaje || 'No se pudo iniciar la preparación.')
+                return
+            }
+        }
+
         const mapa = {}
-        const items = normalizarArreglo(pedido.detalles || pedido.items)
+        const items = normalizarArreglo(pedido.pedido_detalles || pedido.detalles || pedido.items)
         items.forEach((item, idx) => {
             mapa[item.id || idx] = false
         })
@@ -252,7 +233,7 @@ export default function PedidosInternos() {
 
     const pasarADespachoDirecto = () => {
         if (!todosVerificados()) {
-            toast.error('Debes verificar y marcar todos los ítems antes de despachar.')
+            toast.error('Debes verificar y marcar todos los ítems antes de proceder al despacho.')
             return
         }
         setModalVerificar(false)
@@ -260,25 +241,26 @@ export default function PedidosInternos() {
         setModalDespacho(true)
     }
 
-    // Confirmación Final de Despacho + Registro de Guía Externa
     const confirmarDespachoConGuia = async (e) => {
         e.preventDefault()
         if (!pedidoSeleccionado) return
+
         if (!datosDespacho.numero_guia.trim()) {
-            toast.error('El número de guía de envío es obligatorio.')
+            toast.error('El número de guía de envío es obligatorio para completar el despacho.')
             return
         }
 
-        setProcesando(true)
+        setProcesandoPedido(true)
         try {
+            const pedidoId = pedidoSeleccionado.id
             const obsCompleta = `[${datosDespacho.transportista} - Guía: ${datosDespacho.numero_guia.trim()}] ${datosDespacho.observaciones.trim()}`.trim()
 
-            await api.patch(`/pedidos/${pedidoSeleccionado.id}/estado`, {
+            await api.patch(`/pedidos/${pedidoId}/estado`, {
                 estado: 'DESPACHADO',
                 observacion: obsCompleta
             })
 
-            toast.success(`Pedido #${pedidoSeleccionado.numero || pedidoSeleccionado.id} despachado. Guía: ${datosDespacho.numero_guia}`)
+            toast.success(`Pedido #${pedidoSeleccionado.numero || pedidoId} despachado correctamente. Guía: ${datosDespacho.numero_guia}`)
             setModalDespacho(false)
             setPedidoSeleccionado(null)
             cargarPedidos()
@@ -286,47 +268,112 @@ export default function PedidosInternos() {
             console.error('Error al despachar:', err)
             toast.error(err?.response?.data?.error?.mensaje || 'Error al completar el despacho.')
         } finally {
-            setProcesando(false)
+            setProcesandoPedido(false)
         }
     }
 
-    const listaDetallesSeleccionados = normalizarArreglo(pedidoSeleccionado?.detalles || pedidoSeleccionado?.items)
+    // --- LÓGICA DE DESPACHOS (TRASLADOS) ---
+    const seleccionarTrasladoDespacho = async (t) => {
+        setTrasladoSel(t)
+        setCargandoDetalle(true)
+        try {
+            const res = await inventarioService.listarTrasladoDetalles({ traslado_id: t.id })
+            const items = normalizarArreglo(res)
+            setDetallesSel(items)
+
+            const mapaCantidades = {}
+            items.forEach((d) => {
+                mapaCantidades[d.id] = safeNumber(d.cantidad_despachada ?? d.cantidad)
+            })
+            setCantidadesEnviadas(mapaCantidades)
+            setMotivoDiscrepancia('')
+        } catch (err) {
+            console.error('Error al cargar items de traslado:', err)
+            setDetallesSel([])
+        } finally {
+            setCargandoDetalle(false)
+        }
+    }
+
+    const cambiarCantidadEnvio = (detalleId, valor) => {
+        const val = Math.max(0, Number(valor) || 0)
+        setCantidadesEnviadas((prev) => ({
+            ...prev,
+            [detalleId]: val
+        }))
+    }
+
+    const hayDiscrepanciasTraslado = detallesSel.some((d) => {
+        const solicitado = safeNumber(d.cantidad_despachada ?? d.cantidad)
+        const enCarga = safeNumber(cantidadesEnviadas[d.id])
+        return enCarga !== solicitado
+    })
+
+    const confirmarDespachoTrasladoFinal = async () => {
+        if (!trasladoSel) return
+        if (hayDiscrepanciasTraslado && !motivoDiscrepancia.trim()) {
+            toast.error('Has modificado cantidades. Debes indicar un motivo o justificación obligatoria.')
+            return
+        }
+
+        setDespachandoTraslado(true)
+        try {
+            await inventarioService.despacharTraslado(trasladoSel.id, {
+                cantidades_enviadas: cantidadesEnviadas,
+                observaciones_despacho: motivoDiscrepancia.trim() || null
+            })
+            toast.success(`Despacho confirmado para traslado ${trasladoSel.numero || `#${trasladoSel.id}`}`)
+            setModalVerificacionTraslado(false)
+            cargarTrasladosDespacho()
+        } catch (err) {
+            console.error('Error al despachar traslado:', err)
+            toast.error(err.response?.data?.error?.mensaje || 'Error al procesar el despacho')
+        } finally {
+            setDespachandoTraslado(false)
+        }
+    }
+
+    const getOrigenNombre = (t) => t?.sucursalOrigen?.nombre || t?.sucursal_origen?.nombre || 'Origen N/A'
+    const getDestinoNombre = (t) => t?.sucursalDestino?.nombre || t?.sucursal_destino?.nombre || 'Destino N/A'
+
+    const listaDetallesSeleccionados = normalizarArreglo(
+        pedidoSeleccionado?.pedido_detalles || pedidoSeleccionado?.detalles || pedidoSeleccionado?.items
+    )
 
     return (
         <div className="flex flex-col gap-5 p-6 max-w-[1600px] mx-auto" translate="no">
-            {/* Header Módulo */}
+            {/* Header y Selector de Sucursal y Pestañas */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-                        <Truck className="text-primary" /> Gestión, Salidas y Despacho de Pedidos
+                        <Truck className="text-primary" /> Módulo de Salidas y Despachos
                     </h1>
                     <p className="text-sm text-muted-foreground mt-0.5">
-                        Registro presencial, empaque de mercancía y asignación de guías de paquetería (Cargo Expreso / Forza).
+                        Gestión unificada de salidas por pedidos de clientes (con guía) y despachos por traslados entre sucursales.
                     </p>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <button
-                        onClick={abrirModalNuevoPedido}
-                        className="inline-flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow hover:bg-primary/90"
-                    >
-                        <Plus size={15} /> Crear Pedido Presencial
-                    </button>
+                    <div className="flex items-center gap-2 bg-card border rounded-lg px-3.5 py-2 shadow-sm">
+                        <Building2 size={16} className="text-primary" />
+                        <div className="flex flex-col">
+                            <span className="text-[10px] uppercase font-semibold text-muted-foreground">Sucursal de Operación</span>
+                            <select
+                                value={sucursalSeleccionadaId}
+                                onChange={(e) => setSucursalSeleccionadaId(e.target.value)}
+                                className="bg-transparent text-xs font-bold text-foreground outline-none cursor-pointer"
+                            >
+                                {sucursales.map((s) => (
+                                    <option key={s.id} value={s.id}>
+                                        {s.nombre} {String(s.id) === String(sucursalAsignadaUsuario) ? '(Tu Sucursal)' : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
 
-                    <select
-                        value={filtroEstado}
-                        onChange={(e) => setFiltroEstado(e.target.value)}
-                        className="rounded-lg border bg-card px-3.5 py-2 text-xs font-bold text-foreground outline-none cursor-pointer"
-                    >
-                        <option value="REGISTRADO">Registrados</option>
-                        <option value="PENDIENTE_PAGO">Pendientes de Pago</option>
-                        <option value="PAGADO">Pagados / Para Preparar</option>
-                        <option value="EN_PREPARACION">En Empaque / Bodega</option>
-                        <option value="DESPACHADO">Despachados</option>
-                    </select>
-
                     <button
-                        onClick={cargarPedidos}
+                        onClick={() => pestañaActiva === 'pedidos' ? cargarPedidos() : cargarTrasladosDespacho()}
                         disabled={cargando}
                         className="inline-flex items-center gap-2 rounded-lg border bg-card px-3.5 py-2 text-xs font-medium hover:bg-muted"
                     >
@@ -335,289 +382,229 @@ export default function PedidosInternos() {
                 </div>
             </div>
 
-            {/* Tabla de Pedidos */}
-            <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-muted/60 border-b text-xs font-medium text-muted-foreground">
-                            <tr>
-                                <th className="px-4 py-3">Nº Pedido / Fecha</th>
-                                <th className="px-4 py-3">Cliente</th>
-                                <th className="px-4 py-3">Canal / Tipo</th>
-                                <th className="px-4 py-3 text-center">Total</th>
-                                <th className="px-4 py-3 text-center">Estado</th>
-                                <th className="px-4 py-3 text-right">Acciones de Salida / Bodega</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y text-xs">
-                            {cargando ? (
-                                <tr>
-                                    <td colSpan={6} className="px-4 py-16 text-center text-muted-foreground">
-                                        <RefreshCw size={24} className="animate-spin mx-auto mb-3 text-primary" />
-                                        Cargando lista de pedidos...
-                                    </td>
-                                </tr>
-                            ) : pedidos.length === 0 ? (
-                                <tr>
-                                    <td colSpan={6} className="px-4 py-16 text-center text-muted-foreground">
-                                        <Package size={32} className="mx-auto mb-2 opacity-40" />
-                                        No hay pedidos en este estado.
-                                    </td>
-                                </tr>
-                            ) : (
-                                pedidos.map((p) => (
-                                    <tr key={p.id} className="hover:bg-muted/30">
-                                        <td className="px-4 py-3 font-semibold">
-                                            {p.numero || `#${p.id}`}
-                                            <div className="text-[10px] text-muted-foreground font-normal">
-                                                {new Date(p.createdAt || p.created_at || p.fecha).toLocaleString()}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 font-medium">
-                                            {p.cliente?.nombre || 'Cliente Venta Directa'}
-                                            <div className="text-[10px] text-muted-foreground">NIT: {p.cliente?.nit || 'C/F'}</div>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <span className="font-semibold">{p.canal || 'INTERNO'}</span> / <span className="text-muted-foreground">{p.tipo_cliente || 'MINORISTA'}</span>
-                                        </td>
-                                        <td className="px-4 py-3 text-center font-bold text-foreground">
-                                            Q {safeNumber(p.total).toFixed(2)}
-                                        </td>
-                                        <td className="px-4 py-3 text-center">
-                                            <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold text-[10px]">
-                                                {p.estado}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            {p.estado === 'PAGADO' || p.estado === 'EN_PREPARACION' ? (
-                                                <button
-                                                    onClick={() => abrirModalVerificacion(p)}
-                                                    className="inline-flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-emerald-700 shadow-sm"
-                                                >
-                                                    <ClipboardCheck size={14} /> Verificar e Ingresar Guía
-                                                </button>
-                                            ) : (
-                                                <span className="text-muted-foreground font-medium text-[11px]">Procesado</span>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+            {/* Sistema de Pestañas Superior */}
+            <div className="flex border-b gap-4">
+                <button
+                    onClick={() => setPestañaActiva('pedidos')}
+                    className={`pb-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${pestañaActiva === 'pedidos'
+                            ? 'border-primary text-primary'
+                            : 'border-transparent text-muted-foreground hover:text-foreground'
+                        }`}
+                >
+                    <Package size={16} /> Salida de Pedidos (Clientes)
+                </button>
+                <button
+                    onClick={() => setPestañaActiva('despachos')}
+                    className={`pb-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${pestañaActiva === 'despachos'
+                            ? 'border-primary text-primary'
+                            : 'border-transparent text-muted-foreground hover:text-foreground'
+                        }`}
+                >
+                    <ArrowRightLeft size={16} /> Despachos de Traslados (Sucursales)
+                </button>
             </div>
 
-            {/* Modal 1: Registrar Pedido Presencial (Vendedor Mostrador) */}
-            {modalNuevoPedido && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-card border rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
-                        <div className="flex items-center justify-between border-b px-5 py-4 bg-muted/30">
-                            <h2 className="font-bold text-sm text-foreground flex items-center gap-2">
-                                <ShoppingBag size={18} className="text-primary" /> Crear Pedido Presencial en Sucursal
-                            </h2>
-                            <button onClick={() => setModalNuevoPedido(false)} className="text-muted-foreground hover:text-foreground">
-                                <X size={18} />
-                            </button>
+            {/* CONTENIDO PESTAÑA 1: PEDIDOS */}
+            {pestañaActiva === 'pedidos' && (
+                <div className="flex flex-col gap-4">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-sm font-bold uppercase text-muted-foreground tracking-wider">Listado de Pedidos</h2>
+                        <select
+                            value={filtroEstadoPedido}
+                            onChange={(e) => setFiltroEstadoPedido(e.target.value)}
+                            className="rounded-lg border bg-card px-3.5 py-2 text-xs font-bold text-foreground outline-none cursor-pointer"
+                        >
+                            <option value="TODOS">Todos los Estados</option>
+                            <option value="REGISTRADO">Registrados</option>
+                            <option value="PENDIENTE_PAGO">Pendientes de Pago</option>
+                            <option value="PAGADO">Pagados / Listos para Empaque</option>
+                            <option value="EN_PREPARACION">En Empaque / Bodega</option>
+                            <option value="DESPACHADO">Despachados</option>
+                        </select>
+                    </div>
+
+                    <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-muted/60 border-b text-xs font-medium text-muted-foreground">
+                                    <tr>
+                                        <th className="px-4 py-3">Nº Pedido / Fecha</th>
+                                        <th className="px-4 py-3">Cliente</th>
+                                        <th className="px-4 py-3">Canal / Tipo</th>
+                                        <th className="px-4 py-3 text-center">Total</th>
+                                        <th className="px-4 py-3 text-center">Estado</th>
+                                        <th className="px-4 py-3 text-right">Acciones de Salida / Empaque</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y text-xs">
+                                    {cargando ? (
+                                        <tr>
+                                            <td colSpan={6} className="px-4 py-16 text-center text-muted-foreground">
+                                                <RefreshCw size={24} className="animate-spin mx-auto mb-3 text-primary" />
+                                                Cargando pedidos...
+                                            </td>
+                                        </tr>
+                                    ) : pedidos.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={6} className="px-4 py-16 text-center text-muted-foreground">
+                                                <Package size={32} className="mx-auto mb-2 opacity-40" />
+                                                No hay pedidos en este estado para la sucursal seleccionada.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        pedidos.map((p) => (
+                                            <tr key={p.id} className="hover:bg-muted/30">
+                                                <td className="px-4 py-3 font-semibold">
+                                                    {p.numero || `#${p.id}`}
+                                                    <div className="text-[10px] text-muted-foreground font-normal">
+                                                        {new Date(p.createdAt || p.created_at || p.fecha).toLocaleString()}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 font-medium">
+                                                    {p.cliente?.nombre || 'Cliente General'}
+                                                    <div className="text-[10px] text-muted-foreground">NIT: {p.cliente?.nit || 'C/F'}</div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className="font-semibold">{p.canal || 'TIENDA'}</span> / <span className="text-muted-foreground">{p.tipo_cliente || 'MINORISTA'}</span>
+                                                </td>
+                                                <td className="px-4 py-3 text-center font-bold text-foreground">
+                                                    Q {safeNumber(p.total).toFixed(2)}
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <span className="px-2.5 py-1 rounded-full bg-primary/10 text-primary font-bold text-[10px]">
+                                                        {p.estado}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    {p.estado === 'PAGADO' || p.estado === 'EN_PREPARACION' ? (
+                                                        <button
+                                                            onClick={() => abrirModalVerificacion(p)}
+                                                            className="inline-flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-emerald-700 shadow-sm"
+                                                        >
+                                                            <ClipboardCheck size={14} /> Verificar Empaque y Guía
+                                                        </button>
+                                                    ) : (
+                                                        <span className="text-muted-foreground font-medium text-[11px] flex items-center justify-end gap-1">
+                                                            <CheckCircle2 size={13} className="text-emerald-600" /> Procesado / {p.estado}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
                         </div>
-                        <form onSubmit={handleGuardarNuevoPedido} className="p-5 space-y-4 text-xs overflow-y-auto flex-1">
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="block font-semibold text-muted-foreground mb-1">Cliente (Opcional)</label>
-                                    <select
-                                        value={formNuevo.cliente_id}
-                                        onChange={(e) => setFormNuevo({ ...formNuevo, cliente_id: e.target.value })}
-                                        className="w-full rounded-lg border bg-background px-3 py-2 outline-none focus:ring-2 focus:ring-ring"
-                                    >
-                                        <option value="">Cliente Consumidor Final (CF)</option>
-                                        {(Array.isArray(clientes) ? clientes : []).map((c) => (
-                                            <option key={c.id} value={c.id}>{c.nombre} (NIT: {c.nit || 'CF'})</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block font-semibold text-muted-foreground mb-1">Sucursal de Atención</label>
-                                    <select
-                                        value={formNuevo.sucursal_id}
-                                        onChange={(e) => {
-                                            setFormNuevo({ ...formNuevo, sucursal_id: e.target.value })
-                                            cargarExistenciasSucursal(e.target.value)
-                                        }}
-                                        className="w-full rounded-lg border bg-background px-3 py-2 outline-none focus:ring-2 focus:ring-ring"
-                                        required
-                                    >
-                                        {(Array.isArray(sucursales) ? sucursales : []).map((s) => (
-                                            <option key={s.id} value={s.id}>{s.nombre}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="block font-semibold text-muted-foreground mb-1">Tipo de Entrega</label>
-                                    <select
-                                        value={formNuevo.tipo_entrega}
-                                        onChange={(e) => setFormNuevo({ ...formNuevo, tipo_entrega: e.target.value })}
-                                        className="w-full rounded-lg border bg-background px-3 py-2 outline-none focus:ring-2 focus:ring-ring font-semibold"
-                                    >
-                                        <option value="ENVIO">Envío por Paquetera</option>
-                                        <option value="RETIRO_SUCURSAL">Retiro Presencial en Sucursal</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block font-semibold text-muted-foreground mb-1">Método de Pago</label>
-                                    <select
-                                        value={formNuevo.metodo_pago}
-                                        onChange={(e) => setFormNuevo({ ...formNuevo, metodo_pago: e.target.value })}
-                                        className="w-full rounded-lg border bg-background px-3 py-2 outline-none focus:ring-2 focus:ring-ring font-semibold"
-                                    >
-                                        <option value="EFECTIVO">Efectivo en Caja</option>
-                                        <option value="TRANSFERENCIA">Transferencia Bancaria</option>
-                                        <option value="EN_LINEA">Tarjeta de Crédito / Débito</option>
-                                        <option value="CREDITO">Línea de Crédito Mayorista</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            {/* Agregar Productos al Carrito */}
-                            <div className="border rounded-lg p-3 space-y-3 bg-muted/10">
-                                <h4 className="font-bold text-foreground">Agregar Productos al Pedido:</h4>
-                                <div className="grid grid-cols-12 gap-2">
-                                    <div className="col-span-6">
-                                        <select
-                                            value={itemTemp.variante_id}
-                                            onChange={(e) => {
-                                                const idSel = e.target.value
-                                                const ex = (Array.isArray(existencias) ? existencias : []).find(x => String(x.variante_id || x.id) === String(idSel))
-                                                setItemTemp({
-                                                    ...itemTemp,
-                                                    variante_id: idSel,
-                                                    precio_unitario: safeNumber(ex?.variante?.precio || 50)
-                                                })
-                                            }}
-                                            className="w-full rounded-lg border bg-background px-2 py-1.5 outline-none text-xs"
-                                        >
-                                            <option value="">Seleccione producto en stock...</option>
-                                            {(Array.isArray(existencias) ? existencias : []).map((ex) => (
-                                                <option key={ex.variante_id || ex.id} value={ex.variante_id || ex.id}>
-                                                    {ex.variante?.producto?.nombre || ex.producto_nombre || 'Producto'} (Stock: {safeNumber(ex.cantidad_fisica ?? ex.cantidad)})
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="col-span-2">
-                                        <input
-                                            type="number"
-                                            min={1}
-                                            value={itemTemp.cantidad}
-                                            onChange={(e) => setItemTemp({ ...itemTemp, cantidad: Math.max(1, Number(e.target.value)) })}
-                                            placeholder="Cant."
-                                            className="w-full rounded-lg border bg-background px-2 py-1.5 text-center font-bold text-xs"
-                                        />
-                                    </div>
-                                    <div className="col-span-2">
-                                        <input
-                                            type="number"
-                                            min={0}
-                                            value={itemTemp.precio_unitario}
-                                            onChange={(e) => setItemTemp({ ...itemTemp, precio_unitario: Number(e.target.value) })}
-                                            placeholder="Precio"
-                                            className="w-full rounded-lg border bg-background px-2 py-1.5 text-center font-bold text-xs"
-                                        />
-                                    </div>
-                                    <div className="col-span-2">
-                                        <button
-                                            type="button"
-                                            onClick={agregarItemAlPedido}
-                                            className="w-full bg-primary text-primary-foreground py-1.5 rounded-lg font-bold hover:bg-primary/90 text-xs"
-                                        >
-                                            + Agregar
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Tabla de Ítems Agregados */}
-                                {formNuevo.items.length > 0 && (
-                                    <div className="border rounded bg-background overflow-hidden">
-                                        <table className="w-full text-left text-[11px]">
-                                            <thead className="bg-muted text-muted-foreground border-b font-semibold">
-                                                <tr>
-                                                    <th className="px-2 py-1">Producto</th>
-                                                    <th className="px-2 py-1 text-center">Cant.</th>
-                                                    <th className="px-2 py-1 text-center">Precio</th>
-                                                    <th className="px-2 py-1 text-center">Subtotal</th>
-                                                    <th className="px-2 py-1 text-right">Quitar</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y">
-                                                {formNuevo.items.map((it, idx) => (
-                                                    <tr key={idx}>
-                                                        <td className="px-2 py-1 font-semibold">{it.nombre}</td>
-                                                        <td className="px-2 py-1 text-center font-bold">{it.cantidad}</td>
-                                                        <td className="px-2 py-1 text-center">Q {it.precio_unitario.toFixed(2)}</td>
-                                                        <td className="px-2 py-1 text-center font-bold">Q {it.subtotal.toFixed(2)}</td>
-                                                        <td className="px-2 py-1 text-right">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => eliminarItemPedido(idx)}
-                                                                className="text-destructive font-bold hover:underline"
-                                                            >
-                                                                Eliminar
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                        <div className="p-2 bg-muted/20 text-right font-bold text-xs border-t">
-                                            Total Pedido: Q {calcularTotalNuevoPedido().toFixed(2)}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div>
-                                <label className="block font-semibold text-muted-foreground mb-1">Dirección de Envío (Si aplica)</label>
-                                <input
-                                    type="text"
-                                    value={formNuevo.direccion_envio}
-                                    onChange={(e) => setFormNuevo({ ...formNuevo, direccion_envio: e.target.value })}
-                                    placeholder="Ej. 4ta Calle 3-12 Zona 1, Guatemala..."
-                                    className="w-full rounded-lg border bg-background px-3 py-2 outline-none focus:ring-2 focus:ring-ring"
-                                />
-                            </div>
-
-                            <div className="flex items-center justify-end gap-2 border-t pt-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setModalNuevoPedido(false)}
-                                    className="rounded-lg border px-4 py-2 font-medium hover:bg-muted"
-                                >
-                                    Cancelar
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={procesando || formNuevo.items.length === 0}
-                                    className="rounded-lg bg-primary px-4 py-2 font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-                                >
-                                    {procesando ? 'Guardando...' : 'Confirmar y Cobrar Pedido'}
-                                </button>
-                            </div>
-                        </form>
                     </div>
                 </div>
             )}
 
-            {/* Modal 2: Verificación de Empaque y Checklist (Bodeguero) */}
+            {/* CONTENIDO PESTAÑA 2: DESPACHOS DE TRASLADOS */}
+            {pestañaActiva === 'despachos' && (
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
+                    <div className="md:col-span-5 flex flex-col gap-3">
+                        <h2 className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Solicitudes Pendientes de Salida</h2>
+                        {cargando ? (
+                            <div className="py-12 text-center text-muted-foreground border rounded-xl bg-card text-xs">Cargando...</div>
+                        ) : trasladosPendientes.length === 0 ? (
+                            <div className="py-12 text-center border rounded-xl bg-card text-muted-foreground text-xs">
+                                No hay solicitudes de traslado pendientes de despacho en esta sucursal.
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {trasladosPendientes.map((t) => (
+                                    <div
+                                        key={t.id}
+                                        onClick={() => seleccionarTrasladoDespacho(t)}
+                                        className={`p-4 rounded-xl border cursor-pointer transition-all bg-card ${trasladoSel?.id === t.id ? 'ring-2 ring-primary border-transparent shadow-md' : 'hover:border-primary/50'
+                                            }`}
+                                    >
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="font-bold text-sm text-foreground">{t.numero || `Solicitud #${t.id}`}</span>
+                                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 border border-amber-200">
+                                                PENDIENTE
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                            <span>Origen: <strong className="text-foreground">{getOrigenNombre(t)}</strong></span>
+                                            <ArrowRightLeft size={12} />
+                                            <span>Destino: <strong className="text-foreground">{getDestinoNombre(t)}</strong></span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="md:col-span-7">
+                        <div className="rounded-xl border bg-card p-5 shadow-sm space-y-4">
+                            {trasladoSel ? (
+                                <>
+                                    <div className="flex items-center justify-between border-b pb-3">
+                                        <div>
+                                            <h3 className="font-bold text-base text-foreground">
+                                                Revisión de {trasladoSel.numero || `Solicitud #${trasladoSel.id}`}
+                                            </h3>
+                                            <p className="text-xs text-muted-foreground">
+                                                Origen: <strong className="text-foreground">{getOrigenNombre(trasladoSel)}</strong> ➔ Destino: <strong className="text-foreground">{getDestinoNombre(trasladoSel)}</strong>
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={() => setModalVerificacionTraslado(true)}
+                                            disabled={detallesSel.length === 0}
+                                            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow hover:bg-primary/90 disabled:opacity-50"
+                                        >
+                                            <ShieldCheck size={16} /> Verificar Carga y Despachar
+                                        </button>
+                                    </div>
+
+                                    <div>
+                                        <h4 className="font-semibold text-xs text-foreground mb-2 flex items-center gap-1.5">
+                                            <Package size={14} /> Items solicitados en origen:
+                                        </h4>
+                                        {cargandoDetalle ? (
+                                            <div className="py-8 text-center text-muted-foreground text-xs">Cargando items...</div>
+                                        ) : (
+                                            <div className="border rounded-lg overflow-hidden divide-y text-xs">
+                                                <table className="w-full text-left">
+                                                    <thead className="bg-muted/50 text-muted-foreground font-medium border-b">
+                                                        <tr>
+                                                            <th className="px-3 py-2">SKU</th>
+                                                            <th className="px-3 py-2">Producto / Variante</th>
+                                                            <th className="px-3 py-2 text-center">Cantidad Solicitada</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y">
+                                                        {detallesSel.map((d) => (
+                                                            <tr key={d.id} className="hover:bg-muted/20">
+                                                                <td className="px-3 py-2 font-mono text-xs font-medium">{d.variante?.sku ?? d.sku ?? 'N/A'}</td>
+                                                                <td className="px-3 py-2 font-medium">{d.variante?.producto?.nombre ?? d.producto_nombre ?? 'Producto'}</td>
+                                                                <td className="px-3 py-2 text-center font-bold text-xs">{safeNumber(d.cantidad_despachada ?? d.cantidad)} u.</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="py-16 text-center text-muted-foreground text-xs">
+                                    Selecciona una solicitud pendiente para verificar y despachar.
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL 1: VERIFICACIÓN DE EMPAQUE DE PEDIDOS */}
             {modalVerificar && pedidoSeleccionado && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
                     <div className="bg-card border rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
                         <div className="flex items-center justify-between border-b px-5 py-4 bg-muted/30">
                             <h2 className="font-bold text-sm text-foreground flex items-center gap-2">
-                                <ClipboardCheck size={18} className="text-emerald-600" /> Verificación y Checklist de Salida (Bodega)
+                                <ClipboardCheck size={18} className="text-emerald-600" /> Verificación y Empaque (Bodega)
                             </h2>
                             <button onClick={() => setModalVerificar(false)} className="text-muted-foreground hover:text-foreground">
                                 <X size={18} />
@@ -625,7 +612,7 @@ export default function PedidosInternos() {
                         </div>
                         <div className="p-5 space-y-4 text-xs overflow-y-auto flex-1">
                             <div className="bg-emerald-500/10 border border-emerald-200 text-emerald-800 p-3 rounded-lg text-xs">
-                                <strong>Pedido #{pedidoSeleccionado.numero || pedidoSeleccionado.id}</strong> — Marque cada ítem a medida que lo empaque físicamente.
+                                <strong>Pedido #{pedidoSeleccionado.numero || pedidoSeleccionado.id}</strong> — Revise y confirme cada producto antes de proceder con el envío.
                             </div>
 
                             <div className="space-y-2 border rounded-lg p-3 bg-muted/20">
@@ -661,10 +648,7 @@ export default function PedidosInternos() {
                             </div>
                         </div>
                         <div className="border-t px-5 py-3 bg-muted/20 flex items-center justify-end gap-2">
-                            <button
-                                onClick={() => setModalVerificar(false)}
-                                className="rounded-lg border px-4 py-2 font-medium hover:bg-muted"
-                            >
+                            <button onClick={() => setModalVerificar(false)} className="rounded-lg border px-4 py-2 font-medium hover:bg-muted">
                                 Cancelar
                             </button>
                             <button
@@ -672,20 +656,20 @@ export default function PedidosInternos() {
                                 disabled={!todosVerificados()}
                                 className="rounded-lg bg-emerald-600 px-4 py-2 font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
                             >
-                                Proceder a Registrar Guía de Paquetería
+                                Siguiente: Registrar Número de Guía
                             </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Modal 3: Asignación de Guía Externa y Despacho */}
+            {/* MODAL 2: REGISTRO DE GUÍA DE ENVÍO (PEDIDOS) */}
             {modalDespacho && pedidoSeleccionado && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
                     <div className="bg-card border rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
                         <div className="flex items-center justify-between border-b px-5 py-4 bg-muted/30">
                             <h2 className="font-bold text-sm text-foreground flex items-center gap-2">
-                                <Truck size={18} className="text-primary" /> Registrar Guía Externa — Pedido {pedidoSeleccionado.numero || `#${pedidoSeleccionado.id}`}
+                                <Truck size={18} className="text-primary" /> Registro de Guía y Salida — Pedido {pedidoSeleccionado.numero || `#${pedidoSeleccionado.id}`}
                             </h2>
                             <button onClick={() => setModalDespacho(false)} className="text-muted-foreground hover:text-foreground">
                                 <X size={18} />
@@ -694,12 +678,12 @@ export default function PedidosInternos() {
                         <form onSubmit={confirmarDespachoConGuia} className="p-5 space-y-4 text-xs">
                             <div className="bg-muted/30 p-3 rounded-lg border space-y-1">
                                 <div><strong>Cliente:</strong> {pedidoSeleccionado.cliente?.nombre || 'Consumidor Final'}</div>
-                                <div><strong>Dirección:</strong> {pedidoSeleccionado.entrega_direccion || 'Retiro en Sucursal'}</div>
+                                <div><strong>Destino:</strong> {pedidoSeleccionado.entrega_direccion || 'Retiro en Sucursal'}</div>
                                 <div><strong>Total:</strong> Q {safeNumber(pedidoSeleccionado.total).toFixed(2)}</div>
                             </div>
 
                             <div>
-                                <label className="block font-semibold text-muted-foreground mb-1">Empresa de Envío / Transportista</label>
+                                <label className="block font-semibold text-muted-foreground mb-1">Servicio de Encomienda / Transportista</label>
                                 <select
                                     value={datosDespacho.transportista}
                                     onChange={(e) => setDatosDespacho({ ...datosDespacho, transportista: e.target.value })}
@@ -708,13 +692,14 @@ export default function PedidosInternos() {
                                     <option value="Cargo Expreso">Cargo Expreso</option>
                                     <option value="Forza Delivery">Forza Delivery</option>
                                     <option value="GuateEx">GuateEx</option>
+                                    <option value="Expreso Guate">Expreso Guate</option>
                                     <option value="Entrega Local / Propia">Entrega Local / Propia</option>
                                 </select>
                             </div>
 
                             <div>
                                 <label className="block font-semibold text-foreground mb-1">
-                                    Número de Guía de Envío (Externo) <span className="text-destructive">*</span>
+                                    Número de Guía de Envío <span className="text-destructive">*</span>
                                 </label>
                                 <input
                                     type="text"
@@ -727,32 +712,139 @@ export default function PedidosInternos() {
                             </div>
 
                             <div>
-                                <label className="block font-semibold text-muted-foreground mb-1">Observaciones de Salida (Opcional)</label>
+                                <label className="block font-semibold text-muted-foreground mb-1">Observaciones de Despacho (Opcional)</label>
                                 <textarea
                                     value={datosDespacho.observaciones}
                                     onChange={(e) => setDatosDespacho({ ...datosDespacho, observaciones: e.target.value })}
-                                    placeholder="Detalles sobre el empaque..."
-                                    className="w-full rounded-lg border bg-background p-2 outline-none focus:ring-2 focus:ring-ring h-20"
+                                    placeholder="Notas adicionales..."
+                                    className="w-full rounded-lg border bg-background p-2 outline-none focus:ring-2 focus:ring-ring h-16"
                                 />
                             </div>
 
                             <div className="flex items-center justify-end gap-2 border-t pt-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setModalDespacho(false)}
-                                    className="rounded-lg border px-4 py-2 font-medium hover:bg-muted"
-                                >
+                                <button type="button" onClick={() => setModalDespacho(false)} className="rounded-lg border px-4 py-2 font-medium hover:bg-muted">
                                     Cancelar
                                 </button>
                                 <button
                                     type="submit"
-                                    disabled={procesando || !datosDespacho.numero_guia.trim()}
+                                    disabled={procesandoPedido || !datosDespacho.numero_guia.trim()}
                                     className="rounded-lg bg-emerald-600 px-4 py-2 font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
                                 >
-                                    {procesando ? 'Despachando...' : 'Confirmar Despacho y Guardar Guía'}
+                                    {procesandoPedido ? 'Procesando Salida...' : 'Confirmar Salida y Guardar Guía'}
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL 3: VERIFICACIÓN FÍSICA Y CONTEO DE CARGA (TRASLADOS) */}
+            {modalVerificacionTraslado && trasladoSel && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="bg-card border rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                        <div className="flex items-center justify-between border-b px-5 py-4 bg-muted/30">
+                            <h2 className="font-bold text-sm text-foreground flex items-center gap-2">
+                                <ShieldCheck size={18} className="text-primary" /> Conteo Físico y Verificación de Carga
+                            </h2>
+                            <button onClick={() => setModalVerificacionTraslado(false)} className="text-muted-foreground hover:text-foreground">
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="p-5 space-y-4 text-xs overflow-y-auto flex-1">
+                            <div className="bg-amber-500/10 border border-amber-200 text-amber-800 p-3 rounded-lg flex items-start gap-2">
+                                <AlertTriangle size={16} className="shrink-0 mt-0.5 text-amber-600" />
+                                <div>
+                                    <strong>Atención Bodega:</strong> Verifique físicamente cada producto. Si despacha una cantidad distinta a la solicitada, deberá registrar una justificación.
+                                </div>
+                            </div>
+
+                            <div className="border rounded-lg p-3 space-y-1 bg-muted/20">
+                                <div><strong>Documento:</strong> {trasladoSel?.numero}</div>
+                                <div><strong>Origen:</strong> {getOrigenNombre(trasladoSel)} | <strong>Destino:</strong> {getDestinoNombre(trasladoSel)}</div>
+                            </div>
+
+                            <div>
+                                <h4 className="font-semibold text-foreground mb-2">Detalle de productos a verificar:</h4>
+                                <div className="border rounded-lg overflow-hidden divide-y">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-muted/50 text-[11px] font-medium text-muted-foreground border-b">
+                                            <tr>
+                                                <th className="px-3 py-2">Producto / SKU</th>
+                                                <th className="px-3 py-2 text-center">Cant. Solicitada</th>
+                                                <th className="px-3 py-2 text-center">Cant. en Carga (Física)</th>
+                                                <th className="px-3 py-2 text-center">Estado / Alerta</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y">
+                                            {detallesSel.map((d) => {
+                                                const sku = d.variante?.sku ?? d.sku ?? 'N/A'
+                                                const prodNombre = d.variante?.producto?.nombre ?? d.producto_nombre ?? 'Producto'
+                                                const solicitado = safeNumber(d.cantidad_despachada ?? d.cantidad)
+                                                const enCarga = cantidadesEnviadas[d.id] !== undefined ? cantidadesEnviadas[d.id] : solicitado
+
+                                                let badgeAlerta = <span className="text-emerald-600 font-medium">Exacto</span>
+                                                if (enCarga < solicitado) {
+                                                    badgeAlerta = <span className="text-amber-600 font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-200">Faltante (-{solicitado - enCarga})</span>
+                                                } else if (enCarga > solicitado) {
+                                                    badgeAlerta = <span className="text-blue-600 font-bold bg-blue-500/10 px-2 py-0.5 rounded border border-blue-200">Excedente (+{enCarga - solicitado})</span>
+                                                }
+
+                                                return (
+                                                    <tr key={d.id} className="hover:bg-muted/20">
+                                                        <td className="px-3 py-2">
+                                                            <div className="font-semibold text-foreground">{prodNombre}</div>
+                                                            <div className="text-[11px] font-mono text-muted-foreground">SKU: {sku}</div>
+                                                        </td>
+                                                        <td className="px-3 py-2 text-center font-bold text-muted-foreground">
+                                                            {solicitado} u.
+                                                        </td>
+                                                        <td className="px-3 py-2 text-center">
+                                                            <input
+                                                                type="number"
+                                                                min={0}
+                                                                value={enCarga}
+                                                                onChange={(e) => cambiarCantidadEnvio(d.id, e.target.value)}
+                                                                className="w-20 rounded border bg-background px-2 py-1 text-center font-bold text-foreground outline-none focus:ring-2 focus:ring-ring"
+                                                            />
+                                                        </td>
+                                                        <td className="px-3 py-2 text-center">
+                                                            {badgeAlerta}
+                                                        </td>
+                                                    </tr>
+                                                )
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {hayDiscrepanciasTraslado && (
+                                <div className="border border-amber-300 bg-amber-500/5 p-3 rounded-lg space-y-1.5">
+                                    <label className="block font-semibold text-amber-800 flex items-center gap-1">
+                                        <AlertTriangle size={14} /> Motivo de discrepancia (Obligatorio por diferencia en carga):
+                                    </label>
+                                    <textarea
+                                        value={motivoDiscrepancia}
+                                        onChange={(e) => setMotivoDiscrepancia(e.target.value)}
+                                        placeholder="Explique por qué se está enviando una cantidad distinta..."
+                                        className="w-full rounded-lg border bg-background p-2 text-xs outline-none focus:ring-2 focus:ring-amber-500 h-16"
+                                        required
+                                    />
+                                </div>
+                            )}
+                        </div>
+                        <div className="border-t px-5 py-3 bg-muted/20 flex items-center justify-end gap-2">
+                            <button onClick={() => setModalVerificacionTraslado(false)} className="rounded-lg border px-4 py-2 font-medium hover:bg-muted">
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={confirmarDespachoTrasladoFinal}
+                                disabled={despachandoTraslado || (hayDiscrepanciasTraslado && !motivoDiscrepancia.trim())}
+                                className="rounded-lg bg-primary px-4 py-2 font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                            >
+                                {despachandoTraslado ? 'Registrando salida...' : 'Confirmar Salida Definitiva'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
