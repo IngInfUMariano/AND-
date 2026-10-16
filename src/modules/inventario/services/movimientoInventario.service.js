@@ -87,7 +87,6 @@ const obtener = async (id) => {
 };
 
 //  crear 
-// Ejecuta el movimiento en una transacción atómica actualizando la existencia.
 const crear = async (datos, usuario_id) => {
     const {
         tipo,
@@ -101,13 +100,11 @@ const crear = async (datos, usuario_id) => {
         motivo
     } = datos;
 
-    // Validación de motivo según regla de negocio
     if (["SALIDA_MERMA", "AJUSTE_POSITIVO", "AJUSTE_NEGATIVO"].includes(tipo) && !motivo) {
         throw AppError.reglaNegocio("El campo motivo es obligatorio para mermas y ajustes de inventario");
     }
 
     return db.sequelize.transaction(async (t) => {
-        // 1. Obtener o inicializar la existencia con bloqueo de actualización
         let existencia = await db.existencia.findOne({
             where: { variante_id, sucursal_id },
             transaction: t,
@@ -115,7 +112,6 @@ const crear = async (datos, usuario_id) => {
         });
 
         if (!existencia) {
-            // Si no existe el registro de inventario, se crea en 0
             existencia = await db.existencia.create(
                 { variante_id, sucursal_id, cantidad_fisica: 0, cantidad_comprometida: 0, costo_promedio: 0 },
                 { transaction: t }
@@ -133,11 +129,8 @@ const crear = async (datos, usuario_id) => {
             throw AppError.reglaNegocio(`El tipo de movimiento '${tipo}' no es válido`);
         }
 
-        // 2. Calcular nuevo saldo físico y verificar disponibilidad
         if (esEntrada) {
             saldoResultante = saldoAnterior + cantidad;
-
-            // Recálculo de Costo Promedio Ponderado (CPP) si ingresa costo unitario
             if (costo_unitario !== undefined && costo_unitario !== null && saldoResultante > 0) {
                 const costoUnitarioNum = Number(costo_unitario);
                 const valorExistente = saldoAnterior * nuevoCostoPromedio;
@@ -154,7 +147,6 @@ const crear = async (datos, usuario_id) => {
             saldoResultante = saldoAnterior - cantidad;
         }
 
-        // 3. Actualizar el registro de existencia
         await existencia.update(
             {
                 cantidad_fisica: saldoResultante,
@@ -163,7 +155,6 @@ const crear = async (datos, usuario_id) => {
             { transaction: t }
         );
 
-        // 4. Crear el registro inmutable de Kardex
         const movimiento = await db.movimiento_inventario.create(
             {
                 tipo,
@@ -186,4 +177,20 @@ const crear = async (datos, usuario_id) => {
     });
 };
 
-module.exports = { listar, obtener, crear };
+// NUEVA FUNCIÓN: actualizar 
+const actualizar = async (id, datos) => {
+    const movimiento = await db.movimiento_inventario.findByPk(id);
+
+    if (!movimiento) {
+        throw new AppError("Movimiento de inventario no encontrado", 404);
+    }
+
+    await movimiento.update({
+        motivo: datos.motivo,
+        estado: 'RESUELTO' // Opcional, si manejas columna estado
+    });
+
+    return movimiento;
+};
+
+module.exports = { listar, obtener, crear, actualizar };

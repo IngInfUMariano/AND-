@@ -93,10 +93,10 @@ export const registrarMerma = async (payload) => {
 };
 
 export const resolverMerma = async (id, payload) => {
-    const { data } = await api.put(`/movimientos/${id}`, payload);
+    // ACTUALIZACIÓN: Cambiado de api.put a api.patch
+    const { data } = await api.patch(`/movimientos/${id}`, payload);
     return data;
 };
-
 
 export const listarPedidos = async (params) => {
     const { data } = await api.get('/pedidos', { params: limpiarParams(params) })
@@ -104,18 +104,24 @@ export const listarPedidos = async (params) => {
 }
 
 export const cambiarEstadoPedido = async (id, payload) => {
-    // payload: { estado: 'DESPACHADO' | 'EN_PREPARACION', observacion: '...' }
     const { data } = await api.patch(`/pedidos/${id}/estado`, payload)
     return data
 }
 
 export const anularPedido = async (id, payload) => {
-    // payload: { motivo: '...' }
     const { data } = await api.post(`/pedidos/${id}/anular`, payload)
     return data
 }
 
+export const listarComprobantes = async (params) => {
+    const { data } = await api.get('/comprobantes', { params: limpiarParams(params) })
+    return data
+}
 
+export const obtenerDetalleComprobante = async (id) => {
+    const { data } = await api.get(`/comprobantes/${id}`)
+    return data
+}
 
 export const inventarioService = {
     listar,
@@ -135,7 +141,9 @@ export const inventarioService = {
     resolverMerma,
     listarPedidos,
     cambiarEstadoPedido,
-    anularPedido
+    anularPedido,
+    listarComprobantes,
+    obtenerDetalleComprobante
 }
 
 export default inventarioService

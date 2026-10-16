@@ -10,7 +10,8 @@ import {
     SlidersHorizontal,
     Package,
     Calendar,
-    AlertTriangle
+    AlertTriangle,
+    FileText
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { inventarioService } from '@/services/inventario.service'
@@ -270,8 +271,8 @@ export default function KardexModal({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4 transition-all">
             <div
                 className={`flex flex-col bg-card border shadow-2xl transition-all duration-200 overflow-hidden ${esPantallaCompleta
-                        ? 'fixed inset-0 w-full h-full rounded-none z-50'
-                        : 'w-full max-w-5xl max-h-[90vh] rounded-xl'
+                    ? 'fixed inset-0 w-full h-full rounded-none z-50'
+                    : 'w-full max-w-5xl max-h-[90vh] rounded-xl'
                     }`}
             >
                 {/* Encabezado */}
@@ -416,6 +417,9 @@ export default function KardexModal({
                                     const esEntrada = tipo.includes('ENTRADA') || tipo === 'COMPRA'
                                     const esSalida = tipo.includes('SALIDA') || tipo === 'VENTA'
 
+                                    // Nueva lógica para mostrar el Comprobante Interno
+                                    const docReferencia = m.comprobante?.numero || m.documento_referencia || m.referencia
+
                                     return (
                                         <tr
                                             key={m.id || i}
@@ -429,11 +433,11 @@ export default function KardexModal({
                                             </td>
                                             <td className="px-4 py-2.5">
                                                 <div className="font-medium text-xs">
-                                                    {m.motivo || m.concepto || m.descripcion || m.referencia || 'Sin descripción'}
+                                                    {m.motivo || m.concepto || m.descripcion || 'Sin descripción'}
                                                 </div>
-                                                {m.documento_referencia && (
-                                                    <div className="text-[11px] font-mono text-muted-foreground">
-                                                        Ref: {m.documento_referencia}
+                                                {docReferencia && (
+                                                    <div className="text-[11px] font-mono text-primary flex items-center gap-1 mt-0.5 font-bold">
+                                                        <FileText size={10} /> Ref: {docReferencia}
                                                     </div>
                                                 )}
                                             </td>

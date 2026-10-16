@@ -1,19 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
-    Search,
-    Calendar,
-    RefreshCw,
-    ArrowDownLeft,
-    ArrowUpRight,
-    ArrowRightLeft,
-    SlidersHorizontal,
-    Package,
-    AlertTriangle,
-    Building2,
-    Download,
-    ChevronLeft,
-    ChevronRight,
-    FilterX
+    Search, Calendar, RefreshCw, ArrowDownLeft, ArrowUpRight,
+    ArrowRightLeft, SlidersHorizontal, Package, AlertTriangle,
+    Building2, Download, ChevronLeft, ChevronRight, FilterX, FileText
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { inventarioService } from '@/services/inventario.service'
@@ -23,7 +12,6 @@ const safeNumber = (val) => {
     const n = Number(val)
     return isNaN(n) ? 0 : n
 }
-
 
 const getProductoNombre = (m) => {
     if (!m) return 'Producto'
@@ -205,7 +193,9 @@ export default function MovimientosPage() {
             const atributos = getAtributos(m).toLowerCase()
             const sucursalNombre = getSucursalNombre(m).toLowerCase()
             const usuarioNombre = getUsuarioNombre(m).toLowerCase()
-            const ref = String(m.documento_referencia || m.referencia || '').toLowerCase()
+
+            // Nueva compatibilidad de búsqueda con Comprobante Interno
+            const ref = String(m.comprobante?.numero || m.documento_referencia || m.referencia || '').toLowerCase()
 
             if (term) {
                 const matchTermino =
@@ -259,7 +249,6 @@ export default function MovimientosPage() {
         return movimientosFiltrados.slice(inicio, inicio + ELEMENTOS_POR_PAGINA)
     }, [movimientosFiltrados, pagina])
 
-    // Desglose de Entradas y Salidas de Traslados
     const resumen = useMemo(() => {
         if (!Array.isArray(movimientosFiltrados)) return { entradas: 0, salidas: 0, trasladosEntrada: 0, trasladosSalida: 0 }
 
@@ -302,7 +291,7 @@ export default function MovimientosPage() {
             return
         }
 
-        const headers = ['Fecha', 'Sucursal', 'Producto', 'Variante/Atributos', 'SKU', 'Tipo', 'Motivo/Concepto', 'Cantidad', 'Stock Resultante', 'Usuario']
+        const headers = ['Fecha', 'Sucursal', 'Producto', 'Variante/Atributos', 'SKU', 'Tipo', 'Motivo/Concepto', 'Comprobante', 'Cantidad', 'Stock Resultante', 'Usuario']
         const rows = movimientosFiltrados.map((m) => [
             formatFecha(m.createdAt || m.created_at || m.fecha),
             `"${getSucursalNombre(m)}"`,
@@ -311,6 +300,7 @@ export default function MovimientosPage() {
             getSku(m),
             m.tipo_movimiento || m.tipo || '',
             `"${m.motivo || m.concepto || m.descripcion || ''}"`,
+            `"${m.comprobante?.numero || m.documento_referencia || '-'}"`, // Incluir comprobante en exportación
             safeNumber(m.cantidad ?? m.cant),
             m.saldo_resultante ?? m.stock_resultante ?? m.saldo ?? m.stock_nuevo ?? '-',
             `"${getUsuarioNombre(m)}"`
@@ -402,7 +392,6 @@ export default function MovimientosPage() {
 
     return (
         <div className="flex flex-col gap-5 p-6 max-w-[1600px] mx-auto" translate="no">
-            {/* Encabezado */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-foreground">Movimientos / Kardex General</h1>
@@ -427,7 +416,6 @@ export default function MovimientosPage() {
                 </div>
             </div>
 
-            {/* Tarjetas KPI */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="rounded-xl border bg-card p-4 shadow-sm">
                     <div className="flex items-center justify-between text-muted-foreground">
@@ -455,7 +443,6 @@ export default function MovimientosPage() {
                     <p className="text-[11px] text-muted-foreground mt-1">Unidades egresadas</p>
                 </div>
 
-                {/* Traslados Desglosados en Entradas y Salidas */}
                 <div className="rounded-xl border bg-card p-4 shadow-sm">
                     <div className="flex items-center justify-between text-muted-foreground">
                         <span className="text-xs font-medium uppercase tracking-wider">Traslados</span>
@@ -495,14 +482,13 @@ export default function MovimientosPage() {
                 </div>
             </div>
 
-            {/* Barra de Filtros */}
             <div className="rounded-xl border bg-card p-4 shadow-sm flex flex-col gap-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-center">
                     <div className="relative lg:col-span-4">
                         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                         <input
                             type="text"
-                            placeholder="Buscar producto, SKU, variante, motivo, ref, usuario..."
+                            placeholder="Buscar producto, SKU, variante, motivo, comprobante..."
                             value={busqueda}
                             onChange={(e) => {
                                 setBusqueda(e.target.value)
@@ -586,7 +572,6 @@ export default function MovimientosPage() {
                 </div>
             </div>
 
-            {/* Tabla de Movimientos */}
             <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
@@ -596,7 +581,7 @@ export default function MovimientosPage() {
                                 <th className="px-4 py-3">Sucursal</th>
                                 <th className="px-4 py-3">Producto / Variante</th>
                                 <th className="px-4 py-3">Tipo / Motivo</th>
-                                <th className="px-4 py-3">Concepto / Referencia</th>
+                                <th className="px-4 py-3">Documento / Comprobante</th>
                                 <th className="px-4 py-3 text-center">Cantidad</th>
                                 <th className="px-4 py-3 text-center">Stock Resultante</th>
                                 <th className="px-4 py-3 text-right">Usuario</th>
@@ -634,6 +619,9 @@ export default function MovimientosPage() {
 
                                     const rowKey = m.id || `${m.variante_id || i}-${m.sucursal_id || i}-${i}`
 
+                                    // Nueva lógica para mostrar el Comprobante Interno vinculado
+                                    const docReferencia = m.comprobante?.numero || m.documento_referencia || m.referencia
+
                                     return (
                                         <tr key={rowKey} className="hover:bg-muted/30 transition-colors">
                                             <td className="px-4 py-3 whitespace-nowrap text-xs font-medium text-foreground">
@@ -658,11 +646,11 @@ export default function MovimientosPage() {
                                             </td>
                                             <td className="px-4 py-3 max-w-xs">
                                                 <div className="font-medium text-xs text-foreground truncate" title={m.motivo || m.concepto || m.descripcion}>
-                                                    {m.motivo || m.concepto || m.descripcion || m.referencia || 'Sin descripción'}
+                                                    {m.motivo || m.concepto || m.descripcion || 'Sin descripción'}
                                                 </div>
-                                                {m.documento_referencia && (
-                                                    <div className="text-[11px] font-mono text-muted-foreground">
-                                                        Ref: {m.documento_referencia}
+                                                {docReferencia && (
+                                                    <div className="text-[11px] font-mono text-primary flex items-center gap-1 mt-0.5 font-bold">
+                                                        <FileText size={10} /> Ref: {docReferencia}
                                                     </div>
                                                 )}
                                             </td>
@@ -685,7 +673,6 @@ export default function MovimientosPage() {
                     </table>
                 </div>
 
-                {/* Footer y Paginación */}
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t px-4 py-3 bg-muted/20 text-xs text-muted-foreground">
                     <div>
                         Mostrando <span className="font-medium text-foreground">{movimientosFiltrados.length > 0 ? (pagina - 1) * ELEMENTOS_POR_PAGINA + 1 : 0} - {Math.min(pagina * ELEMENTOS_POR_PAGINA, movimientosFiltrados.length)}</span> de{' '}
