@@ -1,11 +1,16 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import pedidoService from '@/services/pedido.service'
 import { useCart } from '@/context/CartContext'
 import { useAuth } from '@/context/AuthContext'
 import clienteService from '@/services/cliente.service'
+import MenuOverlay from '@/components/MenuOverlay'
+
+const MONO    = { fontFamily: "'IBM Plex Mono', monospace" }
+const DISPLAY = { fontFamily: "'EB Garamond', Georgia, serif", fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.18em' }
+const NAV_H   = 52
 
 const DEPARTAMENTOS_GT = [
   'Alta Verapaz', 'Baja Verapaz', 'Chimaltenango', 'Chiquimula',
@@ -16,7 +21,6 @@ const DEPARTAMENTOS_GT = [
   'Totonicapán', 'Zacapa',
 ]
 
-// Busca en la lista de zonas cargadas la que cubre el departamento dado
 const zonaParaDept = (zonasEnvio, departamento) => {
   if (!departamento || !zonasEnvio.length) return null
   return zonasEnvio.find(z => {
@@ -25,10 +29,109 @@ const zonaParaDept = (zonasEnvio, departamento) => {
   }) ?? null
 }
 
+const fieldStyle = (hasError = false) => ({
+  ...MONO, fontSize: '13px', letterSpacing: '0.03em',
+  width: '100%', background: 'transparent',
+  border: 'none',
+  borderBottom: `1px solid ${hasError ? 'rgba(180,0,0,0.5)' : 'rgba(10,10,10,0.16)'}`,
+  padding: '8px 0', outline: 'none',
+  color: '#0a0a0a', boxSizing: 'border-box',
+  transition: 'border-color 0.16s ease',
+})
+
+const selectStyle = (hasError = false) => ({
+  ...fieldStyle(hasError),
+  appearance: 'none', WebkitAppearance: 'none',
+  cursor: 'pointer',
+})
+
+const labelStyle = {
+  ...MONO, fontSize: '10px', letterSpacing: '0.3em',
+  textTransform: 'uppercase', color: 'rgba(10,10,10,0.55)',
+  display: 'block', marginBottom: '0.5rem',
+}
+
+const errorStyle = {
+  ...MONO, fontSize: '10px', letterSpacing: '0.1em',
+  color: 'rgba(180,0,0,0.65)', marginTop: '0.35rem',
+}
+
+function NavHeader({ onOpenMenu }) {
+  const { usuario } = useAuth()
+
+  return (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, background: '#ffffff' }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 1.75rem', height: `${NAV_H}px`,
+        color: '#0a0a0a', position: 'relative',
+      }}>
+        <button
+          onClick={onOpenMenu}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+            ...MONO, fontSize: '11px', letterSpacing: '0.18em', color: '#0a0a0a',
+            transition: 'opacity 0.18s ease',
+          }}
+          onMouseEnter={e => e.currentTarget.style.opacity = '0.45'}
+          onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+        >
+          MENU
+        </button>
+
+        <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
+          <Link to="/" style={{ textDecoration: 'none', color: '#0a0a0a' }}>
+            <h1 style={{ ...DISPLAY, fontSize: '1.12rem', lineHeight: 1, letterSpacing: '0.06em' }}>AND&</h1>
+          </Link>
+        </div>
+
+        <Link
+          to={usuario ? '/cuenta' : '/login'}
+          style={{ ...MONO, fontSize: '11px', letterSpacing: '0.16em', color: '#0a0a0a', textDecoration: 'none', transition: 'opacity 0.18s ease' }}
+          onMouseEnter={e => e.currentTarget.style.opacity = '0.45'}
+          onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+        >
+          {usuario ? 'PERFIL' : 'ENTRAR'}
+        </Link>
+      </div>
+      <div style={{ height: '1px', background: 'rgba(10,10,10,0.09)' }} />
+    </div>
+  )
+}
+
+function SeccionLabel({ children }) {
+  return (
+    <p style={{ ...MONO, fontSize: '10px', letterSpacing: '0.38em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.38)', marginBottom: '1.2rem' }}>
+      {children}
+    </p>
+  )
+}
+
+function RadioBtn({ label, value, current, onChange }) {
+  const activo = current === value
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(value)}
+      style={{
+        ...MONO, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase',
+        padding: '6px 16px', cursor: 'pointer',
+        border: `1px solid ${activo ? '#0a0a0a' : 'rgba(10,10,10,0.14)'}`,
+        background: activo ? '#0a0a0a' : 'transparent',
+        color: activo ? '#fafafa' : 'rgba(10,10,10,0.5)',
+        transition: 'all 0.18s ease',
+      }}
+    >
+      {label}
+    </button>
+  )
+}
+
 export default function Checkout() {
   const navigate = useNavigate()
   const { carrito, recargar } = useCart()
   const { usuario } = useAuth()
+  const [menuAbierto, setMenuAbierto] = useState(false)
 
   const [sucursales, setSucursales] = useState([])
   const [zonasEnvio, setZonasEnvio] = useState([])
@@ -36,7 +139,7 @@ export default function Checkout() {
   const [cargando, setCargando] = useState(true)
   const [enviando, setEnviando] = useState(false)
 
-  const { register, handleSubmit, watch, formState: { errors } } = useForm({
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
     defaultValues: {
       entrega_tipo: 'RETIRO_SUCURSAL',
       forma_pago: 'STRIPE',
@@ -44,18 +147,17 @@ export default function Checkout() {
     }
   })
 
-  const entregaTipo        = watch('entrega_tipo')
-  const dirGuardadaId      = watch('direccion_guardada')
-  const departamentoNuevo  = watch('departamento_nuevo')
+  const entregaTipo       = watch('entrega_tipo')
+  const formaPago         = watch('forma_pago')
+  const dirGuardadaId     = watch('direccion_guardada')
+  const departamentoNuevo = watch('departamento_nuevo')
 
   const esEnvio = entregaTipo === 'ENVIO'
 
-  // Dirección guardada seleccionada (objeto completo)
   const dirGuardada = dirGuardadaId
     ? direcciones.find(d => String(d.id) === dirGuardadaId) ?? null
     : null
 
-  // Zona que aplica según la dirección (guardada o nueva)
   const zonaActual = esEnvio
     ? (dirGuardada
         ? (dirGuardada.zona_envio ?? null)
@@ -85,20 +187,18 @@ export default function Checkout() {
 
       if (esEnvio) {
         if (dirGuardada) {
-          // Usar dirección guardada — la zona ya está asociada a ella
           if (!dirGuardada.zona_envio_id) {
             toast.error('Esta dirección no tiene zona de envío asignada. Actualízala en Mi Cuenta.')
             setEnviando(false)
             return
           }
-          payload.zona_envio_id       = dirGuardada.zona_envio_id
+          payload.zona_envio_id        = dirGuardada.zona_envio_id
           payload.entrega_destinatario = dirGuardada.destinatario
-          payload.entrega_direccion   = dirGuardada.direccion
-          payload.entrega_municipio   = dirGuardada.municipio
+          payload.entrega_direccion    = dirGuardada.direccion
+          payload.entrega_municipio    = dirGuardada.municipio
           payload.entrega_departamento = dirGuardada.departamento
-          payload.entrega_telefono    = dirGuardada.telefono || undefined
+          payload.entrega_telefono     = dirGuardada.telefono || undefined
         } else {
-          // Dirección nueva ingresada en el checkout
           const zona = zonaParaDept(zonasEnvio, valores.departamento_nuevo)
           if (!zona) {
             toast.error(`No disponemos envíos al departamento de ${valores.departamento_nuevo || 'este departamento'}.`)
@@ -113,22 +213,20 @@ export default function Checkout() {
           payload.entrega_telefono     = valores.telefono_nuevo || undefined
         }
       } else {
-        // Retiro en sucursal
         payload.sucursal_id = Number(valores.sucursal_id)
       }
 
       const res = await pedidoService.crear(payload)
       const pedidoId = res.data.id
-      await recargar()
 
       if (valores.forma_pago === 'STRIPE') {
         navigate(`/pago/${pedidoId}`)
       } else {
         navigate(`/pedidos/${pedidoId}`)
       }
+      recargar()
     } catch (err) {
-      const msg = err.response?.data?.error?.mensaje ?? 'Error al crear el pedido'
-      toast.error(msg)
+      toast.error(err.response?.data?.error?.mensaje ?? 'Error al crear el pedido')
     } finally {
       setEnviando(false)
     }
@@ -137,7 +235,15 @@ export default function Checkout() {
   const detalles = carrito?.carrito_detalles ?? []
 
   if (cargando) return (
-    <div className="flex h-64 items-center justify-center text-muted-foreground">Cargando...</div>
+    <div style={{ minHeight: '100vh', background: '#ffffff' }}>
+      <NavHeader onOpenMenu={() => setMenuAbierto(true)} />
+      <MenuOverlay open={menuAbierto} onClose={() => setMenuAbierto(false)} />
+      <div style={{ paddingTop: `${NAV_H + 120}px`, textAlign: 'center' }}>
+        <span style={{ ...MONO, fontSize: '10px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.2)' }}>
+          cargando...
+        </span>
+      </div>
+    </div>
   )
 
   if (detalles.length === 0) {
@@ -146,216 +252,242 @@ export default function Checkout() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8">
-      <h1 className="text-2xl font-semibold">Finalizar compra</h1>
+    <div style={{ minHeight: '100vh', background: '#fafafa', color: '#0a0a0a' }}>
+      <NavHeader onOpenMenu={() => setMenuAbierto(true)} />
+      <MenuOverlay open={menuAbierto} onClose={() => setMenuAbierto(false)} />
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <div style={{ display: 'grid', gridTemplateColumns: '40% 1fr', paddingTop: `${NAV_H}px`, minHeight: `calc(100vh - ${NAV_H}px)` }}>
 
-        {/* Tipo de entrega */}
-        <div className="rounded-xl border p-5 space-y-3">
-          <h2 className="font-medium">Tipo de entrega</h2>
-          <div className="flex gap-4">
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
-              <input type="radio" value="RETIRO_SUCURSAL" {...register('entrega_tipo')} />
-              Retirar en sucursal
-            </label>
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
-              <input type="radio" value="ENVIO" {...register('entrega_tipo')} />
-              Entrega a domicilio
-            </label>
-          </div>
-        </div>
-
-        {/* Sucursal — sólo para retiro */}
-        {!esEnvio && (
-          <div className="rounded-xl border p-5 space-y-3">
-            <h2 className="font-medium">Sucursal de retiro</h2>
-            <select
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-              {...register('sucursal_id', { required: 'Selecciona una sucursal' })}
-            >
-              <option value="">Seleccionar sucursal...</option>
-              {sucursales.map(s => (
-                <option key={s.id} value={s.id}>{s.nombre}</option>
-              ))}
-            </select>
-            {errors.sucursal_id && <p className="text-xs text-destructive">{errors.sucursal_id.message}</p>}
-          </div>
-        )}
-
-        {/* Entrega a domicilio */}
-        {esEnvio && (
-          <div className="rounded-xl border p-5 space-y-5">
-            <h2 className="font-medium">Dirección de entrega</h2>
-
-            {/* Selector de dirección guardada */}
-            {direcciones.length > 0 && (
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-muted-foreground">Usar dirección guardada</label>
-                <select
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-                  {...register('direccion_guardada')}
-                >
-                  <option value="">Ingresar nueva dirección</option>
-                  {direcciones.map(d => (
-                    <option key={d.id} value={d.id}>
-                      {d.alias ? `${d.alias} — ` : ''}{d.municipio}, {d.departamento}
-                      {d.zona_envio ? ` (Q ${Number(d.zona_envio.costo).toFixed(2)})` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Resumen de dirección guardada seleccionada */}
-            {dirGuardada && (
-              <div className="rounded-md bg-muted/40 px-4 py-3 text-sm space-y-0.5">
-                <p className="font-medium">{dirGuardada.destinatario}</p>
-                <p className="text-muted-foreground">{dirGuardada.direccion}</p>
-                <p className="text-muted-foreground">{dirGuardada.municipio}, {dirGuardada.departamento}</p>
-                {dirGuardada.telefono && <p className="text-muted-foreground">{dirGuardada.telefono}</p>}
-                {!dirGuardada.zona_envio_id && (
-                  <p className="text-destructive text-xs mt-1">
-                    Esta dirección no tiene zona de envío asignada. Actualízala en Mi Cuenta para poder usarla.
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Formulario de nueva dirección */}
-            {!dirGuardada && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="mb-1 block text-sm font-medium">Destinatario *</label>
-                    <input
-                      placeholder="Nombre completo"
-                      className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-                      {...register('destinatario_nuevo', { required: esEnvio && !dirGuardada ? 'Obligatorio' : false })}
-                    />
-                    {errors.destinatario_nuevo && <p className="text-xs text-destructive mt-0.5">{errors.destinatario_nuevo.message}</p>}
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium">Teléfono</label>
-                    <input
-                      type="tel"
-                      placeholder="+502 0000-0000"
-                      className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-                      {...register('telefono_nuevo')}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="mb-1 block text-sm font-medium">Departamento *</label>
-                    <select
-                      className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-                      {...register('departamento_nuevo', { required: esEnvio && !dirGuardada ? 'Selecciona un departamento' : false })}
-                    >
-                      <option value="">Seleccionar...</option>
-                      {DEPARTAMENTOS_GT.map(d => <option key={d} value={d}>{d}</option>)}
-                    </select>
-                    {errors.departamento_nuevo && <p className="text-xs text-destructive mt-0.5">{errors.departamento_nuevo.message}</p>}
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium">Municipio *</label>
-                    <input
-                      placeholder="Ciudad, municipio..."
-                      className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-                      {...register('municipio_nuevo', { required: esEnvio && !dirGuardada ? 'Obligatorio' : false })}
-                    />
-                    {errors.municipio_nuevo && <p className="text-xs text-destructive mt-0.5">{errors.municipio_nuevo.message}</p>}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-sm font-medium">Dirección *</label>
-                  <textarea
-                    rows={2}
-                    placeholder="Calle, número, colonia, zona..."
-                    className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring resize-none"
-                    {...register('direccion_nueva', { required: esEnvio && !dirGuardada ? 'La dirección es obligatoria' : false })}
-                  />
-                  {errors.direccion_nueva && <p className="text-xs text-destructive mt-0.5">{errors.direccion_nueva.message}</p>}
-                </div>
-
-                {/* Indicador de zona derivada del departamento */}
-                {departamentoNuevo && (
-                  zonaActual ? (
-                    <div className="rounded-md bg-muted/40 px-4 py-2 text-sm flex justify-between items-center">
-                      <span className="text-muted-foreground">Costo de envío a {departamentoNuevo}</span>
-                      <span className="font-medium">Q {Number(zonaActual.costo).toFixed(2)}</span>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-destructive">
-                      No disponemos envíos al departamento de {departamentoNuevo}.
-                    </p>
-                  )
-                )}
-              </div>
-            )}
-
-            {/* Resumen de costo de envío para dirección guardada con zona */}
-            {dirGuardada?.zona_envio && (
-              <div className="rounded-md bg-muted/40 px-4 py-2 text-sm flex justify-between items-center">
-                <span className="text-muted-foreground">Costo de envío</span>
-                <span className="font-medium">Q {Number(dirGuardada.zona_envio.costo).toFixed(2)}</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Forma de pago */}
-        <div className="rounded-xl border p-5 space-y-3">
-          <h2 className="font-medium">Forma de pago</h2>
-          <div className="space-y-2">
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
-              <input type="radio" value="STRIPE" {...register('forma_pago')} />
-              Pago con tarjeta (Stripe)
-            </label>
-            {usuario?.tipo_cliente === 'MAYORISTA' && (
-              <label className="flex cursor-pointer items-center gap-2 text-sm">
-                <input type="radio" value="CREDITO" {...register('forma_pago')} />
-                Pago a crédito
-              </label>
-            )}
-          </div>
-        </div>
-
-        {/* Observaciones */}
-        <div className="rounded-xl border p-5 space-y-3">
-          <h2 className="font-medium">
-            Observaciones{' '}
-            <span className="text-muted-foreground text-sm font-normal">(opcional)</span>
-          </h2>
-          <textarea
-            rows={3}
-            placeholder="Instrucciones especiales, talla alternativa, etc."
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring resize-none"
-            {...register('observaciones')}
+        {/* Imagen sticky */}
+        <div style={{ position: 'sticky', top: `${NAV_H}px`, height: `calc(100vh - ${NAV_H}px)`, overflow: 'hidden' }}>
+          <img
+            src="https://picsum.photos/seed/andcheckout44/800/1200"
+            alt=""
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'grayscale(100%) brightness(0.52)' }}
           />
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <h1 style={{
+              ...DISPLAY,
+              fontSize: 'clamp(2.5rem, 4.5vw, 4.2rem)',
+              color: '#ffffff',
+              textAlign: 'center',
+              lineHeight: 1.15,
+            }}>
+              Finalizar<br />Compra
+            </h1>
+          </div>
         </div>
 
-        {/* Resumen */}
-        <div className="rounded-xl border bg-muted/40 p-5 space-y-2">
-          <p className="font-medium">Resumen del pedido</p>
-          <p className="text-sm text-muted-foreground">{detalles.length} producto(s)</p>
-          {zonaActual && (
-            <p className="text-sm text-muted-foreground">
-              Envío: Q {Number(zonaActual.costo).toFixed(2)} · {zonaActual.dias_estimados ? `${zonaActual.dias_estimados} día(s) hábiles` : 'tiempo estimado según zona'}
-            </p>
-          )}
-        </div>
+        {/* Formulario */}
+        <div style={{ padding: '4rem 4rem 5rem 4.5rem', overflowY: 'auto' }}>
 
-        <button
-          type="submit"
-          disabled={enviando}
-          className="w-full rounded-md bg-primary py-3 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-        >
-          {enviando ? 'Procesando...' : 'Confirmar pedido'}
-        </button>
-      </form>
+          <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
+
+            {/* ── Tipo de entrega ── */}
+            <section>
+              <SeccionLabel>tipo de entrega</SeccionLabel>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <RadioBtn label="Retirar en sucursal" value="RETIRO_SUCURSAL" current={entregaTipo} onChange={v => setValue('entrega_tipo', v)} />
+                <RadioBtn label="Envío a domicilio" value="ENVIO" current={entregaTipo} onChange={v => setValue('entrega_tipo', v)} />
+              </div>
+            </section>
+
+            {/* ── Sucursal ── */}
+            {!esEnvio && (
+              <section>
+                <SeccionLabel>sucursal de retiro</SeccionLabel>
+                <select style={selectStyle(!!errors.sucursal_id)} {...register('sucursal_id', { required: 'Selecciona una sucursal' })}>
+                  <option value="">Seleccionar...</option>
+                  {sucursales.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                </select>
+                {errors.sucursal_id && <p style={errorStyle}>{errors.sucursal_id.message}</p>}
+              </section>
+            )}
+
+            {/* ── Dirección de envío ── */}
+            {esEnvio && (
+              <section style={{ display: 'flex', flexDirection: 'column', gap: '1.6rem' }}>
+                <SeccionLabel>dirección de entrega</SeccionLabel>
+
+                {/* Dirección guardada */}
+                {direcciones.length > 0 && (
+                  <div>
+                    <label style={labelStyle}>usar dirección guardada</label>
+                    <select style={selectStyle(false)} {...register('direccion_guardada')}>
+                      <option value="">Ingresar nueva dirección</option>
+                      {direcciones.map(d => (
+                        <option key={d.id} value={d.id}>
+                          {d.alias ? `${d.alias} — ` : ''}{d.municipio}, {d.departamento}
+                          {d.zona_envio ? ` (Q ${Number(d.zona_envio.costo).toFixed(2)})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Resumen dirección guardada */}
+                {dirGuardada && (
+                  <div style={{ borderLeft: '2px solid rgba(10,10,10,0.12)', paddingLeft: '1rem' }}>
+                    <p style={{ ...MONO, fontSize: '13px', color: '#0a0a0a', marginBottom: '0.2rem' }}>{dirGuardada.destinatario}</p>
+                    <p style={{ ...MONO, fontSize: '12px', color: 'rgba(10,10,10,0.55)', marginBottom: '0.15rem' }}>{dirGuardada.direccion}</p>
+                    <p style={{ ...MONO, fontSize: '12px', color: 'rgba(10,10,10,0.55)' }}>{dirGuardada.municipio}, {dirGuardada.departamento}</p>
+                    {!dirGuardada.zona_envio_id && (
+                      <p style={{ ...MONO, fontSize: '10px', color: 'rgba(180,0,0,0.65)', marginTop: '0.5rem', letterSpacing: '0.1em' }}>
+                        Esta dirección no tiene zona de envío asignada.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Formulario nueva dirección */}
+                {!dirGuardada && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.4rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.4rem' }}>
+                      <div>
+                        <label style={labelStyle}>destinatario *</label>
+                        <input
+                          placeholder="Nombre completo"
+                          style={fieldStyle(!!errors.destinatario_nuevo)}
+                          {...register('destinatario_nuevo', { required: esEnvio && !dirGuardada ? 'Obligatorio' : false })}
+                        />
+                        {errors.destinatario_nuevo && <p style={errorStyle}>{errors.destinatario_nuevo.message}</p>}
+                      </div>
+                      <div>
+                        <label style={labelStyle}>teléfono</label>
+                        <input type="tel" placeholder="+502 0000-0000" style={fieldStyle(false)} {...register('telefono_nuevo')} />
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.4rem' }}>
+                      <div>
+                        <label style={labelStyle}>departamento *</label>
+                        <select
+                          style={selectStyle(!!errors.departamento_nuevo)}
+                          {...register('departamento_nuevo', { required: esEnvio && !dirGuardada ? 'Selecciona un departamento' : false })}
+                        >
+                          <option value="">Seleccionar...</option>
+                          {DEPARTAMENTOS_GT.map(d => <option key={d} value={d}>{d}</option>)}
+                        </select>
+                        {errors.departamento_nuevo && <p style={errorStyle}>{errors.departamento_nuevo.message}</p>}
+                      </div>
+                      <div>
+                        <label style={labelStyle}>municipio *</label>
+                        <input
+                          placeholder="Ciudad, municipio..."
+                          style={fieldStyle(!!errors.municipio_nuevo)}
+                          {...register('municipio_nuevo', { required: esEnvio && !dirGuardada ? 'Obligatorio' : false })}
+                        />
+                        {errors.municipio_nuevo && <p style={errorStyle}>{errors.municipio_nuevo.message}</p>}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={labelStyle}>dirección *</label>
+                      <textarea
+                        rows={2}
+                        placeholder="Calle, número, colonia, zona..."
+                        style={{ ...fieldStyle(!!errors.direccion_nueva), resize: 'none', display: 'block' }}
+                        {...register('direccion_nueva', { required: esEnvio && !dirGuardada ? 'La dirección es obligatoria' : false })}
+                      />
+                      {errors.direccion_nueva && <p style={errorStyle}>{errors.direccion_nueva.message}</p>}
+                    </div>
+
+                    {/* Costo de envío derivado */}
+                    {departamentoNuevo && (
+                      zonaActual ? (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.7rem 0', borderTop: '1px solid rgba(10,10,10,0.08)' }}>
+                          <span style={{ ...MONO, fontSize: '11px', color: 'rgba(10,10,10,0.45)' }}>envío a {departamentoNuevo}</span>
+                          <span style={{ ...MONO, fontSize: '12px', color: '#0a0a0a' }}>Q {Number(zonaActual.costo).toFixed(2)}</span>
+                        </div>
+                      ) : (
+                        <p style={{ ...MONO, fontSize: '11px', color: 'rgba(180,0,0,0.65)', letterSpacing: '0.1em' }}>
+                          No disponemos envíos al departamento de {departamentoNuevo}.
+                        </p>
+                      )
+                    )}
+                  </div>
+                )}
+
+                {/* Costo de envío para dirección guardada */}
+                {dirGuardada?.zona_envio && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.7rem 0', borderTop: '1px solid rgba(10,10,10,0.08)' }}>
+                    <span style={{ ...MONO, fontSize: '11px', color: 'rgba(10,10,10,0.45)' }}>costo de envío</span>
+                    <span style={{ ...MONO, fontSize: '12px', color: '#0a0a0a' }}>Q {Number(dirGuardada.zona_envio.costo).toFixed(2)}</span>
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* ── Forma de pago ── */}
+            <section>
+              <SeccionLabel>forma de pago</SeccionLabel>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <RadioBtn label="Tarjeta (Stripe)" value="STRIPE" current={formaPago} onChange={v => setValue('forma_pago', v)} />
+                {usuario?.tipo_cliente === 'MAYORISTA' && (
+                  <RadioBtn label="Crédito" value="CREDITO" current={formaPago} onChange={v => setValue('forma_pago', v)} />
+                )}
+              </div>
+            </section>
+
+            {/* ── Observaciones ── */}
+            <section>
+              <SeccionLabel>observaciones <span style={{ fontSize: '8px', letterSpacing: '0.1em' }}>(opcional)</span></SeccionLabel>
+              <textarea
+                rows={2}
+                placeholder="Instrucciones especiales, talla alternativa..."
+                style={{ ...fieldStyle(false), resize: 'none', display: 'block' }}
+                {...register('observaciones')}
+              />
+            </section>
+
+            {/* ── Resumen ── */}
+            <section>
+              <div style={{ borderTop: '2px solid #0a0a0a', paddingTop: '1.4rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <span style={{ ...MONO, fontSize: '12px', color: 'rgba(10,10,10,0.5)' }}>
+                    {detalles.length} producto{detalles.length !== 1 ? 's' : ''}
+                  </span>
+                  {zonaActual && (
+                    <span style={{ ...MONO, fontSize: '11px', color: 'rgba(10,10,10,0.45)' }}>
+                      + envío Q {Number(zonaActual.costo).toFixed(2)}{zonaActual.dias_estimados ? ` · ${zonaActual.dias_estimados} días hábiles` : ''}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            {/* ── Submit ── */}
+            <button
+              type="submit"
+              disabled={enviando}
+              style={{
+                width: '100%', padding: '15px',
+                background: enviando ? 'rgba(10,10,10,0.08)' : '#0a0a0a',
+                color: enviando ? 'rgba(10,10,10,0.22)' : '#fafafa',
+                border: 'none', cursor: enviando ? 'default' : 'pointer',
+                ...MONO, fontSize: '11px', letterSpacing: '0.3em', textTransform: 'uppercase',
+                transition: 'background 0.22s ease, color 0.22s ease',
+              }}
+            >
+              {enviando ? 'procesando...' : 'confirmar pedido'}
+            </button>
+
+            <Link
+              to="/carrito"
+              style={{
+                display: 'block', textAlign: 'center', marginTop: '-1.5rem',
+                ...MONO, fontSize: '11px', letterSpacing: '0.18em',
+                color: 'rgba(10,10,10,0.35)', textDecoration: 'none',
+                transition: 'color 0.16s ease',
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = '#0a0a0a'}
+              onMouseLeave={e => e.currentTarget.style.color = 'rgba(10,10,10,0.35)'}
+            >
+              ← volver al carrito
+            </Link>
+          </form>
+        </div>
+      </div>
     </div>
   )
 }

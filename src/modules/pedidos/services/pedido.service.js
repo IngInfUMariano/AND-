@@ -327,7 +327,7 @@ const crear = async (clienteId, datos) => {
 };
 
 // ─── cambiarEstado & Despacho (RF-PED-14) ───────────────────────────────────
-const cambiarEstado = async (id, nuevoEstado, observacion, usuario) => {
+const cambiarEstado = async (id, nuevoEstado, observacion, usuario, extras = {}) => {
   const estadoUpper = nuevoEstado.toUpperCase();
 
   return await db.sequelize.transaction(async (t) => {
@@ -391,7 +391,12 @@ const cambiarEstado = async (id, nuevoEstado, observacion, usuario) => {
       }
     }
 
-    await pedido.update({ estado: estadoUpper }, { transaction: t });
+    const camposUpdate = { estado: estadoUpper };
+    if (estadoUpper === "DESPACHADO") {
+      if (extras.numero_guia) camposUpdate.numero_guia = extras.numero_guia;
+      if (extras.courier)     camposUpdate.courier     = extras.courier;
+    }
+    await pedido.update(camposUpdate, { transaction: t });
 
     await db.pedido_historial.create(
       {

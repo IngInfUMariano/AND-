@@ -14,7 +14,7 @@ const ESTADOS_VALIDOS = [
 
 const crearPedidoValidator = [
   body("sucursal_id")
-    .notEmpty().withMessage("La sucursal es obligatoria")
+    .optional({ nullable: true })
     .isInt({ min: 1 }).withMessage("sucursal_id debe ser un entero positivo")
     .toInt(),
 
@@ -50,7 +50,17 @@ const cambiarEstadoValidator = [
   body("observacion")
     .optional({ nullable: true })
     .trim()
-    .isLength({ max: 250 }).withMessage("La observación no puede superar 250 caracteres")
+    .isLength({ max: 250 }).withMessage("La observación no puede superar 250 caracteres"),
+
+  body("numero_guia")
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 80 }).withMessage("El número de guía no puede superar 80 caracteres"),
+
+  body("courier")
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 60 }).withMessage("El nombre del courier no puede superar 60 caracteres")
 ];
 
 const anularPedidoValidator = [
