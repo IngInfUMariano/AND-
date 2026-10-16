@@ -105,11 +105,11 @@ const ANIOS_TEMPORADA = ['2026', '2027', '2028']
 
 // Helper para extraer el booleano del estado de forma estricta
 const obtenerEstadoBooleano = (item) => {
-  if (typeof item?.estado === 'boolean') return item.estado
   if (typeof item?.activo === 'boolean') return item.activo
+  if (typeof item?.estado === 'boolean') return item.estado
   if (typeof item?.is_active === 'boolean') return item.is_active
-  if (item?.estado !== undefined && item?.estado !== null) return Boolean(item.estado)
   if (item?.activo !== undefined && item?.activo !== null) return Boolean(item.activo)
+  if (item?.estado !== undefined && item?.estado !== null) return Boolean(item.estado)
   return true
 }
 
@@ -150,7 +150,12 @@ export default function Catalogos() {
   const cargarDatos = async () => {
     setLoading(true)
     try {
-      const res = await catalogoService.listar(tabActiva, { incluirInactivos: true, todos: true })
+      // Forzamos pasar activo: 'todos' e incluirInactivos para que el backend devuelva la lista completa
+      const res = await catalogoService.listar(tabActiva, {
+        activo: 'todos',
+        incluirInactivos: true,
+        todos: true,
+      })
       
       const lista = Array.isArray(res)
         ? res
@@ -268,28 +273,14 @@ export default function Catalogos() {
       if (itemEditar) {
         await catalogoService.actualizar(tabActiva, itemEditar.id, payload)
 
-        const estadoAnterior = obtenerEstadoBooleano(itemEditar)
-        if (estadoAnterior && !formData.estado) {
+        // Si cambió a inactivo, invocamos también desactivar por si el backend maneja baja lógica por DELETE
+        if (!formData.estado) {
           try {
             await catalogoService.desactivar(tabActiva, itemEditar.id)
           } catch (e) {
-            // Silencioso si la API prefiere baja lógica por PUT
+            // Silencioso si la API prefiere actualización directa mediante PUT
           }
         }
-
-        // Actualización optimista de estado
-        setItems((prevItems) =>
-          prevItems.map((item) =>
-            item.id === itemEditar.id
-              ? {
-                  ...item,
-                  ...payload,
-                  estado: formData.estado,
-                  activo: formData.estado,
-                }
-              : item
-          )
-        )
 
         toast.success(
           `${tabActualInfo.singular} actualizada (${formData.estado ? 'Activo' : 'Inactivo'})`
@@ -297,9 +288,9 @@ export default function Catalogos() {
       } else {
         await catalogoService.crear(tabActiva, payload)
         toast.success(`${tabActualInfo.singular} creada correctamente`)
-        cargarDatos()
       }
       setModalAbierto(false)
+      cargarDatos()
     } catch (error) {
       if (error?.response?.status === 409) {
         toast.error(`Ya existe un registro con el nombre "${formData.nombre}"`)
@@ -315,10 +306,10 @@ export default function Catalogos() {
     const itemId = typeof item === 'object' ? item.id : item
     const itemNombre = typeof item === 'object' ? (item.nombre || item.codigo) : ''
 
-    if (!confirm(`¿Estás seguro de desactivar ${tabActualInfo.singular.toLowerCase()} "${itemNombre}"?`)) return
+    if (!confirm(`¿Estás seguro de cambiar el estado de ${tabActualInfo.singular.toLowerCase()} "${itemNombre}"?`)) return
 
     try {
-      await catalogoService.eliminar(tabActiva, itemId)
+      await catalogoService.desactivar(tabActiva, itemId)
       toast.success(`${tabActualInfo.singular} desactivada correctamente`)
       cargarDatos()
     } catch (error) {
