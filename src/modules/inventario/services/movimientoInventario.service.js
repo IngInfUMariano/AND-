@@ -23,7 +23,7 @@ const TIPOS_SALIDA = [
     "AJUSTE_NEGATIVO"
 ];
 
-//  listar 
+// listar 
 const listar = async (query) => {
     const { limit, offset, order, page } = parsearPaginacion(query, SORTABLES);
 
@@ -33,7 +33,6 @@ const listar = async (query) => {
     if (query.variante_id) where.variante_id = query.variante_id;
     if (query.tipo) where.tipo = query.tipo;
 
-    // Filtro por rango de fechas
     if (query.fecha_inicio || query.fecha_fin) {
         where.fecha = {};
         if (query.fecha_inicio) where.fecha[Op.gte] = new Date(query.fecha_inicio);
@@ -63,7 +62,7 @@ const listar = async (query) => {
     return { rows, count, page, limit };
 };
 
-//  obtener 
+// obtener 
 const obtener = async (id) => {
     const movimiento = await db.movimiento_inventario.findByPk(id, {
         include: [
@@ -86,8 +85,7 @@ const obtener = async (id) => {
     return movimiento;
 };
 
-//  crear 
-// Ejecuta el movimiento en una transacción atómica actualizando la existencia.
+// crear 
 const crear = async (datos, usuario_id) => {
     const {
         tipo,
@@ -98,16 +96,15 @@ const crear = async (datos, usuario_id) => {
         referencia_tipo,
         referencia_id,
         comprobante_id,
-        motivo
+        motivo,
+        proveedor_id // NUEVO CAMPO AGREGADO
     } = datos;
 
-    // Validación de motivo según regla de negocio
     if (["SALIDA_MERMA", "AJUSTE_POSITIVO", "AJUSTE_NEGATIVO"].includes(tipo) && !motivo) {
         throw AppError.reglaNegocio("El campo motivo es obligatorio para mermas y ajustes de inventario");
     }
 
     return db.sequelize.transaction(async (t) => {
-        // 1. Obtener o inicializar la existencia con bloqueo de actualización
         let existencia = await db.existencia.findOne({
             where: { variante_id, sucursal_id },
             transaction: t,
@@ -115,7 +112,6 @@ const crear = async (datos, usuario_id) => {
         });
 
         if (!existencia) {
-            // Si no existe el registro de inventario, se crea en 0
             existencia = await db.existencia.create(
                 { variante_id, sucursal_id, cantidad_fisica: 0, cantidad_comprometida: 0, costo_promedio: 0 },
                 { transaction: t }
@@ -133,11 +129,8 @@ const crear = async (datos, usuario_id) => {
             throw AppError.reglaNegocio(`El tipo de movimiento '${tipo}' no es válido`);
         }
 
-        // 2. Calcular nuevo saldo físico y verificar disponibilidad
         if (esEntrada) {
             saldoResultante = saldoAnterior + cantidad;
-
-            // Recálculo de Costo Promedio Ponderado (CPP) si ingresa costo unitario
             if (costo_unitario !== undefined && costo_unitario !== null && saldoResultante > 0) {
                 const costoUnitarioNum = Number(costo_unitario);
                 const valorExistente = saldoAnterior * nuevoCostoPromedio;
@@ -154,7 +147,6 @@ const crear = async (datos, usuario_id) => {
             saldoResultante = saldoAnterior - cantidad;
         }
 
-        // 3. Actualizar el registro de existencia
         await existencia.update(
             {
                 cantidad_fisica: saldoResultante,
@@ -163,7 +155,6 @@ const crear = async (datos, usuario_id) => {
             { transaction: t }
         );
 
-        // 4. Crear el registro inmutable de Kardex
         const movimiento = await db.movimiento_inventario.create(
             {
                 tipo,
@@ -175,6 +166,7 @@ const crear = async (datos, usuario_id) => {
                 referencia_id: referencia_id || null,
                 comprobante_id: comprobante_id || null,
                 motivo: motivo || null,
+                proveedor_id: proveedor_id || null, // NUEVO CAMPO GUARDADO
                 variante_id,
                 sucursal_id,
                 usuario_id
@@ -186,4 +178,19 @@ const crear = async (datos, usuario_id) => {
     });
 };
 
-module.exports = { listar, obtener, crear };
+const actualizar = async (id, datos) => {
+    const movimiento = await db.movimiento_inventario.findByPk(id);
+
+    if (!movimiento) {
+        throw new AppError("Movimiento de inventario no encontrado", 404);
+    }
+
+    await movimiento.update({
+        motivo: datos.motivo,
+        estado: 'RESUELTO'
+    });
+
+    return movimiento;
+};
+
+module.exports = { listar, obtener, crear, actualizar };

@@ -23,9 +23,22 @@ const crear = asyncHandler(async (req, res) => {
   creado(res, pedido);
 });
 
+
 // POST /api/pedidos/masivo (Carga masiva CSV para mayoristas)
 const cargarMasivo = asyncHandler(async (req, res) => {
-  const resultado = await PedidoService.cargarMasivo(req.usuario.id, req.file);
+  // Se obtiene la sucursal_id desde el body multipart/form-data
+  const { sucursal_id, cliente_id } = req.body;
+  
+  // Si req.usuario.cliente_id existe (Tienda), se usa ese. 
+  // Si es un operador de backoffice, puede venir en req.body.cliente_id.
+  const targetClienteId = req.usuario.cliente_id || cliente_id || req.usuario.id;
+
+  const resultado = await PedidoService.cargarMasivo(
+    targetClienteId,
+    req.file,
+    sucursal_id
+  );
+
   creado(res, resultado);
 });
 
