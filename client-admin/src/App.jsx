@@ -12,6 +12,12 @@ import Inventario from '@/pages/Inventario'
 import Despachos from '@/pages/Despachos'
 import Recepciones from '@/pages/Recepciones'
 import Referencia from '@/pages/Referencia'
+import Catalogos from '@/pages/Catalogos'
+import Productos from '@/pages/Productos'
+import Precios from '@/pages/Precios'
+import Clientes from '@/pages/Clientes'
+import Empleados from '@/pages/Empleados'
+import Proveedores from '@/pages/Proveedores'
 import Movimiento from '@/pages/MovimientosPage'
 import Traslado from '@/pages/TrasladosPage'
 import MermasPage from '@/pages/MermasPage'
@@ -51,17 +57,15 @@ export default function App() {
           >
             <Route index element={<Dashboard />} />
             <Route path="dashboard" element={<Dashboard />} />
+            <Route path="precios" element={<Precios />} />
+            <Route path="clientes" element={<Clientes />} />
+            <Route path="empleados" element={<Empleados />} />
+            <Route path="proveedores" element={<Proveedores />} />
 
             {/* Existencias y Movimientos */}
             <Route path="existencias" element={<Inventario />} />
-            <Route
-              path="movimientos"
-              element={<Movimiento />}
-            />
-            <Route
-              path="traslados"
-              element={<Traslado />}
-            />
+            <Route path="movimientos" element={<Movimiento />} />
+            <Route path="traslados" element={<Traslado />} />
 
             {/* Despachos (Salidas por Traslado) */}
             <Route
@@ -99,6 +103,11 @@ export default function App() {
               }
             />
 
+            {/* Módulos de Productos y Catálogos */}
+            <Route path="productos" element={<Productos />} />
+            <Route path="catalogos" element={<Catalogos />} />
+            <Route path="categorias" element={<Catalogos />} />
+            <Route path="marcas" element={<Catalogos />} />
             {/* RUTA AÑADIDA: Entradas y Conteo General */}
             <Route
               path="entradas"
@@ -150,13 +159,6 @@ export default function App() {
             />
 
             {/* Módulos Pendientes de Desarrollo */}
-            <Route path="clientes" element={<ModuloEnDesarrollo titulo="Clientes" />} />
-            <Route path="empleados" element={<ModuloEnDesarrollo titulo="Empleados" />} />
-            <Route path="proveedores" element={<ModuloEnDesarrollo titulo="Proveedores" />} />
-            <Route path="productos" element={<ModuloEnDesarrollo titulo="Productos" />} />
-            <Route path="categorias" element={<ModuloEnDesarrollo titulo="Categorías" />} />
-            <Route path="marcas" element={<ModuloEnDesarrollo titulo="Marcas" />} />
-
             <Route path="transacciones" element={<ModuloEnDesarrollo titulo="Transacciones" />} />
             <Route path="reportes" element={<ModuloEnDesarrollo titulo="Reportes" />} />
 

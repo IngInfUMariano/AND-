@@ -16,8 +16,8 @@ const MENU = [
     perfiles: ['ADMIN', 'GERENTE'],
     items: [
       { label: 'Productos', to: '/productos' },
-      { label: 'Categorías', to: '/categorias' },
-      { label: 'Marcas', to: '/marcas' },
+      { label: 'Precios', to: '/precios' },
+      { label: 'Catálogos', to: '/catalogos' },
     ],
   },
   {
@@ -99,7 +99,8 @@ export default function AdminLayout() {
                   key={item.to}
                   to={item.to}
                   className={({ isActive }) =>
-                    `flex items-center rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-sidebar-accent ${isActive ? 'bg-sidebar-accent font-medium' : ''
+                    `flex items-center rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-sidebar-accent ${
+                      isActive ? 'bg-sidebar-accent font-medium' : ''
                     }`
                   }
                 >
