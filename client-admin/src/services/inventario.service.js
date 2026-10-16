@@ -22,6 +22,12 @@ export const listarSucursales = async () => {
     return data
 }
 
+// NUEVO MÉTODO: Consumir endpoint de proveedores
+export const listarProveedores = async () => {
+    const { data } = await api.get('/proveedores')
+    return data
+}
+
 export const obtenerKardex = async (params) => {
     const { data } = await api.get('/movimientos', { params: limpiarParams(params) })
     return data
@@ -93,8 +99,22 @@ export const registrarMerma = async (payload) => {
 };
 
 export const resolverMerma = async (id, payload) => {
-    // ACTUALIZACIÓN: Cambiado de api.put a api.patch
     const { data } = await api.patch(`/movimientos/${id}`, payload);
+    return data;
+};
+
+// NUEVO MÉTODO: Registrar la compra con proveedor_id
+export const registrarEntradaCompra = async (payload) => {
+    const body = {
+        tipo: "ENTRADA_COMPRA",
+        cantidad: Number(payload.cantidad),
+        costo_unitario: Number(payload.costo_unitario),
+        variante_id: Number(payload.variante_id),
+        sucursal_id: Number(payload.sucursal_id),
+        proveedor_id: payload.proveedor_id ? Number(payload.proveedor_id) : null,
+        motivo: payload.motivo || "Ingreso por Compra"
+    };
+    const { data } = await api.post("/movimientos", body);
     return data;
 };
 
@@ -126,6 +146,7 @@ export const obtenerDetalleComprobante = async (id) => {
 export const inventarioService = {
     listar,
     listarSucursales,
+    listarProveedores,
     obtenerKardex,
     listarTraslados,
     obtenerTrasladoPorId,
@@ -139,6 +160,7 @@ export const inventarioService = {
     listarMermas,
     registrarMerma,
     resolverMerma,
+    registrarEntradaCompra,
     listarPedidos,
     cambiarEstadoPedido,
     anularPedido,

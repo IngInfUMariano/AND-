@@ -23,7 +23,7 @@ const TIPOS_SALIDA = [
     "AJUSTE_NEGATIVO"
 ];
 
-//  listar 
+// listar 
 const listar = async (query) => {
     const { limit, offset, order, page } = parsearPaginacion(query, SORTABLES);
 
@@ -33,7 +33,6 @@ const listar = async (query) => {
     if (query.variante_id) where.variante_id = query.variante_id;
     if (query.tipo) where.tipo = query.tipo;
 
-    // Filtro por rango de fechas
     if (query.fecha_inicio || query.fecha_fin) {
         where.fecha = {};
         if (query.fecha_inicio) where.fecha[Op.gte] = new Date(query.fecha_inicio);
@@ -63,7 +62,7 @@ const listar = async (query) => {
     return { rows, count, page, limit };
 };
 
-//  obtener 
+// obtener 
 const obtener = async (id) => {
     const movimiento = await db.movimiento_inventario.findByPk(id, {
         include: [
@@ -86,7 +85,7 @@ const obtener = async (id) => {
     return movimiento;
 };
 
-//  crear 
+// crear 
 const crear = async (datos, usuario_id) => {
     const {
         tipo,
@@ -97,7 +96,8 @@ const crear = async (datos, usuario_id) => {
         referencia_tipo,
         referencia_id,
         comprobante_id,
-        motivo
+        motivo,
+        proveedor_id // NUEVO CAMPO AGREGADO
     } = datos;
 
     if (["SALIDA_MERMA", "AJUSTE_POSITIVO", "AJUSTE_NEGATIVO"].includes(tipo) && !motivo) {
@@ -166,6 +166,7 @@ const crear = async (datos, usuario_id) => {
                 referencia_id: referencia_id || null,
                 comprobante_id: comprobante_id || null,
                 motivo: motivo || null,
+                proveedor_id: proveedor_id || null, // NUEVO CAMPO GUARDADO
                 variante_id,
                 sucursal_id,
                 usuario_id
@@ -177,7 +178,6 @@ const crear = async (datos, usuario_id) => {
     });
 };
 
-// NUEVA FUNCIÓN: actualizar 
 const actualizar = async (id, datos) => {
     const movimiento = await db.movimiento_inventario.findByPk(id);
 
@@ -187,7 +187,7 @@ const actualizar = async (id, datos) => {
 
     await movimiento.update({
         motivo: datos.motivo,
-        estado: 'RESUELTO' // Opcional, si manejas columna estado
+        estado: 'RESUELTO'
     });
 
     return movimiento;

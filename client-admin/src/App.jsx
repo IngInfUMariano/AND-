@@ -17,7 +17,8 @@ import Traslado from '@/pages/TrasladosPage'
 import MermasPage from '@/pages/MermasPage'
 import Pedidos from '@/pages/PedidosInternos'
 import Comprobantes from '@/pages/ComprobantesPage'
-import EntradasInventario from '@/pages/EntradasInventario' // IMPORTACIÓN AÑADIDA
+import EntradasInventario from '@/pages/EntradasInventario' 
+import ComprasInventario from '@/pages/ComprasInventario'
 
 // Componente provisional para módulos pendientes o sin permisos
 function ModuloEnDesarrollo({ titulo }) {
@@ -136,6 +137,16 @@ export default function App() {
                   <Comprobantes />
                 </RoleRoute>
               }
+            />
+
+            {/*Modulo de compra de inventario*/ }
+            <Route
+            path="compras"
+            element={
+              <RoleRoute roles={['ADMIN', 'GERENTE']}>
+                <ComprasInventario />
+              </RoleRoute>
+            }
             />
 
             {/* Módulos Pendientes de Desarrollo */}
