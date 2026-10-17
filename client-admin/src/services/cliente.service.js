@@ -42,15 +42,19 @@ export const desactivarCliente = async (id) => {
   return data
 }
 
+// ─── MÉTODOS HTTP CORREGIDOS DE PUT A POST ───────────────────────────────────
+
 export const aprobarCliente = async (id, payload) => {
-  const { data } = await api.put(`/clientes/${id}/aprobar`, payload)
+  const { data } = await api.post(`/clientes/${id}/aprobar`, payload)
   return data
 }
 
 export const rechazarCliente = async (id, motivo) => {
-  const { data } = await api.put(`/clientes/${id}/rechazar`, { motivo })
+  const { data } = await api.post(`/clientes/${id}/rechazar`, { motivo })
   return data
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const obtenerCredito = async (id) => {
   const { data } = await api.get(`/clientes/${id}/credito`)
