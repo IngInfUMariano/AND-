@@ -80,6 +80,15 @@ module.exports = (sequelize, Sequelize) => {
       type: Sequelize.STRING(20),
       allowNull: true
     },
+    numero_guia: {
+      // Número de guía del courier al momento del despacho (Cargo Express, etc.)
+      type: Sequelize.STRING(80),
+      allowNull: true
+    },
+    courier: {
+      type: Sequelize.STRING(60),
+      allowNull: true
+    },
     motivo_anulacion: {
       type: Sequelize.STRING(250),
       allowNull: true

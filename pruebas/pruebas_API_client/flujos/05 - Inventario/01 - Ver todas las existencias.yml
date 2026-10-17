@@ -3,9 +3,6 @@ info:
   type: http
   seq: 1
 
-# Lista el stock actual de todas las variantes en todas las sucursales.
-# Solo accesible desde el portal interno.
-
 http:
   method: GET
   url: "{{base_url}}api/existencias"
@@ -13,8 +10,14 @@ http:
     type: bearer
     token: "{{token_admin}}"
 
+runtime:
+  variables:
+    - name: token_admin
+      value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwicGVyZmlsIjoiQURNSU4iLCJzdWN1cnNhbF9pZCI6MSwiY2xpZW50ZV9pZCI6bnVsbCwidGlwb19jbGllbnRlIjpudWxsLCJhcHAiOiJpbnRlcm5vIiwiaWF0IjoxNzg5NzQ4ODA1LCJleHAiOjE3ODk3Nzc2MDV9.10thKnBfo8_WYVwAEsfJ6ioNfjjaE-_LB3myX38eCH4
+
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+  forwardAuthorizationHeader: true

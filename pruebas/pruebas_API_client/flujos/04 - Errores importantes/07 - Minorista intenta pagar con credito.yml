@@ -3,11 +3,6 @@ info:
   type: http
   seq: 7
 
-# REGLA DE NEGOCIO — Restricción por tipo de cliente
-# El pago con crédito es exclusivo para clientes MAYORISTAS.
-# Un cliente MINORISTA que intente usar este endpoint recibe un error 400
-# con el mensaje de la regla de negocio que lo impide.
-
 http:
   method: POST
   url: "{{base_url}}api/pagos/credito/{{pedido_id}}"
@@ -16,8 +11,7 @@ http:
       value: application/json
   body:
     type: json
-    data: |-
-      {}
+    data: "{}"
   auth:
     type: bearer
     token: "{{token_tienda}}"
@@ -25,10 +19,11 @@ http:
 runtime:
   variables:
     - name: pedido_id
-      value: "21"
+      value: "9"
 
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+  forwardAuthorizationHeader: true

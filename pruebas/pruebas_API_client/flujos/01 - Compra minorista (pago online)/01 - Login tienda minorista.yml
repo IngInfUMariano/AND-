@@ -5,7 +5,7 @@ info:
 
 http:
   method: POST
-  url: "{{base_url}}/api/auth/tienda"
+  url: "{{base_url}}api/auth/tienda"
   headers:
     - name: Content-Type
       value: application/json
@@ -13,7 +13,7 @@ http:
     type: json
     data: |-
       {
-        "email": "ana.morales@gmail.com",
+        "email": "nuevo.cliente@gmail.com",
         "password": "Cliente123!"
       }
 

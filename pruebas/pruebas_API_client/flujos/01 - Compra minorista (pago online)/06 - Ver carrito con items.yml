@@ -5,7 +5,7 @@ info:
 
 http:
   method: GET
-  url: "{{base_url}}/api/carrito"
+  url: "{{base_url}}api/carrito"
   auth:
     type: bearer
     token: "{{token_tienda}}"

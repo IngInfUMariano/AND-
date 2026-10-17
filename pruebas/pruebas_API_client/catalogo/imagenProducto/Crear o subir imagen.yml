@@ -10,9 +10,9 @@ http:
     type: json
     data: |-
       {
-        "producto_id": 1,
-        "color_id": 1,
-        "url": "https://res.cloudinary.com/demo/image/upload/v1234567890/camisa-azul.jpg",
+        "producto_id": 2,
+        "color_id": 2,
+        "url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSIVTdErvGSUzBOE9Gtw8ak2a5bB916WLRpovU3i18P6prVMV460BYdDWEn&s=10",
         "orden": 1
       }
   auth:

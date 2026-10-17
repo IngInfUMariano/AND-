@@ -5,17 +5,17 @@ info:
 
 http:
   method: GET
-  url: "{{base_url}}/api/pagos/transacciones?pedido_id=21&estado=EXITOSA"
+  url: "{{base_url}}api/pagos/transacciones?pedido_id=9&estado=EXITOSA"
   params:
     - name: pedido_id
-      value: "21"
+      value: "9"
       type: query
     - name: estado
       value: EXITOSA
       type: query
   auth:
     type: bearer
-    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwicGVyZmlsIjoiQURNSU4iLCJzdWN1cnNhbF9pZCI6MSwiY2xpZW50ZV9pZCI6bnVsbCwidGlwb19jbGllbnRlIjpudWxsLCJhcHAiOiJpbnRlcm5vIiwiaWF0IjoxNzg5NjY0Njk2LCJleHAiOjE3ODk2OTM0OTZ9.Jq2Twuswq5wEsLICAeTVoQrmtAJbLsh7uwde8QejXVQ
+    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwicGVyZmlsIjoiQURNSU4iLCJzdWN1cnNhbF9pZCI6MSwiY2xpZW50ZV9pZCI6bnVsbCwidGlwb19jbGllbnRlIjpudWxsLCJhcHAiOiJpbnRlcm5vIiwiaWF0IjoxNzg5NzQ4ODA1LCJleHAiOjE3ODk3Nzc2MDV9.10thKnBfo8_WYVwAEsfJ6ioNfjjaE-_LB3myX38eCH4
 
 runtime:
   variables:

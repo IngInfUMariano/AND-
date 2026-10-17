@@ -3,15 +3,12 @@ info:
   type: http
   seq: 2
 
-# Filtra el stock de una sucursal específica.
-# Útil para saber exactamente cuánto hay disponible en cada bodega.
-
 http:
   method: GET
-  url: "{{base_url}}api/existencias?sucursal_id={{sucursal_id}}"
+  url: "{{base_url}}/api/existencias?sucursal_id={{sucursal_id}}"
   params:
     - name: sucursal_id
-      value: "1"
+      value: "{{sucursal_id}}"
       type: query
   auth:
     type: bearer
@@ -21,9 +18,12 @@ runtime:
   variables:
     - name: sucursal_id
       value: "1"
+    - name: token_admin
+      value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwicGVyZmlsIjoiQURNSU4iLCJzdWN1cnNhbF9pZCI6MSwiY2xpZW50ZV9pZCI6bnVsbCwidGlwb19jbGllbnRlIjpudWxsLCJhcHAiOiJpbnRlcm5vIiwiaWF0IjoxNzg5NzQ4ODA1LCJleHAiOjE3ODk3Nzc2MDV9.10thKnBfo8_WYVwAEsfJ6ioNfjjaE-_LB3myX38eCH4
 
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+  forwardAuthorizationHeader: true
