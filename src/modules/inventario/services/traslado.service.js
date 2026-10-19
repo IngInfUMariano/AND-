@@ -36,9 +36,7 @@ const listar = async (query) => {
     if (query.sucursal_destino_id) where.sucursal_destino_id = query.sucursal_destino_id;
 
     const { rows, count } = await db.traslado.findAndCountAll({
-        where,
-        limit,
-        offset,
+        where, limit, offset,
         order: order.length ? order : [["createdAt", "desc"]],
         include: [
             { model: db.sucursal, as: "sucursalOrigen", attributes: ["id", "codigo", "nombre"] },
@@ -60,17 +58,14 @@ const obtener = async (id) => {
             { model: db.usuario, as: "receptor", attributes: ["id", "email"] },
             {
                 model: db.traslado_detalle,
-                include: [
-                    {
-                        model: db.variante,
-                        attributes: ["id", "sku", "codigo_barras"],
-                        include: [
-                            { model: db.producto, attributes: ["id", "nombre"] },
-                            { model: db.talla, attributes: ["id", "codigo"] },
-                            { model: db.color, attributes: ["id", "nombre"] }
-                        ]
-                    }
-                ]
+                include: [{
+                    model: db.variante, attributes: ["id", "sku", "codigo_barras"],
+                    include: [
+                        { model: db.producto, attributes: ["id", "nombre"] },
+                        { model: db.talla, attributes: ["id", "codigo"] },
+                        { model: db.color, attributes: ["id", "nombre"] }
+                    ]
+                }]
             }
         ]
     });
@@ -96,25 +91,13 @@ const crear = async (datos, solicitado_por) => {
         const numero = await generarNumeroTraslado(t);
 
         const traslado = await db.traslado.create(
-            {
-                numero,
-                estado: "PENDIENTE",
-                fecha_despacho: new Date(),
-                observaciones: observaciones || null,
-                sucursal_origen_id,
-                sucursal_destino_id,
-                despachado_por: solicitado_por
-            },
+            { numero, estado: "PENDIENTE", fecha_despacho: new Date(), observaciones: observaciones || null, sucursal_origen_id, sucursal_destino_id, despachado_por: solicitado_por },
             { transaction: t }
         );
 
         for (const item of detalles) {
             await db.traslado_detalle.create(
-                {
-                    traslado_id: traslado.id,
-                    variante_id: item.variante_id,
-                    cantidad_despachada: item.cantidad
-                },
+                { traslado_id: traslado.id, variante_id: item.variante_id, cantidad_despachada: item.cantidad },
                 { transaction: t }
             );
         }
@@ -125,39 +108,39 @@ const crear = async (datos, solicitado_por) => {
 
 const despachar = async (id, usuario_id) => {
     return db.sequelize.transaction(async (t) => {
-        const traslado = await db.traslado.findByPk(id, {
-            include: [{ model: db.traslado_detalle }],
-            transaction: t
-        });
+        const traslado = await db.traslado.findByPk(id, { include: [{ model: db.traslado_detalle }], transaction: t });
 
         if (!traslado) throw new AppError("Traslado no encontrado", 404);
         if (traslado.estado !== "PENDIENTE") {
             throw AppError.reglaNegocio(`El traslado ya se encuentra en estado ${traslado.estado}`);
         }
 
-        // 1. MODIFICACIÓN: Creación del comprobante de Salida
-        const comprobante = await db.comprobante.create({
-            numero: `S-TR-${Date.now().toString().slice(-6)}`,
-            tipo: "SALIDA",
-            estado: "EMITIDO",
-            sucursal_id: traslado.sucursal_origen_id,
-            usuario_id: usuario_id,
-            origen_destino: "Operación Interna",
-            observaciones: `Despacho de traslado N° ${traslado.numero} a sucursal ID ${traslado.sucursal_destino_id}`
-        }, { transaction: t });
+        let comprobante;
+        try {
+            // Intentamos crear el comprobante. Si falla, el catch nos dirá por qué (ej. "tipo no existe en ENUM").
+            comprobante = await db.comprobante.create({
+                numero: `S-TR-${Date.now().toString().slice(-6)}`,
+                tipo: "SALIDA",
+                estado: "EMITIDO",
+                sucursal_id: traslado.sucursal_origen_id,
+                usuario_id: usuario_id,
+                origen_destino: "Operación Interna",
+                observaciones: `Despacho de traslado N° ${traslado.numero} a sucursal ID ${traslado.sucursal_destino_id}`
+            }, { transaction: t });
+        } catch (error) {
+            // Esto revelará el verdadero error de la BD en tu pantalla, en lugar del 400 genérico.
+            throw AppError.reglaNegocio(`Fallo al crear el Comprobante de Salida: ${error.message}`);
+        }
 
         for (const detalle of traslado.traslado_detalles) {
             const existenciaOrigen = await db.existencia.findOne({
                 where: { variante_id: detalle.variante_id, sucursal_id: traslado.sucursal_origen_id },
-                transaction: t,
-                lock: t.LOCK.UPDATE
+                transaction: t, lock: t.LOCK.UPDATE
             });
 
             const stockFisico = existenciaOrigen ? existenciaOrigen.cantidad_fisica : 0;
             if (stockFisico < detalle.cantidad_despachada) {
-                throw AppError.reglaNegocio(
-                    `Stock insuficiente en sucursal de origen para la variante ID ${detalle.variante_id}. Disponible: ${stockFisico}, Requerido: ${detalle.cantidad_despachada}`
-                );
+                throw AppError.reglaNegocio(`Stock insuficiente en sucursal de origen para la variante ID ${detalle.variante_id}. Disponible: ${stockFisico}, Requerido: ${detalle.cantidad_despachada}`);
             }
 
             const saldoAnterior = stockFisico;
@@ -165,88 +148,63 @@ const despachar = async (id, usuario_id) => {
 
             await existenciaOrigen.update({ cantidad_fisica: saldoResultante }, { transaction: t });
 
-            await db.movimiento_inventario.create(
-                {
-                    tipo: "SALIDA_TRASLADO",
-                    cantidad: detalle.cantidad_despachada,
-                    saldo_anterior: saldoAnterior,
-                    saldo_resultante: saldoResultante,
-                    referencia_tipo: "traslado",
-                    referencia_id: traslado.id,
-                    comprobante_id: comprobante.id, // MODIFICACIÓN: Enlace al comprobante
-                    motivo: `Despacho de traslado N° ${traslado.numero} hacia sucursal ID ${traslado.sucursal_destino_id}`,
-                    variante_id: detalle.variante_id,
-                    sucursal_id: traslado.sucursal_origen_id,
-                    usuario_id
-                },
-                { transaction: t }
-            );
+            await db.movimiento_inventario.create({
+                tipo: "SALIDA_TRASLADO",
+                cantidad: detalle.cantidad_despachada,
+                saldo_anterior: saldoAnterior,
+                saldo_resultante: saldoResultante,
+                referencia_tipo: "TRASLADO",
+                referencia_id: traslado.id,
+                comprobante_id: comprobante.id, // Enlace seguro al comprobante
+                motivo: `Despacho de traslado N° ${traslado.numero} hacia sucursal ID ${traslado.sucursal_destino_id}`,
+                variante_id: detalle.variante_id,
+                sucursal_id: traslado.sucursal_origen_id,
+                usuario_id
+            }, { transaction: t });
         }
 
-        await traslado.update(
-            {
-                estado: "EN_TRANSITO",
-                fecha_despacho: new Date(),
-                despachado_por: usuario_id
-            },
-            { transaction: t }
-        );
-
+        await traslado.update({ estado: "EN_TRANSITO", fecha_despacho: new Date(), despachado_por: usuario_id }, { transaction: t });
         return traslado;
     });
 };
 
 const recibir = async (id, recibido_por, observaciones) => {
     return db.sequelize.transaction(async (t) => {
-        const traslado = await db.traslado.findByPk(id, {
-            include: [{ model: db.traslado_detalle }],
-            transaction: t
-        });
+        const traslado = await db.traslado.findByPk(id, { include: [{ model: db.traslado_detalle }], transaction: t });
 
         if (!traslado) throw new AppError("Traslado no encontrado", 404);
         if (traslado.estado !== "EN_TRANSITO") {
             throw AppError.reglaNegocio(`No se puede recibir un traslado en estado ${traslado.estado}`);
         }
 
-        // 1. MODIFICACIÓN: Creación del comprobante de Entrada
-        const comprobante = await db.comprobante.create({
-            numero: `E-TR-${Date.now().toString().slice(-6)}`,
-            tipo: "ENTRADA",
-            estado: "EMITIDO",
-            sucursal_id: traslado.sucursal_destino_id,
-            usuario_id: recibido_por,
-            origen_destino: "Operación Interna",
-            observaciones: `Recepción de traslado N° ${traslado.numero} desde sucursal ID ${traslado.sucursal_origen_id}`
-        }, { transaction: t });
+        let comprobante;
+        try {
+            comprobante = await db.comprobante.create({
+                numero: `E-TR-${Date.now().toString().slice(-6)}`,
+                tipo: "ENTRADA",
+                estado: "EMITIDO",
+                sucursal_id: traslado.sucursal_destino_id,
+                usuario_id: recibido_por,
+                origen_destino: "Operación Interna",
+                observaciones: `Recepción de traslado N° ${traslado.numero} desde sucursal ID ${traslado.sucursal_origen_id}`
+            }, { transaction: t });
+        } catch (error) {
+            throw AppError.reglaNegocio(`Fallo al crear el Comprobante de Entrada: ${error.message}`);
+        }
 
         await traslado.update(
-            {
-                estado: "RECIBIDO",
-                fecha_recepcion: new Date(),
-                recibido_por,
-                observaciones: observaciones ? `${traslado.observaciones || ""}\n[Recepción]: ${observaciones}`.trim() : traslado.observaciones
-            },
+            { estado: "RECIBIDO", fecha_recepcion: new Date(), recibido_por, observaciones: observaciones ? `${traslado.observaciones || ""}\n[Recepción]: ${observaciones}`.trim() : traslado.observaciones },
             { transaction: t }
         );
 
         for (const detalle of traslado.traslado_detalles) {
             let existenciaDestino = await db.existencia.findOne({
                 where: { variante_id: detalle.variante_id, sucursal_id: traslado.sucursal_destino_id },
-                transaction: t,
-                lock: t.LOCK.UPDATE
+                transaction: t, lock: t.LOCK.UPDATE
             });
 
             if (!existenciaDestino) {
-                existenciaDestino = await db.existencia.create(
-                    {
-                        variante_id: detalle.variante_id,
-                        sucursal_id: traslado.sucursal_destino_id,
-                        cantidad_fisica: 0,
-                        cantidad_comprometida: 0,
-                        costo_promedio: 0
-                    },
-                    { transaction: t }
-                );
+                existenciaDestino = await db.existencia.create({ variante_id: detalle.variante_id, sucursal_id: traslado.sucursal_destino_id, cantidad_fisica: 0, cantidad_comprometida: 0, costo_promedio: 0 }, { transaction: t });
             }
 
             const saldoAnterior = existenciaDestino.cantidad_fisica;
@@ -254,22 +212,19 @@ const recibir = async (id, recibido_por, observaciones) => {
 
             await existenciaDestino.update({ cantidad_fisica: saldoResultante }, { transaction: t });
 
-            await db.movimiento_inventario.create(
-                {
-                    tipo: "ENTRADA_TRASLADO",
-                    cantidad: detalle.cantidad_despachada,
-                    saldo_anterior: saldoAnterior,
-                    saldo_resultante: saldoResultante,
-                    referencia_tipo: "traslado",
-                    referencia_id: traslado.id,
-                    comprobante_id: comprobante.id, // MODIFICACIÓN: Enlace al comprobante
-                    motivo: `Traslado entrante N° ${traslado.numero} desde sucursal ID ${traslado.sucursal_origen_id}`,
-                    variante_id: detalle.variante_id,
-                    sucursal_id: traslado.sucursal_destino_id,
-                    usuario_id: recibido_por
-                },
-                { transaction: t }
-            );
+            await db.movimiento_inventario.create({
+                tipo: "ENTRADA_TRASLADO",
+                cantidad: detalle.cantidad_despachada,
+                saldo_anterior: saldoAnterior,
+                saldo_resultante: saldoResultante,
+                referencia_tipo: "TRASLADO",
+                referencia_id: traslado.id,
+                comprobante_id: comprobante.id, // Enlace seguro al comprobante
+                motivo: `Traslado entrante N° ${traslado.numero} desde sucursal ID ${traslado.sucursal_origen_id}`,
+                variante_id: detalle.variante_id,
+                sucursal_id: traslado.sucursal_destino_id,
+                usuario_id: recibido_por
+            }, { transaction: t });
         }
 
         return traslado;
@@ -278,10 +233,7 @@ const recibir = async (id, recibido_por, observaciones) => {
 
 const anular = async (id, usuario_id, observaciones) => {
     return db.sequelize.transaction(async (t) => {
-        const traslado = await db.traslado.findByPk(id, {
-            include: [{ model: db.traslado_detalle }],
-            transaction: t
-        });
+        const traslado = await db.traslado.findByPk(id, { include: [{ model: db.traslado_detalle }], transaction: t });
 
         if (!traslado) throw new AppError("Traslado no encontrado", 404);
         if (traslado.estado !== "EN_TRANSITO" && traslado.estado !== "PENDIENTE") {
@@ -291,30 +243,30 @@ const anular = async (id, usuario_id, observaciones) => {
         const estabaEnTransito = traslado.estado === "EN_TRANSITO";
 
         await traslado.update(
-            {
-                estado: "ANULADO",
-                observaciones: observaciones ? `${traslado.observaciones || ""}\n[Anulación]: ${observaciones}`.trim() : traslado.observaciones
-            },
+            { estado: "ANULADO", observaciones: observaciones ? `${traslado.observaciones || ""}\n[Anulación]: ${observaciones}`.trim() : traslado.observaciones },
             { transaction: t }
         );
 
         if (estabaEnTransito) {
-            // MODIFICACIÓN: Generar comprobante de re-entrada por reversión
-            const comprobante = await db.comprobante.create({
-                numero: `E-AN-${Date.now().toString().slice(-6)}`,
-                tipo: "ENTRADA",
-                estado: "EMITIDO",
-                sucursal_id: traslado.sucursal_origen_id,
-                usuario_id: usuario_id,
-                origen_destino: "Operación Interna",
-                observaciones: `Reversión por anulación de traslado N° ${traslado.numero}`
-            }, { transaction: t });
+            let comprobante;
+            try {
+                comprobante = await db.comprobante.create({
+                    numero: `E-AN-${Date.now().toString().slice(-6)}`,
+                    tipo: "ENTRADA",
+                    estado: "EMITIDO",
+                    sucursal_id: traslado.sucursal_origen_id,
+                    usuario_id: usuario_id,
+                    origen_destino: "Operación Interna",
+                    observaciones: `Reversión por anulación de traslado N° ${traslado.numero}`
+                }, { transaction: t });
+            } catch (error) {
+                throw AppError.reglaNegocio(`Fallo al crear el Comprobante de Anulación: ${error.message}`);
+            }
 
             for (const detalle of traslado.traslado_detalles) {
                 const existenciaOrigen = await db.existencia.findOne({
                     where: { variante_id: detalle.variante_id, sucursal_id: traslado.sucursal_origen_id },
-                    transaction: t,
-                    lock: t.LOCK.UPDATE
+                    transaction: t, lock: t.LOCK.UPDATE
                 });
 
                 const saldoAnterior = existenciaOrigen ? existenciaOrigen.cantidad_fisica : 0;
@@ -322,22 +274,19 @@ const anular = async (id, usuario_id, observaciones) => {
 
                 await existenciaOrigen.update({ cantidad_fisica: saldoResultante }, { transaction: t });
 
-                await db.movimiento_inventario.create(
-                    {
-                        tipo: "ENTRADA_TRASLADO",
-                        cantidad: detalle.cantidad_despachada,
-                        saldo_anterior: saldoAnterior,
-                        saldo_resultante: saldoResultante,
-                        referencia_tipo: "traslado",
-                        referencia_id: traslado.id,
-                        comprobante_id: comprobante.id, // MODIFICACIÓN: Enlace al comprobante
-                        motivo: `Reversión por anulación de traslado N° ${traslado.numero}`,
-                        variante_id: detalle.variante_id,
-                        sucursal_id: traslado.sucursal_origen_id,
-                        usuario_id
-                    },
-                    { transaction: t }
-                );
+                await db.movimiento_inventario.create({
+                    tipo: "ENTRADA_TRASLADO",
+                    cantidad: detalle.cantidad_despachada,
+                    saldo_anterior: saldoAnterior,
+                    saldo_resultante: saldoResultante,
+                    referencia_tipo: "TRASLADO",
+                    referencia_id: traslado.id,
+                    comprobante_id: comprobante.id, // Enlace seguro al comprobante
+                    motivo: `Reversión por anulación de traslado N° ${traslado.numero}`,
+                    variante_id: detalle.variante_id,
+                    sucursal_id: traslado.sucursal_origen_id,
+                    usuario_id
+                }, { transaction: t });
             }
         }
 

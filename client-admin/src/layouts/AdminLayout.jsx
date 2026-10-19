@@ -31,7 +31,7 @@ const MENU = [
       { label: 'Traslados', to: '/traslados' },
       { label: 'Comprobantes', to: '/comprobantes' },
       { label: 'Mermas y Pérdidas', to: '/mermas' },
-      { label: 'Compras de inventario', to: 'compras'}
+      { label: 'Compras de inventario', to: '/compras'}
     ],
   },
   {

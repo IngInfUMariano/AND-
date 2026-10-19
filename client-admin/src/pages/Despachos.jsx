@@ -203,10 +203,29 @@ export default function DespachosPage() {
 
         setDespachando(true)
         try {
-            await inventarioService.despacharTraslado(trasladoSel.id, {
-                cantidades_enviadas: cantidadesEnviadas,
-                observaciones_despacho: motivoDiscrepancia.trim() || null
-            })
+            // 1. Enviamos el traslado tal cual está en papel (objeto vacío para evitar el error 400)
+            await inventarioService.despacharTraslado(trasladoSel.id, {})
+
+            // 2. Ejecutamos la lógica maestra original: Mandar las discrepancias a la parte de Mermas
+            for (const d of detallesSel) {
+                const solicitado = safeNumber(d.cantidad_despachada ?? d.cantidad)
+                const enCarga = cantidadesEnviadas[d.id] !== undefined ? safeNumber(cantidadesEnviadas[d.id]) : solicitado
+
+                if (enCarga < solicitado) {
+                    const faltante = solicitado - enCarga
+
+                    // Se crea la Merma en la sucursal de DESTINO. Así cuando ellos reciban (y el sistema
+                    // les sume el total del documento), esta merma les ajustará el inventario a la realidad,
+                    // y les aparecerá en su página de Mermas en la pestaña "Por Resolver (Traslados)".
+                    await inventarioService.registrarMerma({
+                        sucursal_id: trasladoSel.sucursal_destino_id || trasladoSel.sucursalDestino?.id,
+                        variante_id: d.variante_id || d.variante?.id,
+                        cantidad: faltante,
+                        motivo: `FALTANTE EN TRASLADO ${trasladoSel.numero}: ${motivoDiscrepancia.trim()}`
+                    })
+                }
+            }
+
             toast.success(`Despacho confirmado correctamente para ${trasladoSel.numero || `#${trasladoSel.id}`}`)
             setModalVerificacionAbierto(false)
             cargarTraslados()
@@ -375,7 +394,7 @@ export default function DespachosPage() {
                             <div className="bg-amber-500/10 border border-amber-200 text-amber-800 p-3 rounded-lg flex items-start gap-2">
                                 <AlertTriangle size={16} className="shrink-0 mt-0.5 text-amber-600" />
                                 <div>
-                                    <strong>Atencion Bodega:</strong> Verifique fisicamente cada producto. Si despacha una cantidad distinta a la solicitada, debera registrar una justificacion.
+                                    <strong>Atencion Bodega:</strong> Verifique fisicamente cada producto. Si despacha una cantidad distinta a la solicitada, el sistema la ingresara como Merma por resolver en la sucursal de destino.
                                 </div>
                             </div>
 
