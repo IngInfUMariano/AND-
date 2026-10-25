@@ -4,6 +4,7 @@ const { Op } = require("sequelize");
 const db = require("../../../loaders/models.loader");
 const AppError = require("../../../core/utils/AppError");
 const { parsearPaginacion } = require("../../../core/utils/paginacion");
+const CorrelativoService = require("../../recibos/services/correlativo.service");
 
 const SORTABLES = ["numero", "fecha_despacho", "fecha_recepcion", "estado", "created_at"];
 
@@ -106,31 +107,65 @@ const crear = async (datos, solicitado_por) => {
     });
 };
 
-const despachar = async (id, usuario_id) => {
+const despachar = async (id, datosUsuario) => {
+    // Extraemos el usuario_id de forma segura (soporta tanto si pasan el ID directo como un objeto req.body)
+    const usuario_id = typeof datosUsuario === 'object'
+        ? (datosUsuario.usuario_id || datosUsuario.id)
+        : datosUsuario;
+
     return db.sequelize.transaction(async (t) => {
-        const traslado = await db.traslado.findByPk(id, { include: [{ model: db.traslado_detalle }], transaction: t });
+        const traslado = await db.traslado.findByPk(id, {
+            include: [{ model: db.traslado_detalle, include: [{ model: db.variante }] }],
+            transaction: t
+        });
 
         if (!traslado) throw new AppError("Traslado no encontrado", 404);
         if (traslado.estado !== "PENDIENTE") {
             throw AppError.reglaNegocio(`El traslado ya se encuentra en estado ${traslado.estado}`);
         }
 
-        let comprobante;
-        try {
-            // Intentamos crear el comprobante. Si falla, el catch nos dirá por qué (ej. "tipo no existe en ENUM").
-            comprobante = await db.comprobante.create({
-                numero: `S-TR-${Date.now().toString().slice(-6)}`,
-                tipo: "SALIDA",
-                estado: "EMITIDO",
-                sucursal_id: traslado.sucursal_origen_id,
-                usuario_id: usuario_id,
-                origen_destino: "Operación Interna",
-                observaciones: `Despacho de traslado N° ${traslado.numero} a sucursal ID ${traslado.sucursal_destino_id}`
-            }, { transaction: t });
-        } catch (error) {
-            // Esto revelará el verdadero error de la BD en tu pantalla, en lugar del 400 genérico.
-            throw AppError.reglaNegocio(`Fallo al crear el Comprobante de Salida: ${error.message}`);
+        const { documentoCompleto } = await CorrelativoService.generarSiguienteNumero(
+            traslado.sucursal_origen_id,
+            "SALIDA",
+            t
+        );
+
+        let totalComprobante = 0;
+        const detallesComprobante = [];
+
+        for (const detalle of traslado.traslado_detalles) {
+            const costoUnitario = Number(detalle.variante?.costo_promedio || 0);
+            const subtotal = Number(detalle.cantidad_despachada) * costoUnitario;
+            totalComprobante += subtotal;
+
+            detallesComprobante.push({
+                variante_id: detalle.variante_id,
+                sku: detalle.variante?.sku || "N/A",
+                descripcion: detalle.variante?.producto?.nombre || "Producto Traslado",
+                cantidad: detalle.cantidad_despachada,
+                costo_unitario: costoUnitario,
+                subtotal
+            });
         }
+
+        // Creación del comprobante de salida vinculado al traslado y al usuario correcto
+        const comprobante = await db.comprobante.create({
+            numero: documentoCompleto,
+            tipo: "SALIDA",
+            subtipo: "TRASLADO",
+            total: totalComprobante,
+            estado: "EMITIDO",
+            sucursal_id: traslado.sucursal_origen_id,
+            usuario_id: usuario_id || null, // Evita fallos si el usuario no estuviese autenticado en la peticion
+            traslado_id: traslado.id,
+            observaciones: `Despacho de traslado N° ${traslado.numero} hacia sucursal ID ${traslado.sucursal_destino_id}`
+        }, { transaction: t });
+
+        const renglonesComprobante = detallesComprobante.map(d => ({
+            ...d,
+            comprobante_id: comprobante.id
+        }));
+        await db.comprobante_detalle.bulkCreate(renglonesComprobante, { transaction: t });
 
         for (const detalle of traslado.traslado_detalles) {
             const existenciaOrigen = await db.existencia.findOne({
@@ -153,44 +188,75 @@ const despachar = async (id, usuario_id) => {
                 cantidad: detalle.cantidad_despachada,
                 saldo_anterior: saldoAnterior,
                 saldo_resultante: saldoResultante,
-                referencia_tipo: "TRASLADO",
-                referencia_id: traslado.id,
-                comprobante_id: comprobante.id, // Enlace seguro al comprobante
+                referencia_type: "comprobante", // Ajustado por compatibilidad si tu modelo usa _type o _tipo
+                referencia_tipo: "comprobante",
+                referencia_id: comprobante.id,
+                comprobante_id: comprobante.id,
                 motivo: `Despacho de traslado N° ${traslado.numero} hacia sucursal ID ${traslado.sucursal_destino_id}`,
                 variante_id: detalle.variante_id,
                 sucursal_id: traslado.sucursal_origen_id,
-                usuario_id
+                usuario_id: usuario_id || null
             }, { transaction: t });
         }
 
-        await traslado.update({ estado: "EN_TRANSITO", fecha_despacho: new Date(), despachado_por: usuario_id }, { transaction: t });
+        await traslado.update({ estado: "EN_TRANSITO", fecha_despacho: new Date(), despachado_por: usuario_id || null }, { transaction: t });
         return traslado;
     });
 };
 
 const recibir = async (id, recibido_por, observaciones) => {
     return db.sequelize.transaction(async (t) => {
-        const traslado = await db.traslado.findByPk(id, { include: [{ model: db.traslado_detalle }], transaction: t });
+        const traslado = await db.traslado.findByPk(id, {
+            include: [{ model: db.traslado_detalle, include: [{ model: db.variante }] }],
+            transaction: t
+        });
 
         if (!traslado) throw new AppError("Traslado no encontrado", 404);
         if (traslado.estado !== "EN_TRANSITO") {
             throw AppError.reglaNegocio(`No se puede recibir un traslado en estado ${traslado.estado}`);
         }
 
-        let comprobante;
-        try {
-            comprobante = await db.comprobante.create({
-                numero: `E-TR-${Date.now().toString().slice(-6)}`,
-                tipo: "ENTRADA",
-                estado: "EMITIDO",
-                sucursal_id: traslado.sucursal_destino_id,
-                usuario_id: recibido_por,
-                origen_destino: "Operación Interna",
-                observaciones: `Recepción de traslado N° ${traslado.numero} desde sucursal ID ${traslado.sucursal_origen_id}`
-            }, { transaction: t });
-        } catch (error) {
-            throw AppError.reglaNegocio(`Fallo al crear el Comprobante de Entrada: ${error.message}`);
+        const { documentoCompleto } = await CorrelativoService.generarSiguienteNumero(
+            traslado.sucursal_destino_id,
+            "ENTRADA",
+            t
+        );
+
+        let totalComprobante = 0;
+        const detallesComprobante = [];
+
+        for (const detalle of traslado.traslado_detalles) {
+            const costoUnitario = Number(detalle.variante?.costo_promedio || 0);
+            const subtotal = Number(detalle.cantidad_despachada) * costoUnitario;
+            totalComprobante += subtotal;
+
+            detallesComprobante.push({
+                variante_id: detalle.variante_id,
+                sku: detalle.variante?.sku || "N/A",
+                descripcion: detalle.variante?.producto?.nombre || "Producto Traslado",
+                cantidad: detalle.cantidad_despachada,
+                costo_unitario: costoUnitario,
+                subtotal
+            });
         }
+
+        const comprobante = await db.comprobante.create({
+            numero: documentoCompleto,
+            tipo: "ENTRADA",
+            subtipo: "TRASLADO",
+            total: totalComprobante,
+            estado: "EMITIDO",
+            sucursal_id: traslado.sucursal_destino_id,
+            usuario_id: recibido_por,
+            traslado_id: traslado.id,
+            observaciones: `Recepción de traslado N° ${traslado.numero} desde sucursal ID ${traslado.sucursal_origen_id}`
+        }, { transaction: t });
+
+        const renglonesComprobante = detallesComprobante.map(d => ({
+            ...d,
+            comprobante_id: comprobante.id
+        }));
+        await db.comprobante_detalle.bulkCreate(renglonesComprobante, { transaction: t });
 
         await traslado.update(
             { estado: "RECIBIDO", fecha_recepcion: new Date(), recibido_por, observaciones: observaciones ? `${traslado.observaciones || ""}\n[Recepción]: ${observaciones}`.trim() : traslado.observaciones },
@@ -217,9 +283,9 @@ const recibir = async (id, recibido_por, observaciones) => {
                 cantidad: detalle.cantidad_despachada,
                 saldo_anterior: saldoAnterior,
                 saldo_resultante: saldoResultante,
-                referencia_tipo: "TRASLADO",
-                referencia_id: traslado.id,
-                comprobante_id: comprobante.id, // Enlace seguro al comprobante
+                referencia_tipo: "comprobante",
+                referencia_id: comprobante.id,
+                comprobante_id: comprobante.id,
                 motivo: `Traslado entrante N° ${traslado.numero} desde sucursal ID ${traslado.sucursal_origen_id}`,
                 variante_id: detalle.variante_id,
                 sucursal_id: traslado.sucursal_destino_id,
@@ -233,7 +299,10 @@ const recibir = async (id, recibido_por, observaciones) => {
 
 const anular = async (id, usuario_id, observaciones) => {
     return db.sequelize.transaction(async (t) => {
-        const traslado = await db.traslado.findByPk(id, { include: [{ model: db.traslado_detalle }], transaction: t });
+        const traslado = await db.traslado.findByPk(id, {
+            include: [{ model: db.traslado_detalle, include: [{ model: db.variante }] }],
+            transaction: t
+        });
 
         if (!traslado) throw new AppError("Traslado no encontrado", 404);
         if (traslado.estado !== "EN_TRANSITO" && traslado.estado !== "PENDIENTE") {
@@ -248,20 +317,47 @@ const anular = async (id, usuario_id, observaciones) => {
         );
 
         if (estabaEnTransito) {
-            let comprobante;
-            try {
-                comprobante = await db.comprobante.create({
-                    numero: `E-AN-${Date.now().toString().slice(-6)}`,
-                    tipo: "ENTRADA",
-                    estado: "EMITIDO",
-                    sucursal_id: traslado.sucursal_origen_id,
-                    usuario_id: usuario_id,
-                    origen_destino: "Operación Interna",
-                    observaciones: `Reversión por anulación de traslado N° ${traslado.numero}`
-                }, { transaction: t });
-            } catch (error) {
-                throw AppError.reglaNegocio(`Fallo al crear el Comprobante de Anulación: ${error.message}`);
+            const { documentoCompleto } = await CorrelativoService.generarSiguienteNumero(
+                traslado.sucursal_origen_id,
+                "ENTRADA",
+                t
+            );
+
+            let totalComprobante = 0;
+            const detallesComprobante = [];
+
+            for (const detalle of traslado.traslado_detalles) {
+                const costoUnitario = Number(detalle.variante?.costo_promedio || 0);
+                const subtotal = Number(detalle.cantidad_despachada) * costoUnitario;
+                totalComprobante += subtotal;
+
+                detallesComprobante.push({
+                    variante_id: detalle.variante_id,
+                    sku: detalle.variante?.sku || "N/A",
+                    descripcion: detalle.variante?.producto?.nombre || "Producto Traslado",
+                    cantidad: detalle.cantidad_despachada,
+                    costo_unitario: costoUnitario,
+                    subtotal
+                });
             }
+
+            const comprobante = await db.comprobante.create({
+                numero: documentoCompleto,
+                tipo: "ENTRADA",
+                subtipo: "AJUSTE",
+                total: totalComprobante,
+                estado: "EMITIDO",
+                sucursal_id: traslado.sucursal_origen_id,
+                usuario_id: usuario_id,
+                traslado_id: traslado.id,
+                observaciones: `Reversión por anulación de traslado N° ${traslado.numero}`
+            }, { transaction: t });
+
+            const renglonesComprobante = detallesComprobante.map(d => ({
+                ...d,
+                comprobante_id: comprobante.id
+            }));
+            await db.comprobante_detalle.bulkCreate(renglonesComprobante, { transaction: t });
 
             for (const detalle of traslado.traslado_detalles) {
                 const existenciaOrigen = await db.existencia.findOne({
@@ -279,9 +375,9 @@ const anular = async (id, usuario_id, observaciones) => {
                     cantidad: detalle.cantidad_despachada,
                     saldo_anterior: saldoAnterior,
                     saldo_resultante: saldoResultante,
-                    referencia_tipo: "TRASLADO",
-                    referencia_id: traslado.id,
-                    comprobante_id: comprobante.id, // Enlace seguro al comprobante
+                    referencia_tipo: "comprobante",
+                    referencia_id: comprobante.id,
+                    comprobante_id: comprobante.id,
                     motivo: `Reversión por anulación de traslado N° ${traslado.numero}`,
                     variante_id: detalle.variante_id,
                     sucursal_id: traslado.sucursal_origen_id,
