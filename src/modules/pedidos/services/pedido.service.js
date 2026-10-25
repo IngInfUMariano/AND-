@@ -165,6 +165,7 @@ const crear = async (clienteId, datos) => {
     entrega_municipio,
     entrega_departamento,
     entrega_telefono,
+    nombre_pedido,
     observaciones
   } = datos;
 
@@ -270,6 +271,7 @@ const crear = async (clienteId, datos) => {
         entrega_municipio,
         entrega_departamento,
         entrega_telefono,
+        nombre_pedido: nombre_pedido || null,
         observaciones,
         subtotal,
         costo_envio: costoEnvio,

@@ -35,7 +35,8 @@ export function AuthProvider({ children }) {
     const { data } = await api.post('/auth/tienda', { email, password })
     const { token } = data.data
     localStorage.setItem('token', token)
-    setUsuario(jwtDecode(token))
+    const { data: perfil } = await api.get('/auth/perfil')
+    setUsuario(perfil.data)
   }
 
   const logout = () => {

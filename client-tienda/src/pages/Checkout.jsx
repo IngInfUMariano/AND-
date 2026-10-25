@@ -7,6 +7,7 @@ import { useCart } from '@/context/CartContext'
 import { useAuth } from '@/context/AuthContext'
 import clienteService from '@/services/cliente.service'
 import MenuOverlay from '@/components/MenuOverlay'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 const MONO    = { fontFamily: "'IBM Plex Mono', monospace" }
 const DISPLAY = { fontFamily: "'EB Garamond', Georgia, serif", fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.18em' }
@@ -131,6 +132,7 @@ export default function Checkout() {
   const navigate = useNavigate()
   const { carrito, recargar } = useCart()
   const { usuario } = useAuth()
+  const isMobile = useIsMobile()
   const [menuAbierto, setMenuAbierto] = useState(false)
 
   const [sucursales, setSucursales] = useState([])
@@ -183,6 +185,7 @@ export default function Checkout() {
         forma_pago: valores.forma_pago === 'STRIPE' ? 'EN_LINEA' : valores.forma_pago,
         entrega_tipo: valores.entrega_tipo,
         observaciones: valores.observaciones || undefined,
+        nombre_pedido: valores.nombre_pedido?.trim() || undefined,
       }
 
       if (esEnvio) {
@@ -256,30 +259,40 @@ export default function Checkout() {
       <NavHeader onOpenMenu={() => setMenuAbierto(true)} />
       <MenuOverlay open={menuAbierto} onClose={() => setMenuAbierto(false)} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '40% 1fr', paddingTop: `${NAV_H}px`, minHeight: `calc(100vh - ${NAV_H}px)` }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: isMobile ? '1fr' : '40% 1fr',
+        paddingTop: `${NAV_H}px`,
+        minHeight: `calc(100vh - ${NAV_H}px)`,
+      }}>
 
-        {/* Imagen sticky */}
-        <div style={{ position: 'sticky', top: `${NAV_H}px`, height: `calc(100vh - ${NAV_H}px)`, overflow: 'hidden' }}>
-          <img
-            src="https://picsum.photos/seed/andcheckout44/800/1200"
-            alt=""
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'grayscale(100%) brightness(0.52)' }}
-          />
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <h1 style={{
-              ...DISPLAY,
-              fontSize: 'clamp(2.5rem, 4.5vw, 4.2rem)',
-              color: '#ffffff',
-              textAlign: 'center',
-              lineHeight: 1.15,
-            }}>
-              Finalizar<br />Compra
-            </h1>
+        {/* Imagen sticky (solo desktop) */}
+        {!isMobile && (
+          <div style={{ position: 'sticky', top: `${NAV_H}px`, height: `calc(100vh - ${NAV_H}px)`, overflow: 'hidden' }}>
+            <img
+              src="https://picsum.photos/seed/andcheckout44/800/1200"
+              alt=""
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'grayscale(100%) brightness(0.52)' }}
+            />
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <h1 style={{
+                ...DISPLAY,
+                fontSize: 'clamp(2.5rem, 4.5vw, 4.2rem)',
+                color: '#ffffff', textAlign: 'center', lineHeight: 1.15,
+              }}>
+                Finalizar<br />Compra
+              </h1>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Formulario */}
-        <div style={{ padding: '4rem 4rem 5rem 4.5rem', overflowY: 'auto' }}>
+        <div style={{ padding: isMobile ? '2rem 1.2rem 4rem' : '4rem 4rem 5rem 4.5rem', overflowY: 'auto' }}>
+          {isMobile && (
+            <h1 style={{ ...DISPLAY, fontSize: '2rem', marginBottom: '2rem', lineHeight: 1 }}>
+              Finalizar Compra
+            </h1>
+          )}
 
           <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
 
@@ -342,7 +355,7 @@ export default function Checkout() {
                 {/* Formulario nueva dirección */}
                 {!dirGuardada && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1.4rem' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.4rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '1.4rem' }}>
                       <div>
                         <label style={labelStyle}>destinatario *</label>
                         <input
@@ -358,7 +371,7 @@ export default function Checkout() {
                       </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.4rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '1.4rem' }}>
                       <div>
                         <label style={labelStyle}>departamento *</label>
                         <select
@@ -428,6 +441,18 @@ export default function Checkout() {
                 )}
               </div>
             </section>
+
+            {/* ── Nombre del pedido (solo mayoristas) ── */}
+            {(usuario?.tipo_cliente ?? usuario?.cliente?.tipo) === 'MAYORISTA' && (
+              <section>
+                <SeccionLabel>nombre del pedido <span style={{ fontSize: '8px', letterSpacing: '0.1em' }}>(opcional)</span></SeccionLabel>
+                <input
+                  placeholder="Ej: Reposición enero, Sucursal norte..."
+                  style={fieldStyle(false)}
+                  {...register('nombre_pedido')}
+                />
+              </section>
+            )}
 
             {/* ── Observaciones ── */}
             <section>

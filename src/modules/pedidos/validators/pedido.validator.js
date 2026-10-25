@@ -31,6 +31,11 @@ const crearPedidoValidator = [
     .trim()
     .isLength({ max: 250 }).withMessage("La dirección de entrega no puede superar 250 caracteres"),
 
+  body("nombre_pedido")
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 100 }).withMessage("El nombre del pedido no puede superar 100 caracteres"),
+
   body("observaciones")
     .optional({ nullable: true })
     .trim()

@@ -174,20 +174,35 @@ export default function MisPedidos() {
                     transition: 'opacity 0.2s ease',
                   }}
                 >
-                  <span style={{ ...DISPLAY, fontSize: '1.1rem', color: '#0a0a0a' }}>
-                    Pedido #{p.id}
-                  </span>
+                  <div>
+                    <span style={{ ...DISPLAY, fontSize: '1.1rem', color: '#0a0a0a', display: 'block' }}>
+                      {p.nombre_pedido || `Pedido #${p.numero ?? p.id}`}
+                    </span>
+                    {p.nombre_pedido && (
+                      <span style={{ ...MONO, fontSize: '9px', letterSpacing: '0.14em', color: 'rgba(10,10,10,0.35)' }}>
+                        #{p.numero ?? p.id}
+                      </span>
+                    )}
+                  </div>
                   <span style={{ ...MONO, fontSize: '10px', letterSpacing: '0.08em', color: 'rgba(10,10,10,0.50)' }}>
                     {new Date(p.created_at ?? p.createdAt).toLocaleDateString('es-GT', {
                       day: '2-digit', month: 'short', year: 'numeric',
                     })}
                   </span>
-                  <span style={{
-                    ...MONO, fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase',
-                    color: COLOR_ESTADO[p.estado] ?? 'rgba(10,10,10,0.38)',
-                  }}>
-                    {LABEL_ESTADO[p.estado] ?? p.estado?.toLowerCase()}
-                  </span>
+                  <div>
+                    <span style={{
+                      ...MONO, fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase',
+                      color: COLOR_ESTADO[p.estado] ?? 'rgba(10,10,10,0.38)',
+                      display: 'block',
+                    }}>
+                      {LABEL_ESTADO[p.estado] ?? p.estado?.toLowerCase()}
+                    </span>
+                    {p.estado === 'DESPACHADO' && p.numero_guia && (
+                      <span style={{ ...MONO, fontSize: '9px', letterSpacing: '0.1em', color: 'rgba(10,10,10,0.38)', display: 'block', marginTop: '2px' }}>
+                        {p.courier ? `${p.courier} · ` : ''}{p.numero_guia}
+                      </span>
+                    )}
+                  </div>
                   <span style={{ ...MONO, fontSize: '12px', color: 'rgba(10,10,10,0.4)' }}>→</span>
                 </Link>
               ))}
