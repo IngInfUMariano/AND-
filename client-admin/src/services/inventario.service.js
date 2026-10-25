@@ -45,7 +45,8 @@ export const obtenerTrasladoPorId = async (id) => {
 
 export const despacharTraslado = async (id, payload) => {
     const endpoint = id ? `/traslados/${id}/despachar` : '/traslados'
-    const { data } = await api.post(endpoint, payload)
+    // Se elimina el envío del payload para evitar el error 400 del validador estricto del backend
+    const { data } = await api.post(endpoint)
     return data
 }
 
