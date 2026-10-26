@@ -5,7 +5,7 @@ module.exports = (sequelize, Sequelize) => {
   const Precio = sequelize.define("precio", {
     tipo: {
       // ENUM restringe los valores permitidos a nivel de base de datos
-      type: Sequelize.ENUM("COSTO", "MINORISTA", "MAYORISTA"),
+      type: Sequelize.ENUM("COSTO", "MINORISTA", "MAYORISTA", "OFERTA"),
       allowNull: false
     },
     monto: {

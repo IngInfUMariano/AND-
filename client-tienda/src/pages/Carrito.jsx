@@ -5,6 +5,7 @@ import carritoService from '@/services/carrito.service'
 import { useCart } from '@/context/CartContext'
 import { useAuth } from '@/context/AuthContext'
 import MenuOverlay from '@/components/MenuOverlay'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 const MONO    = { fontFamily: "'IBM Plex Mono', monospace" }
 const DISPLAY = { fontFamily: "'EB Garamond', Georgia, serif", fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.18em' }
@@ -13,10 +14,15 @@ const NAV_H   = 52
 const SLIDE_DUR = 900   // ms — duración de la transición
 const SLIDE_INT = 4000  // ms — intervalo entre cambios
 
-const getPrecio = (variante, tipoCliente) => {
-  const precios = variante?.precios ?? []
+const getPrecioEfectivo = (variante, tipoCliente) => {
+  const ps = variante?.precios ?? []
   const tipo = tipoCliente === 'MAYORISTA' ? 'MAYORISTA' : 'MINORISTA'
-  return parseFloat(precios.find(p => p.tipo === tipo)?.monto ?? precios[0]?.monto ?? 0)
+  return parseFloat(ps.find(p => p.tipo === 'OFERTA')?.monto ?? ps.find(p => p.tipo === tipo)?.monto ?? ps[0]?.monto ?? 0)
+}
+const getPrecioNormal = (variante) => {
+  const ps = variante?.precios ?? []
+  if (!ps.some(p => p.tipo === 'OFERTA')) return null
+  return parseFloat(ps.find(p => p.tipo === 'MINORISTA')?.monto ?? 0)
 }
 
 const imgUrl = (producto) => {
@@ -166,12 +172,13 @@ export default function Carrito() {
   const { carrito, cargando, recargar } = useCart()
   const { usuario }  = useAuth()
   const navigate     = useNavigate()
+  const isMobile     = useIsMobile()
   const [menuAbierto, setMenuAbierto] = useState(false)
   const [procesando, setProcesando]   = useState(null)
 
   const detalles = carrito?.carrito_detalles ?? []
   const subtotal = detalles.reduce(
-    (acc, d) => acc + getPrecio(d.variante, usuario?.tipo_cliente) * d.cantidad, 0
+    (acc, d) => acc + getPrecioEfectivo(d.variante, usuario?.tipo_cliente) * d.cantidad, 0
   )
 
   const actualizarCantidad = async (itemId, cantidad) => {
@@ -248,105 +255,182 @@ export default function Carrito() {
 
       {/* Contenido */}
       {!cargando && detalles.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: '38% 1fr', paddingTop: `${NAV_H}px` }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: isMobile ? '1fr' : '38% 1fr',
+          paddingTop: `${NAV_H}px`,
+        }}>
 
-          {/* ── Lateral: slideshow ── */}
-          <ImagenLateral detalles={detalles} />
+          {/* ── Lateral: slideshow (solo desktop) ── */}
+          {!isMobile && <ImagenLateral detalles={detalles} />}
 
-          {/* ── Derecha: heading + grid(lista | resumen) ── */}
-          <div style={{ padding: '3.5rem 4rem 3.5rem 3.5rem' }}>
+          {/* ── Contenido principal ── */}
+          <div style={{ padding: isMobile ? '2rem 1.2rem' : '3.5rem 4rem 3.5rem 3.5rem' }}>
 
-            <h1 style={{ ...DISPLAY, fontSize: 'clamp(3rem, 4.5vw, 4.5rem)', marginBottom: '0.5rem' }}>
+            <h1 style={{ ...DISPLAY, fontSize: isMobile ? '2.4rem' : 'clamp(3rem, 4.5vw, 4.5rem)', marginBottom: '0.5rem' }}>
               Carrito
             </h1>
-            <div style={{ height: '1px', background: 'rgba(10,10,10,0.12)', marginBottom: '3rem' }} />
+            <div style={{ height: '1px', background: 'rgba(10,10,10,0.12)', marginBottom: isMobile ? '1.5rem' : '3rem' }} />
 
             {/* Lista de productos */}
-            <div style={{ marginBottom: '3rem' }}>
-              <div>
-                <div style={{
-                  display: 'grid', gridTemplateColumns: '1fr 120px 100px 24px',
-                  paddingBottom: '12px',
-                  borderBottom: '1px solid rgba(10,10,10,0.12)',
-                }}>
-                  {['PRODUCTO', 'CANTIDAD', 'SUBTOTAL', ''].map(h => (
-                    <span key={h} style={{ ...MONO, fontSize: '10px', letterSpacing: '0.35em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.78)' }}>
-                      {h}
-                    </span>
-                  ))}
+            <div style={{ marginBottom: isMobile ? '2rem' : '3rem' }}>
+              {isMobile ? (
+                /* Mobile: tarjetas apiladas */
+                <div>
+                  {detalles.map(d => {
+                    const precio      = getPrecioEfectivo(d.variante, usuario?.tipo_cliente)
+                    const precioNormal = getPrecioNormal(d.variante)
+                    const dis         = procesando === d.id
+                    return (
+                      <div key={d.id} style={{
+                        padding: '1.2rem 0',
+                        borderBottom: '1px solid rgba(10,10,10,0.08)',
+                        opacity: dis ? 0.4 : 1,
+                        transition: 'opacity 0.18s ease',
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.8rem' }}>
+                          <div style={{ flex: 1 }}>
+                            <p style={{ ...MONO, fontSize: '14px', color: '#0a0a0a', marginBottom: '0.25rem' }}>
+                              {d.variante?.producto?.nombre ?? 'Producto'}
+                            </p>
+                            <p style={{ ...MONO, fontSize: '11px', color: 'rgba(10,10,10,0.5)' }}>
+                              {d.variante?.sku}
+                            </p>
+                          </div>
+                          <button onClick={() => eliminar(d.id)} disabled={dis} style={{
+                            background: 'none', border: 'none', cursor: dis ? 'default' : 'pointer',
+                            ...MONO, fontSize: '16px', color: 'rgba(10,10,10,0.4)', padding: '4px',
+                          }}>✕</button>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <button onClick={() => actualizarCantidad(d.id, d.cantidad - 1)} disabled={dis} style={{
+                              ...MONO, fontSize: '22px', lineHeight: 1,
+                              background: 'none', border: 'none', cursor: dis ? 'default' : 'pointer',
+                              color: 'rgba(10,10,10,0.5)', padding: '4px 8px',
+                            }}>−</button>
+                            <span style={{ ...MONO, fontSize: '14px', minWidth: '24px', textAlign: 'center' }}>{d.cantidad}</span>
+                            <button onClick={() => actualizarCantidad(d.id, d.cantidad + 1)} disabled={dis} style={{
+                              ...MONO, fontSize: '22px', lineHeight: 1,
+                              background: 'none', border: 'none', cursor: dis ? 'default' : 'pointer',
+                              color: 'rgba(10,10,10,0.5)', padding: '4px 8px',
+                            }}>+</button>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <p style={{ ...MONO, fontSize: '15px', color: precioNormal != null ? 'rgba(180,30,30,0.85)' : '#0a0a0a' }}>
+                              Q {(precio * d.cantidad).toFixed(2)}
+                            </p>
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem', justifyContent: 'flex-end' }}>
+                              {precioNormal != null && (
+                                <span style={{ ...MONO, fontSize: '10px', color: 'rgba(10,10,10,0.35)', textDecoration: 'line-through' }}>Q {precioNormal.toFixed(2)}</span>
+                              )}
+                              <span style={{ ...MONO, fontSize: '11px', color: precioNormal != null ? 'rgba(180,30,30,0.6)' : 'rgba(10,10,10,0.4)' }}>Q {precio.toFixed(2)} c/u</span>
+                              {precioNormal != null && (
+                                <span style={{ ...MONO, fontSize: '8px', letterSpacing: '0.12em', color: 'rgba(180,30,30,0.65)', border: '1px solid rgba(180,30,30,0.25)', padding: '1px 4px' }}>OFERTA</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
-
-                {detalles.map(d => {
-                  const precio = getPrecio(d.variante, usuario?.tipo_cliente)
-                  const dis    = procesando === d.id
-                  return (
-                    <div key={d.id} style={{
-                      display: 'grid', gridTemplateColumns: '1fr 120px 100px 24px',
-                      alignItems: 'center',
-                      padding: '1.6rem 0',
-                      borderBottom: '1px solid rgba(10,10,10,0.08)',
-                      opacity: dis ? 0.4 : 1,
-                      transition: 'opacity 0.18s ease',
-                    }}>
-                      <div>
-                        <p style={{ ...MONO, fontSize: '14px', color: '#0a0a0a', marginBottom: '0.3rem' }}>
-                          {d.variante?.producto?.nombre ?? 'Producto'}
-                        </p>
-                        <p style={{ ...MONO, fontSize: '11px', letterSpacing: '0.08em', color: 'rgba(10,10,10,0.80)' }}>
-                          {d.variante?.sku}
-                        </p>
-                        <p style={{ ...MONO, fontSize: '12px', color: 'rgba(10,10,10,0.88)', marginTop: '0.2rem' }}>
-                          Q {precio.toFixed(2)} c/u
-                        </p>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                        {[
-                          { label: '−', onClick: () => actualizarCantidad(d.id, d.cantidad - 1) },
-                          null,
-                          { label: '+', onClick: () => actualizarCantidad(d.id, d.cantidad + 1) },
-                        ].map((btn) =>
-                          btn === null ? (
-                            <span key="val" style={{ ...MONO, fontSize: '14px', minWidth: '20px', textAlign: 'center' }}>
-                              {d.cantidad}
-                            </span>
-                          ) : (
-                            <button key={btn.label} onClick={btn.onClick} disabled={dis} style={{
-                              ...MONO, fontSize: '20px', lineHeight: 1,
-                              background: 'none', border: 'none',
-                              cursor: dis ? 'default' : 'pointer',
-                              color: 'rgba(10,10,10,0.72)',
-                              transition: 'color 0.15s ease',
-                            }}
-                              onMouseEnter={e => { if (!dis) e.currentTarget.style.color = '#0a0a0a' }}
-                              onMouseLeave={e => { if (!dis) e.currentTarget.style.color = 'rgba(10,10,10,0.72)' }}
-                            >{btn.label}</button>
-                          )
-                        )}
-                      </div>
-
-                      <span style={{ ...MONO, fontSize: '14px', color: '#0a0a0a' }}>
-                        Q {(precio * d.cantidad).toFixed(2)}
+              ) : (
+                /* Desktop: tabla */
+                <div>
+                  <div style={{
+                    display: 'grid', gridTemplateColumns: '1fr 120px 100px 24px',
+                    paddingBottom: '12px',
+                    borderBottom: '1px solid rgba(10,10,10,0.12)',
+                  }}>
+                    {['PRODUCTO', 'CANTIDAD', 'SUBTOTAL', ''].map(h => (
+                      <span key={h} style={{ ...MONO, fontSize: '10px', letterSpacing: '0.35em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.78)' }}>
+                        {h}
                       </span>
+                    ))}
+                  </div>
 
-                      <button onClick={() => eliminar(d.id)} disabled={dis} style={{
-                        background: 'none', border: 'none',
-                        cursor: dis ? 'default' : 'pointer',
-                        ...MONO, fontSize: '15px', lineHeight: 1,
-                        color: 'rgba(10,10,10,0.85)',
-                        transition: 'color 0.15s ease',
-                      }}
-                        onMouseEnter={e => { if (!dis) e.currentTarget.style.color = 'rgba(160,0,0,0.65)' }}
-                        onMouseLeave={e => { if (!dis) e.currentTarget.style.color = 'rgba(10,10,10,0.55)' }}
-                      >✕</button>
-                    </div>
-                  )
-                })}
-              </div>
+                  {detalles.map(d => {
+                    const precio       = getPrecioEfectivo(d.variante, usuario?.tipo_cliente)
+                    const precioNormal = getPrecioNormal(d.variante)
+                    const dis          = procesando === d.id
+                    return (
+                      <div key={d.id} style={{
+                        display: 'grid', gridTemplateColumns: '1fr 120px 100px 24px',
+                        alignItems: 'center',
+                        padding: '1.6rem 0',
+                        borderBottom: '1px solid rgba(10,10,10,0.08)',
+                        opacity: dis ? 0.4 : 1,
+                        transition: 'opacity 0.18s ease',
+                      }}>
+                        <div>
+                          <p style={{ ...MONO, fontSize: '14px', color: '#0a0a0a', marginBottom: '0.3rem' }}>
+                            {d.variante?.producto?.nombre ?? 'Producto'}
+                          </p>
+                          <p style={{ ...MONO, fontSize: '11px', letterSpacing: '0.08em', color: 'rgba(10,10,10,0.80)' }}>
+                            {d.variante?.sku}
+                          </p>
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
+                            {precioNormal != null && (
+                              <span style={{ ...MONO, fontSize: '11px', color: 'rgba(10,10,10,0.35)', textDecoration: 'line-through' }}>Q {precioNormal.toFixed(2)}</span>
+                            )}
+                            <span style={{ ...MONO, fontSize: '12px', color: precioNormal != null ? 'rgba(180,30,30,0.75)' : 'rgba(10,10,10,0.88)' }}>
+                              Q {precio.toFixed(2)} c/u
+                            </span>
+                            {precioNormal != null && (
+                              <span style={{ ...MONO, fontSize: '8px', letterSpacing: '0.12em', color: 'rgba(180,30,30,0.65)', border: '1px solid rgba(180,30,30,0.25)', padding: '1px 4px' }}>OFERTA</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                          {[
+                            { label: '−', onClick: () => actualizarCantidad(d.id, d.cantidad - 1) },
+                            null,
+                            { label: '+', onClick: () => actualizarCantidad(d.id, d.cantidad + 1) },
+                          ].map((btn) =>
+                            btn === null ? (
+                              <span key="val" style={{ ...MONO, fontSize: '14px', minWidth: '20px', textAlign: 'center' }}>
+                                {d.cantidad}
+                              </span>
+                            ) : (
+                              <button key={btn.label} onClick={btn.onClick} disabled={dis} style={{
+                                ...MONO, fontSize: '20px', lineHeight: 1,
+                                background: 'none', border: 'none',
+                                cursor: dis ? 'default' : 'pointer',
+                                color: 'rgba(10,10,10,0.72)',
+                                transition: 'color 0.15s ease',
+                              }}
+                                onMouseEnter={e => { if (!dis) e.currentTarget.style.color = '#0a0a0a' }}
+                                onMouseLeave={e => { if (!dis) e.currentTarget.style.color = 'rgba(10,10,10,0.72)' }}
+                              >{btn.label}</button>
+                            )
+                          )}
+                        </div>
+
+                        <span style={{ ...MONO, fontSize: '14px', color: precioNormal != null ? 'rgba(180,30,30,0.85)' : '#0a0a0a' }}>
+                          Q {(precio * d.cantidad).toFixed(2)}
+                        </span>
+
+                        <button onClick={() => eliminar(d.id)} disabled={dis} style={{
+                          background: 'none', border: 'none',
+                          cursor: dis ? 'default' : 'pointer',
+                          ...MONO, fontSize: '15px', lineHeight: 1,
+                          color: 'rgba(10,10,10,0.85)',
+                          transition: 'color 0.15s ease',
+                        }}
+                          onMouseEnter={e => { if (!dis) e.currentTarget.style.color = 'rgba(160,0,0,0.65)' }}
+                          onMouseLeave={e => { if (!dis) e.currentTarget.style.color = 'rgba(10,10,10,0.55)' }}
+                        >✕</button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
 
-            {/* Resumen — debajo de la lista, alineado a la derecha */}
-            <div style={{ maxWidth: '360px', marginLeft: 'auto' }}>
+            {/* Resumen */}
+            <div style={{ maxWidth: isMobile ? '100%' : '360px', marginLeft: 'auto' }}>
               <div style={{ borderTop: '2px solid #0a0a0a', paddingTop: '1.8rem' }}>
                   <p style={{ ...MONO, fontSize: '10px', letterSpacing: '0.44em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.4)', marginBottom: '1.4rem' }}>
                     resumen

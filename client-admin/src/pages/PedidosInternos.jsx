@@ -601,7 +601,7 @@ export default function PedidosInternos() {
             {/* MODAL 1: VERIFICACIÓN DE EMPAQUE DE PEDIDOS */}
             {modalVerificar && pedidoSeleccionado && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-card border rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
+                    <div className="bg-card border rounded-xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col">
                         <div className="flex items-center justify-between border-b px-5 py-4 bg-muted/30">
                             <h2 className="font-bold text-sm text-foreground flex items-center gap-2">
                                 <ClipboardCheck size={18} className="text-emerald-600" /> Verificación y Empaque (Bodega)
@@ -666,7 +666,7 @@ export default function PedidosInternos() {
             {/* MODAL 2: REGISTRO DE GUÍA DE ENVÍO (PEDIDOS) */}
             {modalDespacho && pedidoSeleccionado && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-card border rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
+                    <div className="bg-card border rounded-xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col">
                         <div className="flex items-center justify-between border-b px-5 py-4 bg-muted/30">
                             <h2 className="font-bold text-sm text-foreground flex items-center gap-2">
                                 <Truck size={18} className="text-primary" /> Registro de Guía y Salida — Pedido {pedidoSeleccionado.numero || `#${pedidoSeleccionado.id}`}
@@ -741,7 +741,7 @@ export default function PedidosInternos() {
             {/* MODAL 3: VERIFICACIÓN FÍSICA Y CONTEO DE CARGA (TRASLADOS) */}
             {modalVerificacionTraslado && trasladoSel && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-card border rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                    <div className="bg-card border rounded-xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[90vh]">
                         <div className="flex items-center justify-between border-b px-5 py-4 bg-muted/30">
                             <h2 className="font-bold text-sm text-foreground flex items-center gap-2">
                                 <ShieldCheck size={18} className="text-primary" /> Conteo Físico y Verificación de Carga

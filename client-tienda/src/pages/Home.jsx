@@ -2,6 +2,7 @@ import { useRef, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import MenuOverlay from '@/components/MenuOverlay'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 const MONO    = { fontFamily: "'IBM Plex Mono', monospace" }
 const DISPLAY = { fontFamily: "'EB Garamond', Georgia, serif", fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.18em' }
@@ -175,8 +176,10 @@ const WHY_ITEMS = [
 export default function Home() {
   const [navProgress, setNavProgress]   = useState(0)
   const [hoveredItem, setHoveredItem]   = useState(null)
+  const [expandedItem, setExpandedItem] = useState(null)
   const [menuAbierto, setMenuAbierto]   = useState(false)
   const [parallaxRef, parallaxProgress] = useScrollProgress()
+  const isMobile = useIsMobile()
   const s3Ref = useRef(null)
 
   /* Nav: se basa en la posición real de S3 — no en scrollY absoluto */
@@ -232,18 +235,21 @@ export default function Home() {
       <div style={{ background: '#fafafa', color: '#0a0a0a' }}>
 
         {/* S3 — Moda sin compromiso — ref para nav */}
-        <section ref={s3Ref} style={{ padding: '10rem 0 8rem' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, alignItems: 'start' }}>
-
-            {/* Izquierda: texto */}
-            <div style={{ padding: '0 5rem 0 4rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+        <section ref={s3Ref} style={{ padding: isMobile ? '5rem 0 4rem' : '10rem 0 8rem' }}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+            gap: 0, alignItems: 'start',
+          }}>
+            {/* Texto */}
+            <div style={{ padding: isMobile ? '0 1.5rem 3rem' : '0 5rem 0 4rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
               <Reveal delay={0.05}>
                 <span style={{ ...MONO, fontSize: '10px', letterSpacing: '0.4em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.90)' }}>
                   Nuestra esencia
                 </span>
               </Reveal>
               <Reveal delay={0.15}>
-                <h2 style={{ ...DISPLAY, fontSize: '3.2rem', lineHeight: 0.93, maxWidth: '260px' }}>
+                <h2 style={{ ...DISPLAY, fontSize: isMobile ? '2.4rem' : '3.2rem', lineHeight: 0.93 }}>
                   Moda sin<br />Compromiso
                 </h2>
               </Reveal>
@@ -269,106 +275,126 @@ export default function Home() {
               </Reveal>
             </div>
 
-            {/* Derecha: dos imágenes estilo Odyssée */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', height: '520px' }}>
-              <FashionImg
-                src="/home-moda1.png"
-                alt="Colección AND& — estilo"
-                className="w-full h-full"
-                curtainColor="#fafafa"
-              />
-              <FashionImg
-                src="/home-moda2.png"
-                alt="Colección AND& — detalle"
-                delay={0.14}
-                className="w-full h-full"
-                curtainColor="#fafafa"
-              />
+            {/* Imágenes */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', height: isMobile ? '280px' : '520px' }}>
+              <FashionImg src="/home-moda1.png" alt="Colección AND& — estilo" className="w-full h-full" curtainColor="#fafafa" />
+              <FashionImg src="/home-moda2.png" alt="Colección AND& — detalle" delay={0.14} className="w-full h-full" curtainColor="#fafafa" />
             </div>
           </div>
 
-          {/* ¿Por qué AND&? — menú horizontal sin números */}
-          <div style={{ marginTop: '8rem', padding: '0 4rem' }}>
+          {/* ¿Por qué AND&? */}
+          <div style={{ marginTop: isMobile ? '4rem' : '8rem', padding: isMobile ? '0 1.5rem' : '0 4rem' }}>
             <Reveal>
               <div style={{ paddingBottom: '12px', borderBottom: '1px solid rgba(10,10,10,0.1)' }}>
                 <span style={{ ...DISPLAY, fontSize: '1rem' }}>¿Por qué And&?</span>
               </div>
             </Reveal>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderBottom: '1px solid rgba(10,10,10,0.08)' }}>
-              {WHY_ITEMS.map((item, i) => (
-                <div
-                  key={item.titulo}
-                  style={{ borderRight: i < 3 ? '1px solid rgba(10,10,10,0.08)' : 'none', position: 'relative' }}
-                  onMouseEnter={() => setHoveredItem(i)}
-                  onMouseLeave={() => setHoveredItem(null)}
-                >
-                  <div style={{ padding: '18px 20px', cursor: 'default' }}>
-                    <span style={{ ...DISPLAY, fontSize: '1.15rem', opacity: hoveredItem !== null && hoveredItem !== i ? 0.22 : 1, transition: 'opacity 0.3s ease' }}>
-                      {item.titulo}
-                    </span>
-                  </div>
-
-                  <div style={{
-                    position: 'absolute', top: '100%', left: 0, right: 0,
-                    background: '#fafafa',
-                    borderTop: '1px solid rgba(10,10,10,0.08)',
-                    borderBottom: '1px solid rgba(10,10,10,0.08)',
-                    maxHeight: hoveredItem === i ? '240px' : '0',
-                    overflow: 'hidden',
-                    transition: 'max-height 0.42s cubic-bezier(0.25,0.46,0.45,0.94)',
-                    zIndex: 20,
-                  }}>
-                    <div style={{ padding: '18px 20px', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-                      <p style={{ ...MONO, fontSize: '11px', lineHeight: '1.9', color: 'rgba(10,10,10,0.80)', flex: 1 }}>
-                        {item.texto}
-                      </p>
-                      <img
-                        src={item.img}
-                        alt={item.titulo}
-                        style={{ width: '76px', height: '96px', objectFit: 'cover', filter: 'grayscale(100%) brightness(0.72)', flexShrink: 0 }}
-                      />
+            {isMobile ? (
+              /* Mobile: accordion */
+              <div>
+                {WHY_ITEMS.map((item, i) => (
+                  <div key={item.titulo} style={{ borderBottom: '1px solid rgba(10,10,10,0.08)' }}>
+                    <button
+                      onClick={() => setExpandedItem(expandedItem === i ? null : i)}
+                      style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        width: '100%', padding: '16px 0', background: 'none', border: 'none', cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <span style={{ ...DISPLAY, fontSize: '1.1rem' }}>{item.titulo}</span>
+                      <span style={{ ...MONO, fontSize: '16px', color: 'rgba(10,10,10,0.4)', lineHeight: 1 }}>
+                        {expandedItem === i ? '−' : '+'}
+                      </span>
+                    </button>
+                    <div style={{
+                      maxHeight: expandedItem === i ? '300px' : '0',
+                      overflow: 'hidden',
+                      transition: 'max-height 0.38s cubic-bezier(0.25,0.46,0.45,0.94)',
+                    }}>
+                      <div style={{ paddingBottom: '16px', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                        <p style={{ ...MONO, fontSize: '12px', lineHeight: '1.9', color: 'rgba(10,10,10,0.78)', flex: 1 }}>
+                          {item.texto}
+                        </p>
+                        <img src={item.img} alt={item.titulo}
+                          style={{ width: '64px', height: '80px', objectFit: 'cover', filter: 'grayscale(100%) brightness(0.72)', flexShrink: 0 }}
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              /* Desktop: hover */
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderBottom: '1px solid rgba(10,10,10,0.08)' }}>
+                {WHY_ITEMS.map((item, i) => (
+                  <div
+                    key={item.titulo}
+                    style={{ borderRight: i < 3 ? '1px solid rgba(10,10,10,0.08)' : 'none', position: 'relative' }}
+                    onMouseEnter={() => setHoveredItem(i)}
+                    onMouseLeave={() => setHoveredItem(null)}
+                  >
+                    <div style={{ padding: '18px 20px', cursor: 'default' }}>
+                      <span style={{ ...DISPLAY, fontSize: '1.15rem', opacity: hoveredItem !== null && hoveredItem !== i ? 0.22 : 1, transition: 'opacity 0.3s ease' }}>
+                        {item.titulo}
+                      </span>
+                    </div>
+                    <div style={{
+                      position: 'absolute', top: '100%', left: 0, right: 0,
+                      background: '#fafafa',
+                      borderTop: '1px solid rgba(10,10,10,0.08)',
+                      borderBottom: '1px solid rgba(10,10,10,0.08)',
+                      maxHeight: hoveredItem === i ? '240px' : '0',
+                      overflow: 'hidden',
+                      transition: 'max-height 0.42s cubic-bezier(0.25,0.46,0.45,0.94)',
+                      zIndex: 20,
+                    }}>
+                      <div style={{ padding: '18px 20px', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+                        <p style={{ ...MONO, fontSize: '11px', lineHeight: '1.9', color: 'rgba(10,10,10,0.80)', flex: 1 }}>{item.texto}</p>
+                        <img src={item.img} alt={item.titulo}
+                          style={{ width: '76px', height: '96px', objectFit: 'cover', filter: 'grayscale(100%) brightness(0.72)', flexShrink: 0 }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
-        {/* S4 — Diseñado para las que se atreven: texto overlay, sin gap */}
-        <section style={{ paddingTop: '8rem', paddingBottom: '8rem' }}>
+        {/* S4 — Diseñado para las que se atreven */}
+        <section style={{ paddingTop: isMobile ? '4rem' : '8rem', paddingBottom: isMobile ? '4rem' : '8rem' }}>
           <div style={{ position: 'relative' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr' }}>
               <FashionImg
                 src="https://picsum.photos/seed/womenfw3/700/900"
                 alt="Colección AND& I"
                 className="aspect-[3/4] w-full"
                 curtainColor="#fafafa"
               />
-              <FashionImg
-                src="https://picsum.photos/seed/womenfw8/700/900"
-                alt="Colección AND& II"
-                delay={0.14}
-                className="aspect-[3/4] w-full"
-                curtainColor="#fafafa"
-              />
+              {!isMobile && (
+                <FashionImg
+                  src="https://picsum.photos/seed/womenfw8/700/900"
+                  alt="Colección AND& II"
+                  delay={0.14}
+                  className="aspect-[3/4] w-full"
+                  curtainColor="#fafafa"
+                />
+              )}
             </div>
-
-            {/* Texto encima, centrado */}
             <div style={{
               position: 'absolute', top: '50%', left: '50%',
               transform: 'translate(-50%, -50%)',
-              textAlign: 'center',
-              zIndex: 10,
+              textAlign: 'center', zIndex: 10,
               pointerEvents: 'none',
-              whiteSpace: 'nowrap',
+              width: '100%',
             }}>
               <h2 style={{
                 ...DISPLAY,
-                fontSize: 'clamp(2.4rem, 5.5vw, 4.8rem)',
-                lineHeight: 0.93,
-                color: '#ffffff',
+                fontSize: isMobile ? 'clamp(2rem, 9vw, 3rem)' : 'clamp(2.4rem, 5.5vw, 4.8rem)',
+                lineHeight: 0.93, color: '#ffffff',
                 textShadow: '0 2px 28px rgba(0,0,0,0.4)',
               }}>
                 Diseñado para<br />las que se atreven
@@ -377,45 +403,56 @@ export default function Home() {
           </div>
         </section>
 
-        {/* S5 — [panel sticky: texto + img pequeña que bajan] | [img grande que ocupa 2 secciones] */}
-        {/* Las dos columnas están pegadas (gap: 0). La izquierda es sticky y su contenido
-            desciende via parallax. La derecha es una imagen muy alta que se revela al scrollear. */}
-        <section ref={parallaxRef} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', minHeight: '200vh', gap: 0 }}>
-
-          {/* Izquierda: sticky — texto e imagen pequeña descienden juntos */}
-          <div style={{ position: 'sticky', top: 0, height: '100vh', alignSelf: 'start', overflow: 'hidden' }}>
-            <div style={{
-              transform: `translateY(${parallaxProgress * (typeof window !== 'undefined' ? window.innerHeight * 0.55 : 450)}px)`,
-              transition: 'transform 0.04s linear',
-              willChange: 'transform',
-              padding: '5rem 3.5rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '3rem',
-            }}>
-              <p style={{ ...MONO, fontSize: '13px', lineHeight: '2', color: 'rgba(10,10,10,0.76)', maxWidth: '300px' }}>
+        {/* S5 — parallax editorial */}
+        {isMobile ? (
+          /* Mobile: layout simple */
+          <section style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            <div style={{ padding: '3rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+              <p style={{ ...MONO, fontSize: '13px', lineHeight: '2', color: 'rgba(10,10,10,0.76)' }}>
                 Detrás de cada prenda hay una dedicación absoluta al detalle, al acabado y a la historia que esa pieza narra sobre quien la lleva.
               </p>
-              <div style={{ width: '240px', height: '240px', overflow: 'hidden', flexShrink: 0 }}>
-                <video
-                  autoPlay loop muted playsInline
+              <div style={{ width: '100%', height: '220px', overflow: 'hidden' }}>
+                <video autoPlay loop muted playsInline
                   style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) brightness(0.7)', display: 'block' }}
                 >
                   <source src="/video/home-mouth.mp4" type="video/mp4" />
                 </video>
               </div>
             </div>
-          </div>
-
-          {/* Derecha: imagen alta — se descubre al hacer scroll (ocupa 2 secciones) */}
-          <div style={{ overflow: 'hidden' }}>
-            <img
-              src="/home-editorial.png"
-              alt="AND& colección femenina"
-              style={{ width: '100%', height: '100%', minHeight: '200vh', objectFit: 'cover', filter: 'grayscale(100%) brightness(0.7)', display: 'block', objectPosition: 'center top' }}
-            />
-          </div>
-        </section>
+            <div style={{ overflow: 'hidden', height: '70vw', minHeight: '260px' }}>
+              <img src="/home-editorial.png" alt="AND& colección femenina"
+                style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) brightness(0.7)', display: 'block', objectPosition: 'center top' }}
+              />
+            </div>
+          </section>
+        ) : (
+          /* Desktop: sticky parallax */
+          <section ref={parallaxRef} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', minHeight: '200vh', gap: 0 }}>
+            <div style={{ position: 'sticky', top: 0, height: '100vh', alignSelf: 'start', overflow: 'hidden' }}>
+              <div style={{
+                transform: `translateY(${parallaxProgress * (typeof window !== 'undefined' ? window.innerHeight * 0.55 : 450)}px)`,
+                transition: 'transform 0.04s linear', willChange: 'transform',
+                padding: '5rem 3.5rem', display: 'flex', flexDirection: 'column', gap: '3rem',
+              }}>
+                <p style={{ ...MONO, fontSize: '13px', lineHeight: '2', color: 'rgba(10,10,10,0.76)', maxWidth: '300px' }}>
+                  Detrás de cada prenda hay una dedicación absoluta al detalle, al acabado y a la historia que esa pieza narra sobre quien la lleva.
+                </p>
+                <div style={{ width: '240px', height: '240px', overflow: 'hidden', flexShrink: 0 }}>
+                  <video autoPlay loop muted playsInline
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%) brightness(0.7)', display: 'block' }}
+                  >
+                    <source src="/video/home-mouth.mp4" type="video/mp4" />
+                  </video>
+                </div>
+              </div>
+            </div>
+            <div style={{ overflow: 'hidden' }}>
+              <img src="/home-editorial.png" alt="AND& colección femenina"
+                style={{ width: '100%', height: '100%', minHeight: '200vh', objectFit: 'cover', filter: 'grayscale(100%) brightness(0.7)', display: 'block', objectPosition: 'center top' }}
+              />
+            </div>
+          </section>
+        )}
       </div>
 
       {/* ══════════ CATÁLOGO — oscuro ══════════ */}
@@ -446,8 +483,15 @@ export default function Home() {
       </section>
 
       {/* ══════════ FOOTER ══════════ */}
-      <footer style={{ background: '#fafafa', borderTop: '1px solid rgba(10,10,10,0.07)', padding: '2rem 2.5rem' }}>
-        <div style={{ maxWidth: '1152px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <footer style={{ background: '#fafafa', borderTop: '1px solid rgba(10,10,10,0.07)', padding: isMobile ? '2rem 1.5rem' : '2rem 2.5rem' }}>
+        <div style={{
+          maxWidth: '1152px', margin: '0 auto',
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          justifyContent: isMobile ? 'flex-start' : 'space-between',
+          alignItems: isMobile ? 'flex-start' : 'center',
+          gap: isMobile ? '1rem' : 0,
+        }}>
           <span style={{ ...DISPLAY, fontSize: '1.35rem' }}>And&</span>
           <span style={{ ...MONO, fontSize: '10px', letterSpacing: '0.2em', color: 'rgba(10,10,10,0.2)' }}>{new Date().getFullYear()} · Todos los derechos reservados</span>
           <div style={{ display: 'flex', gap: '24px', ...MONO, fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase' }}>

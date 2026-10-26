@@ -34,5 +34,8 @@
     "pg-hstore": "^2.3.4",
     "sequelize": "^6.37.8",
     "stripe": "^22.6.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1"
   }
 }

@@ -40,7 +40,8 @@ const listar = async (query) => {
         include: [
             { model: db.producto, attributes: ["id", "nombre", "codigo"] },
             { model: db.talla, attributes: ["id", "codigo", "descripcion"] },
-            { model: db.color, attributes: ["id", "nombre"] }
+            { model: db.color, attributes: ["id", "nombre"] },
+            { model: db.precio, attributes: ["tipo", "monto"], where: { vigente_hasta: null }, required: false }
         ]
     });
 

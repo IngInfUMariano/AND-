@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useCart } from '@/context/CartContext'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 const MONO    = { fontFamily: "'IBM Plex Mono', monospace" }
 const DISPLAY = { fontFamily: "'EB Garamond', Georgia, serif", fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.18em' }
@@ -23,6 +24,7 @@ export default function MenuOverlay({ open, onClose }) {
   const { usuario, cerrarSesion } = useAuth()
   const { totalItems } = useCart()
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const [hoveredNav, setHoveredNav] = useState(null)
 
   useEffect(() => {
@@ -85,6 +87,97 @@ export default function MenuOverlay({ open, onClose }) {
 
   const nombre     = resolverNombre(usuario)
   const tipoCliente = resolverTipo(usuario)
+
+  if (isMobile) {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 300,
+        pointerEvents: open ? 'auto' : 'none',
+      }}>
+        {/* Panel único full-width en mobile */}
+        <div style={{
+          ...panelBase(true),
+          background: '#111111',
+          padding: '2rem 1.8rem',
+          justifyContent: 'space-between',
+        }}>
+          {/* Cabecera mobile */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3rem' }}>
+            <span style={{ ...DISPLAY, fontSize: '1.2rem', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.15)' }}>
+              AND&
+            </span>
+            <button
+              onClick={onClose}
+              style={{
+                ...MONO, fontSize: '10px', letterSpacing: '0.3em', textTransform: 'uppercase',
+                color: 'rgba(255,255,255,0.58)',
+                background: 'none', border: 'none', cursor: 'pointer',
+              }}
+            >
+              ✕ ESC
+            </button>
+          </div>
+
+          {/* Navegación principal */}
+          <nav style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+            {navItems.map((item) => (
+              <button
+                key={item.label}
+                onClick={() => ir(item.to)}
+                style={{
+                  display: 'flex', alignItems: 'baseline', gap: '1rem',
+                  ...DISPLAY,
+                  fontSize: 'clamp(2.2rem, 10vw, 3.5rem)',
+                  lineHeight: 1.2,
+                  color: '#ffffff',
+                  background: 'none', border: 'none',
+                  cursor: 'pointer', textAlign: 'left', width: '100%',
+                  padding: '0.6rem 0',
+                  borderBottom: '1px solid rgba(255,255,255,0.07)',
+                }}
+              >
+                {item.label}
+                {item.badge != null && item.badge > 0 && (
+                  <span style={{ ...MONO, fontSize: '11px', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.68)' }}>
+                    ({item.badge})
+                  </span>
+                )}
+              </button>
+            ))}
+          </nav>
+
+          {/* Footer del menú */}
+          <div style={{ marginTop: '3rem' }}>
+            {usuario ? (
+              <>
+                {nombre && (
+                  <p style={{ ...MONO, fontSize: '12px', color: 'rgba(255,255,255,0.55)', marginBottom: '1rem' }}>
+                    {nombre}
+                  </p>
+                )}
+                <button
+                  onClick={handleLogout}
+                  style={{
+                    ...MONO, fontSize: '10px', letterSpacing: '0.26em', textTransform: 'uppercase',
+                    color: 'rgba(255,255,255,0.35)',
+                    background: 'none', border: 'none',
+                    borderBottom: '1px solid rgba(255,255,255,0.1)',
+                    paddingBottom: '2px', cursor: 'pointer',
+                    display: 'block',
+                  }}
+                >
+                  cerrar sesión
+                </button>
+              </>
+            ) : null}
+            <span style={{ ...MONO, fontSize: '9px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.1)', display: 'block', marginTop: '1.5rem' }}>
+              moda femenina de autor
+            </span>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{

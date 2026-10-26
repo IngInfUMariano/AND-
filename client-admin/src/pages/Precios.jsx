@@ -127,36 +127,24 @@ export default function Precios() {
     cargarVars()
   }, [productoSeleccionadoId])
 
-  // Formateador inteligente de nombres de prenda
+  // Resuelve nombre del producto usando la lista ya cargada; cae a SKU si no hay match
   const obtenerNombrePrenda = (p) => {
     if (p.variante?.producto?.nombre) return p.variante.producto.nombre
     if (p.productoNombre) return p.productoNombre
     if (p.producto_nombre) return p.producto_nombre
 
     const sku = p.variante?.sku || p.sku || ''
-    if (sku) {
-      const partes = sku.split('-')
-      if (partes.length >= 3) {
-        const prefijo = partes[0].toUpperCase()
-        const talla = partes[1].toUpperCase()
-        const color = partes[2].toUpperCase()
-
-        const diccionario = {
-          CAM: 'Camisa',
-          PAN: 'Pantalón',
-          PLAY: 'Playera',
-          BLU: 'Blusa',
-          SUD: 'Sudadera',
-          CHAQ: 'Chaqueta'
-        }
-
-        const tipoPrenda = diccionario[prefijo] || prefijo
-        return `${tipoPrenda} (Talla ${talla} - ${color})`
-      }
-      return sku
+    if (sku && productos.length > 0) {
+      const prefix = sku.split('-')[0]?.toUpperCase()
+      const prod = productos.find(
+        (pr) =>
+          pr.codigo?.toUpperCase() === prefix ||
+          pr.nombre?.toUpperCase().startsWith(prefix)
+      )
+      if (prod) return `${prod.nombre} · ${sku}`
     }
 
-    return `Prenda #${p.variante_id || p.id}`
+    return sku || `Prenda #${p.variante_id || p.id}`
   }
 
   // Evaluación unificada de vigencia
@@ -397,7 +385,7 @@ export default function Precios() {
                 <th className="px-6 py-3.5">Prenda / Producto</th>
                 <th className="px-6 py-3.5">Tipo</th>
                 <th className="px-6 py-3.5">Monto</th>
-                <th className="px-6 py-3.5">Estado</th>
+                <th className="px-6 py-3.5">Vigencia</th>
                 <th className="px-6 py-3.5">Registrado Por</th>
                 <th className="px-6 py-3.5 text-right">Acción</th>
               </tr>
@@ -449,19 +437,30 @@ export default function Precios() {
                         Q.{Number(p.monto).toFixed(2)}
                       </td>
 
-                      {/* Estado */}
-                      <td className="px-6 py-4 text-xs font-medium">
-                        {esVig ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-950/40 dark:text-emerald-400">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 dark:bg-emerald-400"></span>
-                            Activo
+                      {/* Vigencia con fechas */}
+                      <td className="px-6 py-4 text-xs">
+                        <div className="flex flex-col gap-0.5">
+                          {esVig ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-950/40 dark:text-emerald-400 w-fit">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 dark:bg-emerald-400"></span>
+                              Activo
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 ring-1 ring-inset ring-slate-500/10 dark:bg-slate-800 dark:text-slate-400 w-fit">
+                              <span className="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
+                              Caducado
+                            </span>
+                          )}
+                          <span className="text-slate-400 font-mono text-[10px] mt-0.5">
+                            {p.vigente_desde
+                              ? new Date(p.vigente_desde).toLocaleDateString('es-GT')
+                              : '—'}{' '}
+                            →{' '}
+                            {p.vigente_hasta
+                              ? new Date(p.vigente_hasta).toLocaleDateString('es-GT')
+                              : 'vigente'}
                           </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 ring-1 ring-inset ring-slate-500/10 dark:bg-slate-800 dark:text-slate-400">
-                            <span className="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
-                            Caducado
-                          </span>
-                        )}
+                        </div>
                       </td>
 
                       {/* Registrado Por */}
@@ -489,12 +488,48 @@ export default function Precios() {
             </tbody>
           </table>
         </div>
+
+        {/* Paginación */}
+        {preciosFiltrados.length > itemsPorPagina && (
+          <div className="flex flex-col gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Mostrando{' '}
+              <span className="font-semibold text-slate-700 dark:text-slate-200">
+                {preciosPaginados.length}
+              </span>{' '}
+              de{' '}
+              <span className="font-semibold text-slate-700 dark:text-slate-200">
+                {preciosFiltrados.length}
+              </span>{' '}
+              registros
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                disabled={paginaActual === 1}
+                onClick={() => setPaginaActual((prev) => Math.max(prev - 1, 1))}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-all hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Anterior
+              </button>
+              <span className="px-3 text-xs font-medium text-slate-500">
+                {paginaActual} / {totalPaginas}
+              </span>
+              <button
+                disabled={paginaActual >= totalPaginas}
+                onClick={() => setPaginaActual((prev) => Math.min(prev + 1, totalPaginas))}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-all hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal Registrar Nuevo Precio */}
       {modalAbierto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
+          <div className="w-full max-w-5xl rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-800">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                 Registrar / Ajustar Precio
@@ -606,7 +641,7 @@ export default function Precios() {
       {/* Pop-up Flotante de Confirmación para Caducar */}
       {precioACaducar && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
+          <div className="w-full max-w-5xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center gap-3">
               <div className="rounded-xl bg-amber-50 p-2.5 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400">
                 <AlertTriangle className="h-6 w-6" />

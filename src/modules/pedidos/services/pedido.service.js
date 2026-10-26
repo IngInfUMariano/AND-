@@ -165,6 +165,7 @@ const crear = async (clienteId, datos) => {
     entrega_municipio,
     entrega_departamento,
     entrega_telefono,
+    nombre_pedido,
     observaciones
   } = datos;
 
@@ -223,7 +224,7 @@ const crear = async (clienteId, datos) => {
       const variante = await db.variante.findByPk(item.variante_id, {
         include: [
           { model: db.producto },
-          { model: db.precio, attributes: ["tipo", "monto"] }
+          { model: db.precio, attributes: ["tipo", "monto"], where: { vigente_hasta: null }, required: false }
         ],
         transaction: t
       });
@@ -234,7 +235,8 @@ const crear = async (clienteId, datos) => {
 
       const esMayoristaAprobado = cliente.tipo === "MAYORISTA" && cliente.estado === "APROBADO";
       const tipoPrecio = esMayoristaAprobado ? "MAYORISTA" : "MINORISTA";
-      const precioObj = variante.precios?.find(p => p.tipo === tipoPrecio)
+      const precioObj = variante.precios?.find(p => p.tipo === "OFERTA")
+        ?? variante.precios?.find(p => p.tipo === tipoPrecio)
         ?? variante.precios?.find(p => p.tipo === "MINORISTA");
       const precioUnitario = precioObj ? Number(precioObj.monto) : 0;
       const subtotalItem = precioUnitario * item.cantidad;
@@ -270,6 +272,7 @@ const crear = async (clienteId, datos) => {
         entrega_municipio,
         entrega_departamento,
         entrega_telefono,
+        nombre_pedido: nombre_pedido || null,
         observaciones,
         subtotal,
         costo_envio: costoEnvio,
@@ -535,7 +538,7 @@ const cargarMasivo = async (clienteId, archivo, sucursalId) => {
       where: { sku, activo: true },
       include: [
         { model: db.producto, where: { activo: true } },
-        { model: db.precio, attributes: ["tipo", "monto"] }
+        { model: db.precio, attributes: ["tipo", "monto"], where: { vigente_hasta: null }, required: false }
       ]
     });
 
@@ -544,7 +547,8 @@ const cargarMasivo = async (clienteId, archivo, sucursalId) => {
       continue;
     }
 
-    const precioMayoristaObj = variante.precios?.find(p => p.tipo === "MAYORISTA")
+    const precioMayoristaObj = variante.precios?.find(p => p.tipo === "OFERTA")
+                            ?? variante.precios?.find(p => p.tipo === "MAYORISTA")
                             ?? variante.precios?.find(p => p.tipo === "MINORISTA");
     const precioUnitario = precioMayoristaObj ? Number(precioMayoristaObj.monto) : 0;
 

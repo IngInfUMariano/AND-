@@ -1,4 +1,11 @@
 @import "tailwindcss";
+
+/* Ocultar barra de herramientas de test mode de Stripe */
+#stripe-badge-iframe,
+iframe[src*="js.stripe.com/v3/controller"],
+[data-testid="testmode-badge"] {
+  display: none !important;
+}
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";

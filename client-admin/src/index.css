@@ -8,6 +8,7 @@
 @theme inline {
     --font-heading: var(--font-sans);
     --font-sans: 'Geist Variable', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -72,7 +73,7 @@
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
+    --radius: 0.125rem;
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);
     --sidebar-primary: oklch(0.205 0 0);
@@ -127,4 +128,61 @@
   html {
     @apply font-sans;
     }
+}
+
+/* Remap colored palette → monochromatic B&W para coincidir con la estética de client-tienda.
+   emerald (activo) → escala oscura, rose (inactivo) → escala muted, amber (aviso) → escala media,
+   indigo/blue (acción/info) → primario. Preserva jerarquía visual vía luminosidad en vez de tono. */
+@theme {
+    --color-emerald-50:  oklch(0.985 0 0);
+    --color-emerald-100: oklch(0.97  0 0);
+    --color-emerald-200: oklch(0.922 0 0);
+    --color-emerald-300: oklch(0.87  0 0);
+    --color-emerald-400: oklch(0.708 0 0);
+    --color-emerald-500: oklch(0.556 0 0);
+    --color-emerald-600: oklch(0.439 0 0);
+    --color-emerald-700: oklch(0.269 0 0);
+    --color-emerald-800: oklch(0.205 0 0);
+    --color-emerald-950: oklch(0.205 0 0);
+
+    --color-rose-50:  oklch(0.985 0 0);
+    --color-rose-100: oklch(0.97  0 0);
+    --color-rose-200: oklch(0.922 0 0);
+    --color-rose-300: oklch(0.87  0 0);
+    --color-rose-400: oklch(0.708 0 0);
+    --color-rose-500: oklch(0.556 0 0);
+    --color-rose-600: oklch(0.556 0 0);
+    --color-rose-700: oklch(0.439 0 0);
+    --color-rose-800: oklch(0.371 0 0);
+    --color-rose-950: oklch(0.205 0 0);
+
+    --color-amber-50:  oklch(0.985 0 0);
+    --color-amber-100: oklch(0.97  0 0);
+    --color-amber-200: oklch(0.922 0 0);
+    --color-amber-300: oklch(0.87  0 0);
+    --color-amber-400: oklch(0.708 0 0);
+    --color-amber-500: oklch(0.556 0 0);
+    --color-amber-600: oklch(0.439 0 0);
+    --color-amber-700: oklch(0.371 0 0);
+    --color-amber-800: oklch(0.269 0 0);
+    --color-amber-950: oklch(0.145 0 0);
+
+    --color-indigo-50:  oklch(0.985 0 0);
+    --color-indigo-100: oklch(0.97  0 0);
+    --color-indigo-200: oklch(0.922 0 0);
+    --color-indigo-400: oklch(0.556 0 0);
+    --color-indigo-500: oklch(0.439 0 0);
+    --color-indigo-600: oklch(0.205 0 0);
+    --color-indigo-700: oklch(0.145 0 0);
+    --color-indigo-800: oklch(0.145 0 0);
+    --color-indigo-950: oklch(0.145 0 0);
+
+    --color-blue-50:  oklch(0.985 0 0);
+    --color-blue-100: oklch(0.97  0 0);
+    --color-blue-200: oklch(0.922 0 0);
+    --color-blue-400: oklch(0.708 0 0);
+    --color-blue-500: oklch(0.556 0 0);
+    --color-blue-600: oklch(0.439 0 0);
+    --color-blue-700: oklch(0.371 0 0);
+    --color-blue-950: oklch(0.145 0 0);
 }

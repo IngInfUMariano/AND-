@@ -98,6 +98,10 @@ module.exports = (sequelize, Sequelize) => {
       type: Sequelize.DATE,
       allowNull: true
     },
+    nombre_pedido: {
+      type: Sequelize.STRING(100),
+      allowNull: true
+    },
     observaciones: {
       type: Sequelize.STRING(500),
       allowNull: true

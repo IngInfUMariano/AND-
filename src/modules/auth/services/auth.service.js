@@ -186,7 +186,7 @@ const registro = async ({ nombre, email, password, telefono }, ip) => {
       nombre,
       email,
       telefono:              telefono || null,
-      estado:                "PENDIENTE",
+      estado:                "APROBADO",
       activo:                true,
       terminos_aceptados_en: new Date(),
       version_terminos:      "1.0"
@@ -217,9 +217,9 @@ const registro = async ({ nombre, email, password, telefono }, ip) => {
 
     await enviarCorreo({
       destinatario: email,
-      asunto:       "Bienvenido a INVENTA — cuenta en revisión",
+      asunto:       "Bienvenido a INVENTA — tu cuenta está activa",
       enlace:       "https://app.inventa.gt/tienda",
-      cuerpo:       "Tu cuenta fue creada y está siendo revisada. Te avisaremos cuando sea aprobada."
+      cuerpo:       "Tu cuenta fue creada exitosamente. Ya puedes iniciar sesión y realizar compras."
     });
 
     return {
