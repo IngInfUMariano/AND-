@@ -54,7 +54,7 @@ const MENU = [
     grupo: 'Reportes',
     perfiles: ['ADMIN', 'GERENTE'],
     items: [
-      { label: 'Reportes', to: '/reportes' },
+      { label: 'Informes', to: '/informes' },
     ],
   },
   {
