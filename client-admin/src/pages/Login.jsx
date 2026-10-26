@@ -19,45 +19,74 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40">
-      <div className="w-full max-w-sm rounded-xl border bg-card p-8 shadow-sm">
-        <h1 className="mb-6 text-2xl font-semibold">Portal INVENTA</h1>
+    <div className="flex min-h-screen">
+      {/* Panel izquierdo — editorial */}
+      <div className="hidden lg:flex w-[45%] flex-col justify-between bg-foreground text-background p-12">
+        <span className="font-mono text-[10px] uppercase tracking-[0.3em] opacity-40">
+          Portal de gestión
+        </span>
+        <h1
+          style={{ fontFamily: "'EB Garamond', serif" }}
+          className="text-[clamp(5rem,8vw,7rem)] font-normal leading-[0.9] tracking-[0.06em] uppercase"
+        >
+          AND&
+        </h1>
+        <span className="font-mono text-[10px] uppercase tracking-[0.3em] opacity-40">
+          {new Date().getFullYear()}
+        </span>
+      </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium">Correo</label>
-            <input
-              type="email"
-              autoComplete="email"
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-              {...register('email', { required: 'El correo es obligatorio' })}
-            />
-            {errors.email && (
-              <p className="mt-1 text-xs text-destructive">{errors.email.message}</p>
-            )}
+      {/* Panel derecho — formulario */}
+      <div className="flex flex-1 flex-col items-center justify-center px-8 bg-background">
+        <div className="w-full max-w-xs space-y-10">
+          <div className="lg:hidden">
+            <span className="font-mono text-xs uppercase tracking-[0.3em] text-muted-foreground">
+              AND&
+            </span>
           </div>
 
-          <div>
-            <label className="mb-1 block text-sm font-medium">Contraseña</label>
-            <input
-              type="password"
-              autoComplete="current-password"
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-              {...register('password', { required: 'La contraseña es obligatoria' })}
-            />
-            {errors.password && (
-              <p className="mt-1 text-xs text-destructive">{errors.password.message}</p>
-            )}
-          </div>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+            <div className="space-y-6">
+              <div>
+                <label className="block font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground mb-3">
+                  Correo
+                </label>
+                <input
+                  type="email"
+                  autoComplete="email"
+                  className="w-full border-0 border-b border-border bg-transparent px-0 py-2 font-mono text-sm focus:outline-none focus:border-foreground transition-colors"
+                  {...register('email', { required: 'El correo es obligatorio' })}
+                />
+                {errors.email && (
+                  <p className="mt-1 font-mono text-[10px] text-destructive">{errors.email.message}</p>
+                )}
+              </div>
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            {isSubmitting ? 'Ingresando...' : 'Ingresar'}
-          </button>
-        </form>
+              <div>
+                <label className="block font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground mb-3">
+                  Contraseña
+                </label>
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  className="w-full border-0 border-b border-border bg-transparent px-0 py-2 font-mono text-sm focus:outline-none focus:border-foreground transition-colors"
+                  {...register('password', { required: 'La contraseña es obligatoria' })}
+                />
+                {errors.password && (
+                  <p className="mt-1 font-mono text-[10px] text-destructive">{errors.password.message}</p>
+                )}
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full bg-foreground text-background py-4 font-mono text-[11px] uppercase tracking-[0.3em] hover:opacity-75 disabled:opacity-50 transition-opacity"
+            >
+              {isSubmitting ? 'Ingresando...' : 'Ingresar'}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   )

@@ -20,9 +20,9 @@ const crearValidator = [
     .trim().notEmpty().withMessage("El DPI es obligatorio")
     .isLength({ max: 20 }).withMessage("Máximo 20 caracteres"),
 
-  body("puesto")
-    .trim().notEmpty().withMessage("El puesto es obligatorio")
-    .isLength({ max: 80 }).withMessage("Máximo 80 caracteres"),
+  body("perfil")
+    .notEmpty().withMessage("El perfil de acceso es obligatorio")
+    .isIn(["ADMIN", "GERENTE", "VENDEDOR", "BODEGUERO"]).withMessage("Perfil inválido"),
 
   body("sucursal_id")
     .notEmpty().withMessage("sucursal_id es obligatorio")
@@ -38,9 +38,17 @@ const crearValidator = [
     .isLength({ max: 20 }).withMessage("Máximo 20 caracteres"),
 
   body("email")
-    .optional({ nullable: true }).trim()
+    .trim().notEmpty().withMessage("El email es obligatorio para la cuenta de acceso")
     .isEmail().withMessage("Formato de email inválido")
     .isLength({ max: 150 }).withMessage("Máximo 150 caracteres"),
+
+  body("perfil")
+    .notEmpty().withMessage("El perfil de acceso es obligatorio")
+    .isIn(["ADMIN", "GERENTE", "VENDEDOR", "BODEGUERO"]).withMessage("Perfil inválido"),
+
+  body("password")
+    .notEmpty().withMessage("La contraseña inicial es obligatoria")
+    .isLength({ min: 6 }).withMessage("Mínimo 6 caracteres"),
 ];
 
 const actualizarValidator = [
@@ -58,9 +66,9 @@ const actualizarValidator = [
     .optional().trim().notEmpty().withMessage("El DPI no puede estar vacío")
     .isLength({ max: 20 }).withMessage("Máximo 20 caracteres"),
 
-  body("puesto")
-    .optional().trim().notEmpty().withMessage("El puesto no puede estar vacío")
-    .isLength({ max: 80 }).withMessage("Máximo 80 caracteres"),
+  body("perfil")
+    .optional()
+    .isIn(["ADMIN", "GERENTE", "VENDEDOR", "BODEGUERO"]).withMessage("Perfil inválido"),
 
   body("sucursal_id")
     .optional()

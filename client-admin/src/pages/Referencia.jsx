@@ -166,7 +166,7 @@ export default function Referencia() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           onClick={e => e.target === e.currentTarget && cerrarModal()}
         >
-          <div className="w-full max-w-md rounded-xl border bg-card shadow-lg">
+          <div className="w-full max-w-5xl rounded-xl border bg-card shadow-lg">
             <div className="flex items-center justify-between border-b px-6 py-4">
               <h2 className="text-lg font-semibold">
                 {modal.modo === 'nuevo' ? 'Nuevo elemento' : 'Editar elemento'}

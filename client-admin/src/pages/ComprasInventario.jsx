@@ -205,7 +205,7 @@ export default function ComprasInventarioPage() {
             {/* Modal: Registrar Compra */}
             {modalCrearAbierto && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-card border rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
+                    <div className="bg-card border rounded-xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col">
                         <div className="flex items-center justify-between border-b px-5 py-4 bg-muted/30">
                             <h2 className="font-bold text-sm text-emerald-600 flex items-center gap-2">
                                 <Truck size={18} /> Ingresar Mercadería por Compra

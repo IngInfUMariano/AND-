@@ -1,12 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
-  UserCheck,
   UserPlus,
   Search,
   Edit2,
   Trash2,
   CheckCircle2,
-  XCircle,
   RefreshCw,
   X,
   Briefcase,
@@ -14,7 +12,6 @@ import {
   Mail,
   Phone,
   Calendar,
-  CreditCard,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import empleadoService from '@/services/empleado.service'
@@ -43,11 +40,12 @@ export default function Empleados() {
     nombres: '',
     apellidos: '',
     dpi: '',
-    puesto: '',
     sucursal_id: '',
     fecha_ingreso: new Date().toISOString().split('T')[0],
     telefono: '',
     email: '',
+    perfil: 'VENDEDOR',
+    password: '',
   })
 
   useEffect(() => {
@@ -100,10 +98,18 @@ export default function Empleados() {
     () => empleados.filter((e) => e.activo ?? true).length,
     [empleados]
   )
-  const totalInactivos = useMemo(
-    () => empleados.length - totalActivos,
-    [empleados, totalActivos]
+  const totalVendedores = useMemo(
+    () => empleados.filter((e) => (e.activo ?? true) && e.usuario?.perfil === 'VENDEDOR').length,
+    [empleados]
   )
+  const nuevosEsteMes = useMemo(() => {
+    const hoy = new Date()
+    return empleados.filter((e) => {
+      if (!e.fecha_ingreso) return false
+      const fi = new Date(e.fecha_ingreso)
+      return fi.getFullYear() === hoy.getFullYear() && fi.getMonth() === hoy.getMonth()
+    }).length
+  }, [empleados])
 
   // Filtrado reactivo
   const empleadosFiltrados = useMemo(() => {
@@ -144,11 +150,12 @@ export default function Empleados() {
       nombres: '',
       apellidos: '',
       dpi: '',
-      puesto: '',
       sucursal_id: sucursales[0]?.id || '',
       fecha_ingreso: fechaHoy,
       telefono: '',
       email: '',
+      perfil: 'VENDEDOR',
+      password: '',
     })
     setModalAbierto(true)
   }
@@ -160,11 +167,12 @@ export default function Empleados() {
       nombres: emp.nombres || '',
       apellidos: emp.apellidos || '',
       dpi: emp.dpi || '',
-      puesto: emp.puesto || '',
       sucursal_id: emp.sucursal_id || '',
       fecha_ingreso: emp.fecha_ingreso ? String(emp.fecha_ingreso).split('T')[0] : '',
       telefono: emp.telefono || '',
       email: emp.email || '',
+      perfil: emp.usuario?.perfil || 'VENDEDOR',
+      password: '',
     })
     setModalAbierto(true)
   }
@@ -176,8 +184,12 @@ export default function Empleados() {
       return toast.error('Nombres y apellidos son requeridos')
     }
     if (!formData.dpi.trim()) return toast.error('El DPI es obligatorio')
-    if (!formData.puesto.trim()) return toast.error('El puesto es obligatorio')
     if (!formData.sucursal_id) return toast.error('Selecciona una sucursal')
+    if (!empleadoEditar) {
+      if (!formData.email.trim()) return toast.error('El email es obligatorio')
+      if (!formData.password.trim()) return toast.error('La contraseña inicial es obligatoria')
+      if (formData.password.length < 6) return toast.error('La contraseña debe tener al menos 6 caracteres')
+    }
 
     setGuardando(true)
     try {
@@ -247,34 +259,32 @@ export default function Empleados() {
       {/* KPIs */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="rounded-xl bg-slate-100 p-3 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-            <UserCheck className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-              Total Personal
-            </p>
-            <p className="text-2xl font-bold text-slate-900 dark:text-white">{empleados.length}</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="rounded-xl bg-emerald-50 p-3 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
             <CheckCircle2 className="h-6 w-6" />
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Activos</p>
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">En Servicio</p>
             <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{totalActivos}</p>
           </div>
         </div>
 
         <div className="flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="rounded-xl bg-rose-50 p-3 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400">
-            <XCircle className="h-6 w-6" />
+          <div className="rounded-xl bg-indigo-50 p-3 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400">
+            <Briefcase className="h-6 w-6" />
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Inactivos</p>
-            <p className="text-2xl font-bold text-rose-600 dark:text-rose-400">{totalInactivos}</p>
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Vendedores</p>
+            <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{totalVendedores}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="rounded-xl bg-amber-50 p-3 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400">
+            <Calendar className="h-6 w-6" />
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Ingresados este mes</p>
+            <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{nuevosEsteMes}</p>
           </div>
         </div>
       </div>
@@ -348,7 +358,7 @@ export default function Empleados() {
               <tr>
                 <th className="px-6 py-3.5">Código / DPI</th>
                 <th className="px-6 py-3.5">Empleado</th>
-                <th className="px-6 py-3.5">Puesto</th>
+                <th className="px-6 py-3.5">Rol</th>
                 <th className="px-6 py-3.5">Sucursal</th>
                 <th className="px-6 py-3.5">Contacto</th>
                 <th className="px-6 py-3.5">Estado</th>
@@ -410,11 +420,11 @@ export default function Empleados() {
                         </div>
                       </td>
 
-                      {/* Puesto */}
+                      {/* Rol */}
                       <td className="px-6 py-4">
                         <span className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400">
                           <Briefcase className="h-3 w-3" />
-                          {emp.puesto}
+                          {emp.usuario?.perfil || emp.puesto || '—'}
                         </span>
                       </td>
 
@@ -486,7 +496,7 @@ export default function Empleados() {
       {/* Modal Crear / Editar Empleado */}
       {modalAbierto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
+          <div className="w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-800">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                 {empleadoEditar ? 'Editar Datos de Empleado' : 'Nuevo Empleado'}
@@ -559,16 +569,19 @@ export default function Empleados() {
 
                 <div>
                   <label className="mb-1 block text-xs font-semibold uppercase text-slate-600">
-                    Puesto / Cargo *
+                    Rol de Acceso *
                   </label>
-                  <input
-                    type="text"
+                  <select
                     required
-                    placeholder="Ej. Bodeguero, Vendedor, Gerente"
-                    value={formData.puesto}
-                    onChange={(e) => setFormData({ ...formData, puesto: e.target.value })}
-                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                  />
+                    value={formData.perfil}
+                    onChange={(e) => setFormData({ ...formData, perfil: e.target.value })}
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  >
+                    <option value="VENDEDOR">Vendedor</option>
+                    <option value="BODEGUERO">Bodeguero</option>
+                    <option value="GERENTE">Gerente</option>
+                    <option value="ADMIN">Admin</option>
+                  </select>
                 </div>
 
                 <div>
@@ -615,18 +628,35 @@ export default function Empleados() {
                   />
                 </div>
 
-                <div className="sm:col-span-2">
+                <div className={empleadoEditar ? 'sm:col-span-2' : ''}>
                   <label className="mb-1 block text-xs font-semibold uppercase text-slate-600">
-                    Correo Electrónico
+                    Correo Electrónico {!empleadoEditar && '*'}
                   </label>
                   <input
                     type="email"
+                    required={!empleadoEditar}
                     placeholder="empleado@empresa.com"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                   />
                 </div>
+
+                {!empleadoEditar && (
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold uppercase text-slate-600">
+                      Contraseña Inicial *
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      placeholder="Mínimo 6 caracteres"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-4">

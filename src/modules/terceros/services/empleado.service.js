@@ -1,6 +1,7 @@
 // empleado.service.js — lógica de negocio del recurso empleados.
 "use strict";
 
+const bcrypt = require("bcryptjs");
 const { Op } = require("sequelize");
 const db     = require("../../../loaders/models.loader");
 const AppError = require("../../../core/utils/AppError");
@@ -53,22 +54,45 @@ const obtener = async (id) => {
 };
 
 // ─── crear ────────────────────────────────────────────────────────────────────
+// Crea el empleado y su cuenta de usuario en una sola transacción.
 const crear = async (datos) => {
-  const { codigo, nombres, apellidos, dpi, puesto, sucursal_id,
-          fecha_ingreso, telefono, email } = datos;
+  const { codigo, nombres, apellidos, dpi, sucursal_id,
+          fecha_ingreso, telefono, email, perfil, password } = datos;
 
   const sucursal = await db.sucursal.findByPk(sucursal_id);
   if (!sucursal) throw AppError.noEncontrado("Sucursal");
 
-  return db.empleado.create({
-    codigo, nombres, apellidos, dpi, puesto, sucursal_id,
-    fecha_ingreso, telefono: telefono || null, email: email || null,
-  });
+  const t = await db.sequelize.transaction();
+  try {
+    const empleado = await db.empleado.create({
+      codigo, nombres, apellidos, dpi, puesto: perfil, sucursal_id,
+      fecha_ingreso, telefono: telefono || null, email: email || null,
+    }, { transaction: t });
+
+    await db.usuario.create({
+      email,
+      password_hash:    bcrypt.hashSync(password, 10),
+      perfil,
+      app:              "INTERNO",
+      sucursal_id,
+      empleado_id:      empleado.id,
+      activo:           true,
+      email_verificado: true,
+    }, { transaction: t });
+
+    await t.commit();
+    return empleado;
+  } catch (err) {
+    await t.rollback();
+    throw err;
+  }
 };
 
 // ─── actualizar ───────────────────────────────────────────────────────────────
 const actualizar = async (id, datos) => {
-  const empleado = await db.empleado.findByPk(id);
+  const empleado = await db.empleado.findByPk(id, {
+    include: [{ model: db.usuario, attributes: ["id", "perfil"] }],
+  });
   if (!empleado) throw AppError.noEncontrado("Empleado");
 
   if (datos.sucursal_id) {
@@ -76,14 +100,21 @@ const actualizar = async (id, datos) => {
     if (!sucursal) throw AppError.noEncontrado("Sucursal");
   }
 
-  const editables = ["nombres", "apellidos", "dpi", "puesto", "sucursal_id",
+  const editables = ["nombres", "apellidos", "dpi", "sucursal_id",
                      "fecha_ingreso", "telefono", "email"];
   const campos = {};
   for (const c of editables) {
     if (c in datos) campos[c] = datos[c];
   }
+  if (datos.perfil) campos.puesto = datos.perfil;
 
-  return empleado.update(campos);
+  await empleado.update(campos);
+
+  if (datos.perfil && empleado.usuario) {
+    await empleado.usuario.update({ perfil: datos.perfil });
+  }
+
+  return empleado;
 };
 
 // ─── desactivar ───────────────────────────────────────────────────────────────

@@ -31,6 +31,7 @@ export default function Productos() {
   const [busqueda, setBusqueda] = useState('')
   const [filtroCategoria, setFiltroCategoria] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('TODOS')
+  const [filtroMarca, setFiltroMarca] = useState('')
 
   const [paginaActual, setPaginaActual] = useState(1)
   const itemsPorPagina = 8
@@ -49,6 +50,7 @@ export default function Productos() {
     codigo: '',
     nombre: '',
     descripcion: '',
+    genero: '',
     categoria_id: '',
     marca_id: '',
     temporada_id: '',
@@ -236,15 +238,18 @@ export default function Productos() {
       const cumpleCat =
         !filtroCategoria || String(prod.categoria_id) === String(filtroCategoria)
 
+      const cumpleMarca =
+        !filtroMarca || String(prod.marca_id) === String(filtroMarca)
+
       const estadoActivo = prod.activo ?? prod.estado ?? true
       const cumpleEstado =
         filtroEstado === 'TODOS' ||
         (filtroEstado === 'ACTIVO' && estadoActivo) ||
         (filtroEstado === 'INACTIVO' && !estadoActivo)
 
-      return cumpleBusqueda && cumpleCat && cumpleEstado
+      return cumpleBusqueda && cumpleCat && cumpleMarca && cumpleEstado
     })
-  }, [productos, busqueda, filtroCategoria, filtroEstado])
+  }, [productos, busqueda, filtroCategoria, filtroMarca, filtroEstado])
 
   const totalPaginas = Math.ceil(productosFiltrados.length / itemsPorPagina) || 1
   const productosPaginados = useMemo(() => {
@@ -259,6 +264,7 @@ export default function Productos() {
       codigo: '',
       nombre: '',
       descripcion: '',
+      genero: '',
       categoria_id: categorias[0]?.id || '',
       marca_id: marcas[0]?.id || '',
       temporada_id: temporadas[0]?.id || '',
@@ -280,6 +286,7 @@ export default function Productos() {
       codigo: prod.codigo || '',
       nombre: prod.nombre || '',
       descripcion: prod.descripcion || '',
+      genero: prod.genero || '',
       categoria_id: prod.categoria_id || '',
       marca_id: prod.marca_id || '',
       temporada_id: prod.temporada_id || '',
@@ -319,6 +326,7 @@ export default function Productos() {
       codigo: codigoFinal,
       nombre: formData.nombre,
       descripcion: formData.descripcion,
+      genero: formData.genero || undefined,
       categoria_id: Number(formData.categoria_id),
       marca_id: formData.marca_id ? Number(formData.marca_id) : null,
       temporada_id: formData.temporada_id ? Number(formData.temporada_id) : null,
@@ -472,6 +480,22 @@ export default function Productos() {
               ))}
             </select>
 
+            <select
+              value={filtroMarca}
+              onChange={(e) => {
+                setFiltroMarca(e.target.value)
+                setPaginaActual(1)
+              }}
+              className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs font-medium dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+            >
+              <option value="">Todas las Marcas</option>
+              {marcas.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.nombre}
+                </option>
+              ))}
+            </select>
+
             <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800">
               {['TODOS', 'ACTIVO', 'INACTIVO'].map((st) => (
                 <button
@@ -615,12 +639,48 @@ export default function Productos() {
             </tbody>
           </table>
         </div>
+
+        {/* Paginación */}
+        {productosFiltrados.length > itemsPorPagina && (
+          <div className="flex flex-col gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Mostrando{' '}
+              <span className="font-semibold text-slate-700 dark:text-slate-200">
+                {productosPaginados.length}
+              </span>{' '}
+              de{' '}
+              <span className="font-semibold text-slate-700 dark:text-slate-200">
+                {productosFiltrados.length}
+              </span>{' '}
+              productos
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                disabled={paginaActual === 1}
+                onClick={() => setPaginaActual((prev) => Math.max(prev - 1, 1))}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-all hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Anterior
+              </button>
+              <span className="px-3 text-xs font-medium text-slate-500">
+                {paginaActual} / {totalPaginas}
+              </span>
+              <button
+                disabled={paginaActual >= totalPaginas}
+                onClick={() => setPaginaActual((prev) => Math.min(prev + 1, totalPaginas))}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-all hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal Configuración / Creación de Producto */}
       {modalAbierto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
+          <div className="w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-800">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                 {productoEditar ? 'Editar Producto' : 'Nuevo Producto'}
@@ -729,12 +789,47 @@ export default function Productos() {
                       onChange={(e) => setFormData({ ...formData, marca_id: e.target.value })}
                       className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                     >
-                      <option value="">Seleccione Marca</option>
+                      <option value="">Sin Marca</option>
                       {marcas.map((m) => (
                         <option key={m.id} value={m.id}>
                           {m.nombre}
                         </option>
                       ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold uppercase text-slate-600">
+                      Temporada
+                    </label>
+                    <select
+                      value={formData.temporada_id}
+                      onChange={(e) => setFormData({ ...formData, temporada_id: e.target.value })}
+                      className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    >
+                      <option value="">Sin Temporada</option>
+                      {temporadas.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold uppercase text-slate-600">
+                      Género
+                    </label>
+                    <select
+                      value={formData.genero}
+                      onChange={(e) => setFormData({ ...formData, genero: e.target.value })}
+                      className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    >
+                      <option value="">Sin especificar</option>
+                      <option value="HOMBRE">Hombre</option>
+                      <option value="MUJER">Mujer</option>
+                      <option value="NINO">Niño</option>
+                      <option value="UNISEX">Unisex</option>
                     </select>
                   </div>
 

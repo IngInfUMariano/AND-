@@ -6,16 +6,15 @@ import {
   Edit2,
   Trash2,
   CheckCircle2,
-  XCircle,
   RefreshCw,
   X,
   Building2,
   Mail,
   Phone,
   UserCheck,
-  MapPin,
   Clock,
   CreditCard,
+  Zap,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import proveedorService from '@/services/proveedor.service'
@@ -80,9 +79,13 @@ export default function Proveedores() {
     () => proveedores.filter((p) => p.activo ?? true).length,
     [proveedores]
   )
-  const totalInactivos = useMemo(
-    () => proveedores.length - totalActivos,
-    [proveedores, totalActivos]
+  const entregaExpress = useMemo(
+    () => proveedores.filter((p) => (p.activo ?? true) && Number(p.plazo_entrega_dias) > 0 && Number(p.plazo_entrega_dias) <= 3).length,
+    [proveedores]
+  )
+  const conCredito = useMemo(
+    () => proveedores.filter((p) => (p.activo ?? true) && p.condiciones_pago && !p.condiciones_pago.toLowerCase().includes('contado')).length,
+    [proveedores]
   )
 
   // Filtrado reactivo
@@ -221,18 +224,6 @@ export default function Proveedores() {
       {/* KPIs */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="rounded-xl bg-slate-100 p-3 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-            <Truck className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-              Total Proveedores
-            </p>
-            <p className="text-2xl font-bold text-slate-900 dark:text-white">{proveedores.length}</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="rounded-xl bg-emerald-50 p-3 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
             <CheckCircle2 className="h-6 w-6" />
           </div>
@@ -243,12 +234,22 @@ export default function Proveedores() {
         </div>
 
         <div className="flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="rounded-xl bg-rose-50 p-3 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400">
-            <XCircle className="h-6 w-6" />
+          <div className="rounded-xl bg-amber-50 p-3 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400">
+            <Zap className="h-6 w-6" />
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Inactivos</p>
-            <p className="text-2xl font-bold text-rose-600 dark:text-rose-400">{totalInactivos}</p>
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Entrega ≤ 3 días</p>
+            <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{entregaExpress}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="rounded-xl bg-blue-50 p-3 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400">
+            <CreditCard className="h-6 w-6" />
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Ofrecen Crédito</p>
+            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{conCredito}</p>
           </div>
         </div>
       </div>
@@ -430,7 +431,7 @@ export default function Proveedores() {
       {/* Modal Crear / Editar Proveedor */}
       {modalAbierto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
+          <div className="w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-800">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                 {proveedorEditar ? 'Editar Datos del Proveedor' : 'Nuevo Proveedor'}

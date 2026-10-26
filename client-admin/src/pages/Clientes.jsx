@@ -1,16 +1,13 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
-  Users,
   UserPlus,
   Search,
   Edit2,
   Trash2,
   CheckCircle2,
-  XCircle,
   RefreshCw,
   X,
   Clock,
-  ShieldAlert,
   CreditCard,
   Building2,
   Check,
@@ -92,8 +89,14 @@ export default function Clientes() {
     () => clientes.filter((c) => c.estado === 'PENDIENTE').length,
     [clientes]
   )
-  const totalAprobados = useMemo(
-    () => clientes.filter((c) => c.estado === 'APROBADO').length,
+  const totalMayoristas = useMemo(
+    () => clientes.filter((c) => c.tipo === 'MAYORISTA' && c.estado === 'APROBADO' && (c.activo ?? true)).length,
+    [clientes]
+  )
+  const creditoVigente = useMemo(
+    () => clientes
+      .filter((c) => c.estado === 'APROBADO' && (c.activo ?? true) && Number(c.limite_credito) > 0)
+      .reduce((sum, c) => sum + Number(c.limite_credito || 0), 0),
     [clientes]
   )
 
@@ -259,38 +262,40 @@ export default function Clientes() {
       {/* KPIs */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="rounded-xl bg-slate-100 p-3 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-            <Users className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-              Total Clientes
-            </p>
-            <p className="text-2xl font-bold text-slate-900 dark:text-white">{clientes.length}</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="rounded-xl bg-amber-50 p-3 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400">
             <Clock className="h-6 w-6" />
           </div>
           <div>
             <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-              Solicitudes Pendientes
+              Pendientes de Aprobación
             </p>
             <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{totalPendientes}</p>
           </div>
         </div>
 
         <div className="flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="rounded-xl bg-emerald-50 p-3 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
-            <CheckCircle2 className="h-6 w-6" />
+          <div className="rounded-xl bg-purple-50 p-3 text-purple-600 dark:bg-purple-950/50 dark:text-purple-400">
+            <Building2 className="h-6 w-6" />
           </div>
           <div>
             <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-              Aprobados / Activos
+              Mayoristas Activos
             </p>
-            <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{totalAprobados}</p>
+            <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{totalMayoristas}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="rounded-xl bg-blue-50 p-3 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400">
+            <CreditCard className="h-6 w-6" />
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
+              Crédito Vigente (Q)
+            </p>
+            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+              {creditoVigente.toLocaleString()}
+            </p>
           </div>
         </div>
       </div>
@@ -521,7 +526,7 @@ export default function Clientes() {
       {/* Modal Crear / Editar Cliente */}
       {modalAbierto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
+          <div className="w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-800">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                 {clienteEditar ? 'Editar Información del Cliente' : 'Nuevo Cliente'}
@@ -698,7 +703,7 @@ export default function Clientes() {
       {/* Pop-up Aprobación / Rechazo Mayorista */}
       {modalAprobacion.abierto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
+          <div className="w-full max-w-5xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
             <h3 className="text-base font-bold text-slate-900 dark:text-white">
               {modalAprobacion.accion === 'aprobar' ? 'Aprobar Solicitud Mayorista' : 'Rechazar Solicitud'}
             </h3>
