@@ -47,7 +47,7 @@ const obtenerCarrito = async (clienteId) => {
               { model: db.producto, attributes: ["id", "nombre"],
                 include: [{ model: db.imagen_producto, attributes: ["id", "url", "es_principal"], separate: true, order: [["orden", "ASC"]] }]
               },
-              { model: db.precio, attributes: ["tipo", "monto"] }
+              { model: db.precio, attributes: ["tipo", "monto"], where: { vigente_hasta: null }, required: false }
             ]
           }
         ]
@@ -173,7 +173,8 @@ const revalidarCarrito = async (clienteId) => {
   for (const item of carrito.carrito_detalles) {
     const stockDisponible = await _obtenerStockDisponible(item.variante_id);
 
-    const precioAplicable = item.variante?.precios?.find(p => p.tipo === tipoClienteEfectivo)?.monto 
+    const precioAplicable = item.variante?.precios?.find(p => p.tipo === "OFERTA")?.monto
+                         ?? item.variante?.precios?.find(p => p.tipo === tipoClienteEfectivo)?.monto
                          ?? item.variante?.precios?.find(p => p.tipo === "MINORISTA")?.monto ?? 0;
 
     const linea = {
