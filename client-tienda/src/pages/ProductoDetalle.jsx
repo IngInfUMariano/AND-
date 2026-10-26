@@ -11,10 +11,17 @@ const MONO    = { fontFamily: "'IBM Plex Mono', monospace" }
 const DISPLAY = { fontFamily: "'EB Garamond', Georgia, serif", fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.18em' }
 const NAV_H   = 52
 
-const getPrecio = (variante, tipoCliente) => {
-  const precios = variante?.precios ?? []
+const getPrecioEfectivo = (variante, tipoCliente) => {
+  const ps = variante?.precios ?? []
   const tipo = tipoCliente === 'MAYORISTA' ? 'MAYORISTA' : 'MINORISTA'
-  return precios.find(p => p.tipo === tipo)?.monto ?? precios[0]?.monto ?? null
+  return ps.find(p => p.tipo === 'OFERTA')?.monto
+      ?? ps.find(p => p.tipo === tipo)?.monto
+      ?? ps[0]?.monto ?? null
+}
+const getPrecioNormal = (variante) => {
+  const ps = variante?.precios ?? []
+  if (!ps.some(p => p.tipo === 'OFERTA')) return null
+  return ps.find(p => p.tipo === 'MINORISTA')?.monto ?? null
 }
 
 const imgUrl = (producto) => {
@@ -99,8 +106,9 @@ export default function ProductoDetalle() {
   const colores = [...new Map(variantes.map(v => [v.color?.id, v.color])).values()].filter(Boolean)
   const varianteActual = variantes.find(v => v.talla?.id === tallaSeleccionada && v.color?.id === colorSeleccionado)
   const precio = varianteActual
-    ? getPrecio(varianteActual, usuario?.tipo_cliente)
+    ? getPrecioEfectivo(varianteActual, usuario?.tipo_cliente)
     : producto?.precio_base != null ? Number(producto.precio_base) : null
+  const precioNormal = varianteActual ? getPrecioNormal(varianteActual) : null
 
   const agregarAlCarrito = async () => {
     if (!usuario) { navigate('/login'); return }
@@ -185,9 +193,21 @@ export default function ProductoDetalle() {
 
           {/* Precio */}
           {precio != null && (
-            <p style={{ ...MONO, fontSize: '18px', color: 'rgba(10,10,10,0.7)', marginBottom: '2.5rem', fontWeight: 500 }}>
-              ₡ {Number(precio).toLocaleString('es-CR')}
-            </p>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '2.5rem' }}>
+              {precioNormal != null && (
+                <span style={{ ...MONO, fontSize: '14px', color: 'rgba(10,10,10,0.35)', textDecoration: 'line-through' }}>
+                  ₡ {Number(precioNormal).toLocaleString('es-CR')}
+                </span>
+              )}
+              <span style={{ ...MONO, fontSize: '18px', color: precioNormal != null ? 'rgba(180,30,30,0.85)' : 'rgba(10,10,10,0.7)', fontWeight: 500 }}>
+                ₡ {Number(precio).toLocaleString('es-CR')}
+              </span>
+              {precioNormal != null && (
+                <span style={{ ...MONO, fontSize: '9px', letterSpacing: '0.18em', color: 'rgba(180,30,30,0.75)', border: '1px solid rgba(180,30,30,0.3)', padding: '2px 6px' }}>
+                  OFERTA
+                </span>
+              )}
+            </div>
           )}
 
           <div style={{ height: '1px', background: 'rgba(10,10,10,0.08)', marginBottom: '2rem' }} />

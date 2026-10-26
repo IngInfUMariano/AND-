@@ -22,6 +22,17 @@ const DEPARTAMENTOS_GT = [
   'Totonicapán', 'Zacapa',
 ]
 
+const getPrecioEfectivo = (variante, tipoCliente) => {
+  const ps = variante?.precios ?? []
+  const tipo = tipoCliente === 'MAYORISTA' ? 'MAYORISTA' : 'MINORISTA'
+  return parseFloat(ps.find(p => p.tipo === 'OFERTA')?.monto ?? ps.find(p => p.tipo === tipo)?.monto ?? ps[0]?.monto ?? 0)
+}
+const getPrecioNormal = (variante) => {
+  const ps = variante?.precios ?? []
+  if (!ps.some(p => p.tipo === 'OFERTA')) return null
+  return parseFloat(ps.find(p => p.tipo === 'MINORISTA')?.monto ?? 0)
+}
+
 const zonaParaDept = (zonasEnvio, departamento) => {
   if (!departamento || !zonasEnvio.length) return null
   return zonasEnvio.find(z => {
@@ -467,17 +478,58 @@ export default function Checkout() {
 
             {/* ── Resumen ── */}
             <section>
-              <div style={{ borderTop: '2px solid #0a0a0a', paddingTop: '1.4rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <span style={{ ...MONO, fontSize: '12px', color: 'rgba(10,10,10,0.5)' }}>
-                    {detalles.length} producto{detalles.length !== 1 ? 's' : ''}
-                  </span>
-                  {zonaActual && (
-                    <span style={{ ...MONO, fontSize: '11px', color: 'rgba(10,10,10,0.45)' }}>
-                      + envío Q {Number(zonaActual.costo).toFixed(2)}{zonaActual.dias_estimados ? ` · ${zonaActual.dias_estimados} días hábiles` : ''}
-                    </span>
-                  )}
-                </div>
+              <div style={{ borderTop: '2px solid #0a0a0a', paddingTop: '1.4rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                {detalles.map(d => {
+                  const precio       = getPrecioEfectivo(d.variante, usuario?.tipo_cliente)
+                  const precioNormal = getPrecioNormal(d.variante)
+                  return (
+                    <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+                      <div style={{ flex: 1 }}>
+                        <span style={{ ...MONO, fontSize: '12px', color: '#0a0a0a' }}>
+                          {d.variante?.producto?.nombre ?? 'Producto'} ×{d.cantidad}
+                        </span>
+                        {precioNormal != null && (
+                          <span style={{ ...MONO, fontSize: '9px', letterSpacing: '0.12em', color: 'rgba(180,30,30,0.65)', border: '1px solid rgba(180,30,30,0.25)', padding: '1px 4px', marginLeft: '6px' }}>OFERTA</span>
+                        )}
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        {precioNormal != null && (
+                          <span style={{ ...MONO, fontSize: '10px', color: 'rgba(10,10,10,0.35)', textDecoration: 'line-through', marginRight: '4px' }}>
+                            Q {(precioNormal * d.cantidad).toFixed(2)}
+                          </span>
+                        )}
+                        <span style={{ ...MONO, fontSize: '12px', color: precioNormal != null ? 'rgba(180,30,30,0.85)' : '#0a0a0a' }}>
+                          Q {(precio * d.cantidad).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+                {(() => {
+                  const subtotal = detalles.reduce((acc, d) => acc + getPrecioEfectivo(d.variante, usuario?.tipo_cliente) * d.cantidad, 0)
+                  const costoEnvio = zonaActual ? Number(zonaActual.costo) : 0
+                  const total = subtotal + costoEnvio
+                  return (
+                    <>
+                      <div style={{ borderTop: '1px solid rgba(10,10,10,0.1)', marginTop: '0.4rem', paddingTop: '0.6rem', display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ ...MONO, fontSize: '11px', color: 'rgba(10,10,10,0.5)' }}>subtotal</span>
+                        <span style={{ ...MONO, fontSize: '12px', color: '#0a0a0a' }}>Q {subtotal.toFixed(2)}</span>
+                      </div>
+                      {zonaActual && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ ...MONO, fontSize: '11px', color: 'rgba(10,10,10,0.5)' }}>
+                            envío{zonaActual.dias_estimados ? ` · ${zonaActual.dias_estimados} días` : ''}
+                          </span>
+                          <span style={{ ...MONO, fontSize: '12px', color: '#0a0a0a' }}>Q {costoEnvio.toFixed(2)}</span>
+                        </div>
+                      )}
+                      <div style={{ borderTop: '1px solid rgba(10,10,10,0.1)', paddingTop: '0.6rem', display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ ...MONO, fontSize: '13px', letterSpacing: '0.18em', textTransform: 'uppercase', color: '#0a0a0a' }}>total</span>
+                        <span style={{ ...MONO, fontSize: '15px', color: '#0a0a0a', fontWeight: 500 }}>Q {total.toFixed(2)}</span>
+                      </div>
+                    </>
+                  )
+                })()}
               </div>
             </section>
 

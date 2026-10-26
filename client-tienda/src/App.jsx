@@ -20,7 +20,24 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <CartProvider>
-          <Toaster position="top-right" />
+          <Toaster
+            position="bottom-right"
+            toastOptions={{
+              style: {
+                background: '#0a0a0a',
+                color: '#fafafa',
+                borderRadius: '4px',
+                border: '1px solid rgba(255,255,255,0.08)',
+                fontSize: '11px',
+                fontFamily: "'IBM Plex Mono', monospace",
+                letterSpacing: '0.06em',
+                padding: '10px 16px',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+              },
+              success: { iconTheme: { primary: '#fafafa', secondary: '#0a0a0a' } },
+              error:   { iconTheme: { primary: '#fafafa', secondary: '#0a0a0a' } },
+            }}
+          />
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/productos" element={<Catalogo />} />

@@ -17,6 +17,22 @@ const imgUrl = (producto) => {
   return principal?.url ?? `https://picsum.photos/seed/andcat${producto?.id ?? 'x'}w/900/1200`
 }
 
+// Retorna { efectivo, normal } desde las variantes del producto para mostrar en tarjeta.
+// normal != null solo cuando hay OFERTA (precio tachado = MINORISTA/MAYORISTA base).
+const getPrecioCard = (producto, tipoCliente) => {
+  const tipo = tipoCliente === 'MAYORISTA' ? 'MAYORISTA' : 'MINORISTA'
+  for (const v of (producto?.variantes ?? [])) {
+    const ps = v.precios ?? []
+    const oferta = ps.find(p => p.tipo === 'OFERTA')
+    const base = ps.find(p => p.tipo === tipo) ?? ps.find(p => p.tipo === 'MINORISTA')
+    if (oferta || base) return {
+      efectivo: parseFloat((oferta ?? base).monto),
+      normal: oferta && base ? parseFloat(base.monto) : null
+    }
+  }
+  return { efectivo: null, normal: null }
+}
+
 const LIMIT        = 10
 const LIMIT_MAY    = 25
 const SLOT_VH      = 150
@@ -168,15 +184,21 @@ function PopupCompra({ producto, onClose }) {
   const colores = [...new Map(variantes.map(v => [v.color?.id, v.color])).values()].filter(Boolean)
   const varianteActual = variantes.find(v => v.talla?.id === tallaId && v.color?.id === colorId)
 
-  const getPrecioVariante = (v) => {
-    const precios = v?.precios ?? []
+  const getPrecioEfectivo = (v) => {
+    const ps = v?.precios ?? []
     const tipo = (usuario?.tipo_cliente ?? usuario?.cliente?.tipo) === 'MAYORISTA' ? 'MAYORISTA' : 'MINORISTA'
-    return parseFloat(precios.find(p => p.tipo === tipo)?.monto ?? precios[0]?.monto ?? 0)
+    return parseFloat(ps.find(p => p.tipo === 'OFERTA')?.monto ?? ps.find(p => p.tipo === tipo)?.monto ?? ps[0]?.monto ?? 0)
+  }
+  const getPrecioNormal = (v) => {
+    const ps = v?.precios ?? []
+    if (!ps.some(p => p.tipo === 'OFERTA')) return null
+    return parseFloat(ps.find(p => p.tipo === 'MINORISTA')?.monto ?? 0)
   }
 
   const precio = varianteActual
-    ? getPrecioVariante(varianteActual)
+    ? getPrecioEfectivo(varianteActual)
     : producto.precio_base != null ? Number(producto.precio_base) : null
+  const precioNormal = varianteActual ? getPrecioNormal(varianteActual) : null
 
   const combinacionNoDisponible = tallaId && colorId && !varianteActual
 
@@ -228,9 +250,21 @@ function PopupCompra({ producto, onClose }) {
           </p>
         )}
         {precio != null && (
-          <p style={{ ...MONO, fontSize: '13px', color: 'rgba(10,10,10,0.6)', fontWeight: 500 }}>
-            ₡ {Number(precio).toLocaleString('es-CR')}
-          </p>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem', flexWrap: 'wrap' }}>
+            {precioNormal != null && (
+              <span style={{ ...MONO, fontSize: '11px', color: 'rgba(10,10,10,0.35)', textDecoration: 'line-through' }}>
+                ₡ {Number(precioNormal).toLocaleString('es-CR')}
+              </span>
+            )}
+            <span style={{ ...MONO, fontSize: '13px', color: precioNormal != null ? 'rgba(180,30,30,0.85)' : 'rgba(10,10,10,0.6)', fontWeight: 500 }}>
+              ₡ {Number(precio).toLocaleString('es-CR')}
+            </span>
+            {precioNormal != null && (
+              <span style={{ ...MONO, fontSize: '9px', letterSpacing: '0.14em', color: 'rgba(180,30,30,0.7)', border: '1px solid rgba(180,30,30,0.25)', padding: '2px 5px' }}>
+                OFERTA
+              </span>
+            )}
+          </div>
         )}
       </div>
 
@@ -354,9 +388,21 @@ function PopupCompra({ producto, onClose }) {
         <div style={{ flex: 1, overflowY: 'auto', padding: '1.4rem 1.5rem 2rem', display: 'flex', flexDirection: 'column' }}>
           {/* Precio */}
           {precio != null && (
-            <p style={{ ...MONO, fontSize: '14px', color: 'rgba(10,10,10,0.6)', marginBottom: '1.4rem', fontWeight: 500 }}>
-              ₡ {Number(precio).toLocaleString('es-CR')}
-            </p>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '1.4rem' }}>
+              {precioNormal != null && (
+                <span style={{ ...MONO, fontSize: '12px', color: 'rgba(10,10,10,0.35)', textDecoration: 'line-through' }}>
+                  ₡ {Number(precioNormal).toLocaleString('es-CR')}
+                </span>
+              )}
+              <span style={{ ...MONO, fontSize: '14px', color: precioNormal != null ? 'rgba(180,30,30,0.85)' : 'rgba(10,10,10,0.6)', fontWeight: 500 }}>
+                ₡ {Number(precio).toLocaleString('es-CR')}
+              </span>
+              {precioNormal != null && (
+                <span style={{ ...MONO, fontSize: '9px', letterSpacing: '0.14em', color: 'rgba(180,30,30,0.7)', border: '1px solid rgba(180,30,30,0.25)', padding: '2px 5px' }}>
+                  OFERTA
+                </span>
+              )}
+            </div>
           )}
 
           {cargando ? (
@@ -607,11 +653,16 @@ export default function Catalogo() {
                 }}>
                   {p.nombre.toUpperCase()}
                 </h3>
-                {p.precio_base != null && (
-                  <p style={{ ...MONO, fontSize: isMobile ? '11px' : '12px', color: 'rgba(10,10,10,0.55)' }}>
-                    ₡ {Number(p.precio_base).toLocaleString('es-CR')}
-                  </p>
-                )}
+                {(() => {
+                  const { efectivo, normal } = getPrecioCard(p, tipoCliente)
+                  return efectivo != null ? (
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem', flexWrap: 'wrap' }}>
+                      {normal != null && <span style={{ ...MONO, fontSize: '10px', color: 'rgba(10,10,10,0.35)', textDecoration: 'line-through' }}>₡ {Number(normal).toLocaleString('es-CR')}</span>}
+                      <span style={{ ...MONO, fontSize: isMobile ? '11px' : '12px', color: normal != null ? 'rgba(180,30,30,0.85)' : 'rgba(10,10,10,0.55)' }}>₡ {Number(efectivo).toLocaleString('es-CR')}</span>
+                      {normal != null && <span style={{ ...MONO, fontSize: '8px', letterSpacing: '0.12em', color: 'rgba(180,30,30,0.7)', border: '1px solid rgba(180,30,30,0.25)', padding: '1px 4px' }}>OFERTA</span>}
+                    </div>
+                  ) : null
+                })()}
                 <button
                   onClick={() => setPopup(p)}
                   style={{
@@ -832,11 +883,16 @@ export default function Catalogo() {
                         </h3>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        {p.precio_base != null && (
-                          <span style={{ ...MONO, fontSize: '12px', color: 'rgba(10,10,10,0.5)' }}>
-                            ₡ {Number(p.precio_base).toLocaleString('es-CR')}
-                          </span>
-                        )}
+                        {(() => {
+                          const { efectivo, normal } = getPrecioCard(p, tipoCliente)
+                          return efectivo != null ? (
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem', flexWrap: 'wrap' }}>
+                              {normal != null && <span style={{ ...MONO, fontSize: '10px', color: 'rgba(10,10,10,0.35)', textDecoration: 'line-through' }}>₡ {Number(normal).toLocaleString('es-CR')}</span>}
+                              <span style={{ ...MONO, fontSize: '12px', color: normal != null ? 'rgba(180,30,30,0.85)' : 'rgba(10,10,10,0.5)' }}>₡ {Number(efectivo).toLocaleString('es-CR')}</span>
+                              {normal != null && <span style={{ ...MONO, fontSize: '8px', letterSpacing: '0.12em', color: 'rgba(180,30,30,0.7)', border: '1px solid rgba(180,30,30,0.25)', padding: '1px 4px' }}>OFERTA</span>}
+                            </div>
+                          ) : null
+                        })()}
                         <button onClick={() => setPopup(p)} style={{
                           ...MONO, fontSize: '10px', letterSpacing: '0.22em', textTransform: 'uppercase',
                           background: '#0a0a0a', color: '#fafafa',
@@ -925,11 +981,16 @@ export default function Catalogo() {
                                 {p.descripcion.length > 100 ? p.descripcion.slice(0, 100) + '…' : p.descripcion}
                               </p>
                             )}
-                            {p.precio_base != null && (
-                              <p style={{ ...MONO, fontSize: '13px', color: 'rgba(10,10,10,0.6)', marginBottom: '0.9rem', fontWeight: 500 }}>
-                                ₡ {Number(p.precio_base).toLocaleString('es-CR')}
-                              </p>
-                            )}
+                            {(() => {
+                              const { efectivo, normal } = getPrecioCard(p, tipoCliente)
+                              return efectivo != null ? (
+                                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
+                                  {normal != null && <span style={{ ...MONO, fontSize: '11px', color: 'rgba(10,10,10,0.35)', textDecoration: 'line-through' }}>₡ {Number(normal).toLocaleString('es-CR')}</span>}
+                                  <span style={{ ...MONO, fontSize: '13px', color: normal != null ? 'rgba(180,30,30,0.85)' : 'rgba(10,10,10,0.6)', fontWeight: 500 }}>₡ {Number(efectivo).toLocaleString('es-CR')}</span>
+                                  {normal != null && <span style={{ ...MONO, fontSize: '8px', letterSpacing: '0.12em', color: 'rgba(180,30,30,0.7)', border: '1px solid rgba(180,30,30,0.25)', padding: '1px 4px' }}>OFERTA</span>}
+                                </div>
+                              ) : null
+                            })()}
                             <button
                               onClick={() => setPopup(p)}
                               style={{

@@ -14,10 +14,15 @@ const NAV_H   = 52
 const SLIDE_DUR = 900   // ms — duración de la transición
 const SLIDE_INT = 4000  // ms — intervalo entre cambios
 
-const getPrecio = (variante, tipoCliente) => {
-  const precios = variante?.precios ?? []
+const getPrecioEfectivo = (variante, tipoCliente) => {
+  const ps = variante?.precios ?? []
   const tipo = tipoCliente === 'MAYORISTA' ? 'MAYORISTA' : 'MINORISTA'
-  return parseFloat(precios.find(p => p.tipo === tipo)?.monto ?? precios[0]?.monto ?? 0)
+  return parseFloat(ps.find(p => p.tipo === 'OFERTA')?.monto ?? ps.find(p => p.tipo === tipo)?.monto ?? ps[0]?.monto ?? 0)
+}
+const getPrecioNormal = (variante) => {
+  const ps = variante?.precios ?? []
+  if (!ps.some(p => p.tipo === 'OFERTA')) return null
+  return parseFloat(ps.find(p => p.tipo === 'MINORISTA')?.monto ?? 0)
 }
 
 const imgUrl = (producto) => {
@@ -173,7 +178,7 @@ export default function Carrito() {
 
   const detalles = carrito?.carrito_detalles ?? []
   const subtotal = detalles.reduce(
-    (acc, d) => acc + getPrecio(d.variante, usuario?.tipo_cliente) * d.cantidad, 0
+    (acc, d) => acc + getPrecioEfectivo(d.variante, usuario?.tipo_cliente) * d.cantidad, 0
   )
 
   const actualizarCantidad = async (itemId, cantidad) => {
@@ -273,8 +278,9 @@ export default function Carrito() {
                 /* Mobile: tarjetas apiladas */
                 <div>
                   {detalles.map(d => {
-                    const precio = getPrecio(d.variante, usuario?.tipo_cliente)
-                    const dis    = procesando === d.id
+                    const precio      = getPrecioEfectivo(d.variante, usuario?.tipo_cliente)
+                    const precioNormal = getPrecioNormal(d.variante)
+                    const dis         = procesando === d.id
                     return (
                       <div key={d.id} style={{
                         padding: '1.2rem 0',
@@ -311,8 +317,18 @@ export default function Carrito() {
                             }}>+</button>
                           </div>
                           <div style={{ textAlign: 'right' }}>
-                            <p style={{ ...MONO, fontSize: '15px', color: '#0a0a0a' }}>Q {(precio * d.cantidad).toFixed(2)}</p>
-                            <p style={{ ...MONO, fontSize: '11px', color: 'rgba(10,10,10,0.4)' }}>Q {precio.toFixed(2)} c/u</p>
+                            <p style={{ ...MONO, fontSize: '15px', color: precioNormal != null ? 'rgba(180,30,30,0.85)' : '#0a0a0a' }}>
+                              Q {(precio * d.cantidad).toFixed(2)}
+                            </p>
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem', justifyContent: 'flex-end' }}>
+                              {precioNormal != null && (
+                                <span style={{ ...MONO, fontSize: '10px', color: 'rgba(10,10,10,0.35)', textDecoration: 'line-through' }}>Q {precioNormal.toFixed(2)}</span>
+                              )}
+                              <span style={{ ...MONO, fontSize: '11px', color: precioNormal != null ? 'rgba(180,30,30,0.6)' : 'rgba(10,10,10,0.4)' }}>Q {precio.toFixed(2)} c/u</span>
+                              {precioNormal != null && (
+                                <span style={{ ...MONO, fontSize: '8px', letterSpacing: '0.12em', color: 'rgba(180,30,30,0.65)', border: '1px solid rgba(180,30,30,0.25)', padding: '1px 4px' }}>OFERTA</span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -335,8 +351,9 @@ export default function Carrito() {
                   </div>
 
                   {detalles.map(d => {
-                    const precio = getPrecio(d.variante, usuario?.tipo_cliente)
-                    const dis    = procesando === d.id
+                    const precio       = getPrecioEfectivo(d.variante, usuario?.tipo_cliente)
+                    const precioNormal = getPrecioNormal(d.variante)
+                    const dis          = procesando === d.id
                     return (
                       <div key={d.id} style={{
                         display: 'grid', gridTemplateColumns: '1fr 120px 100px 24px',
@@ -353,9 +370,17 @@ export default function Carrito() {
                           <p style={{ ...MONO, fontSize: '11px', letterSpacing: '0.08em', color: 'rgba(10,10,10,0.80)' }}>
                             {d.variante?.sku}
                           </p>
-                          <p style={{ ...MONO, fontSize: '12px', color: 'rgba(10,10,10,0.88)', marginTop: '0.2rem' }}>
-                            Q {precio.toFixed(2)} c/u
-                          </p>
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
+                            {precioNormal != null && (
+                              <span style={{ ...MONO, fontSize: '11px', color: 'rgba(10,10,10,0.35)', textDecoration: 'line-through' }}>Q {precioNormal.toFixed(2)}</span>
+                            )}
+                            <span style={{ ...MONO, fontSize: '12px', color: precioNormal != null ? 'rgba(180,30,30,0.75)' : 'rgba(10,10,10,0.88)' }}>
+                              Q {precio.toFixed(2)} c/u
+                            </span>
+                            {precioNormal != null && (
+                              <span style={{ ...MONO, fontSize: '8px', letterSpacing: '0.12em', color: 'rgba(180,30,30,0.65)', border: '1px solid rgba(180,30,30,0.25)', padding: '1px 4px' }}>OFERTA</span>
+                            )}
+                          </div>
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
@@ -383,7 +408,7 @@ export default function Carrito() {
                           )}
                         </div>
 
-                        <span style={{ ...MONO, fontSize: '14px', color: '#0a0a0a' }}>
+                        <span style={{ ...MONO, fontSize: '14px', color: precioNormal != null ? 'rgba(180,30,30,0.85)' : '#0a0a0a' }}>
                           Q {(precio * d.cantidad).toFixed(2)}
                         </span>
 
