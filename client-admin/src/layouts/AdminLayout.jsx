@@ -59,13 +59,6 @@ const MENU = [
     ],
   },
   
-  {
-    grupo: 'Dev',
-    perfiles: ['ADMIN', 'GERENTE', 'VENDEDOR', 'BODEGUERO'],
-    items: [
-      { label: 'Referencia UI', to: '/referencia' },
-    ],
-  },
 ]
 
 export default function AdminLayout() {

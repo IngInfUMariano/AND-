@@ -27,6 +27,7 @@ import EntradasInventario from '@/pages/EntradasInventario'
 import ComprasInventario from '@/pages/ComprasInventario'
 import InformesPage from '@/pages/InformePage' 
 import DashboardPage from '@/pages/DashboardPage'
+import TransaccionesPage from '@/pages/TransaccionesPage'
 
 // Componente provisional para módulos pendientes o sin permisos
 function ModuloEnDesarrollo({ titulo }) {
@@ -194,8 +195,16 @@ export default function App() {
               } 
             />
 
+            <Route
+              path="transacciones"
+              element={
+                <RoleRoute roles={['ADMIN', 'GERENTE']}>
+                  <TransaccionesPage />
+                </RoleRoute>
+              }
+            />
             {/* Módulos Pendientes de Desarrollo */}
-            <Route path="transacciones" element={<ModuloEnDesarrollo titulo="Transacciones" />} />
+            
             <Route path="referencia" element={<Referencia />} />
 
             {/* Error de Permisos */}
