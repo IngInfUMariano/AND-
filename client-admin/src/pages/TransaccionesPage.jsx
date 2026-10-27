@@ -8,7 +8,11 @@ import { transaccionService } from '@/services/transaccion.service'
 import { useAuth } from '@/context/AuthContext'
 
 const formatQ = (val) => new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ' }).format(Number(val) || 0)
-const formatDate = (dateString) => new Date(dateString).toLocaleString('es-GT', { dateStyle: 'medium', timeStyle: 'short' })
+const formatDate = (dateString) => {
+    if (!dateString) return '-'
+    const d = new Date(dateString)
+    return isNaN(d.getTime()) ? '-' : d.toLocaleString('es-GT', { dateStyle: 'medium', timeStyle: 'short' })
+}
 
 export default function TransaccionesPage() {
     const { usuario } = useAuth()
@@ -32,8 +36,9 @@ export default function TransaccionesPage() {
     const [modalReembolso, setModalReembolso] = useState(null)
     const [motivoReembolso, setMotivoReembolso] = useState('')
 
-    // Estado de formulario controlado con texto para evitar bloqueos en inputs numéricos
-    const [formAbono, setFormAbono] = useState({ monto: '', referencia: '', pedido_id: '' })
+    // Estados para el abono estilo cajero y referencia
+    const [centavosStr, setCentavosStr] = useState('')
+    const [formAbono, setFormAbono] = useState({ referencia: '', pedido_id: '' })
 
     useEffect(() => {
         cargarMayoristas()
@@ -43,7 +48,6 @@ export default function TransaccionesPage() {
         cargarDatos()
     }, [activa, filtros.fecha_desde, filtros.fecha_hasta, filtros.estado, filtros.cliente_id])
 
-    // Cargar pedidos automáticamente cuando cambia el cliente seleccionado
     useEffect(() => {
         if (filtros.cliente_id) {
             cargarPedidosMayorista(filtros.cliente_id)
@@ -57,6 +61,7 @@ export default function TransaccionesPage() {
             const res = await transaccionService.listarMayoristas()
             if (Array.isArray(res)) setClientes(res)
         } catch (error) {
+            console.error('Error al cargar mayoristas:', error)
             toast.error('No se pudo cargar el listado de clientes mayoristas.')
         }
     }
@@ -81,6 +86,7 @@ export default function TransaccionesPage() {
                 setEstadoCuenta(res)
             }
         } catch (error) {
+            console.error('Error al cargar datos financieros:', error)
             toast.error('Error al sincronizar los datos financieros.')
         } finally {
             setCargando(false)
@@ -102,26 +108,45 @@ export default function TransaccionesPage() {
         }
     }
 
-    const handleAbono = async (e) => {
+    // Cálculos para el abono estilo cajero
+    const montoNumerico = centavosStr ? Number(centavosStr) / 100 : 0
+    const deudaActual = estadoCuenta?.cliente?.credito_utilizado ? Number(estadoCuenta.cliente.credito_utilizado) : 0
+
+    const handleMontoChange = (e) => {
+        // Solo permite números, eliminando letras y caracteres especiales
+        const soloDigitos = e.target.value.replace(/\D/g, '')
+        setCentavosStr(soloDigitos)
+    }
+
+    const handleAbonoSubmit = async (e) => {
         e.preventDefault()
         if (!filtros.cliente_id) return toast.error('Seleccione un cliente mayorista en los filtros.')
-        if (Number(formAbono.monto) <= 0) return toast.error('El monto debe ser mayor a cero.')
+
+        if (montoNumerico <= 0) {
+            return toast.error('Debe ingresar un monto válido mayor a cero.')
+        }
+
+        if (deudaActual > 0 && montoNumerico > deudaActual) {
+            return toast.error(`El abono (Q${montoNumerico.toFixed(2)}) no puede superar la deuda actual (${formatQ(deudaActual)}).`)
+        }
 
         try {
             await transaccionService.registrarAbono(filtros.cliente_id, {
-                monto: Number(formAbono.monto),
-                referencia: formAbono.referencia || null,
+                monto: montoNumerico,
+                referencia: formAbono.referencia ? formAbono.referencia.trim() : null,
                 pedido_id: formAbono.pedido_id ? Number(formAbono.pedido_id) : null
             })
             toast.success('Abono registrado correctamente.')
-            setFormAbono({ monto: '', referencia: '', pedido_id: '' })
+            setCentavosStr('')
+            setFormAbono({ referencia: '', pedido_id: '' })
             setActiva('ESTADO_CUENTA')
         } catch (error) {
             toast.error(error?.response?.data?.message || 'Error al registrar el abono.')
         }
     }
 
-    const RenderFiltros = () => (
+    // Convertimos a funciones normales para evitar la recarga del DOM
+    const renderFiltros = () => (
         <div className="bg-card border rounded-2xl p-5 shadow-sm flex flex-wrap items-end gap-4 mb-6" translate="no">
             <div className="flex items-center gap-2 text-sm font-bold text-foreground pb-1">
                 <Filter size={16} className="text-primary" /> Filtros:
@@ -179,7 +204,7 @@ export default function TransaccionesPage() {
         </div>
     )
 
-    const RenderStripe = () => (
+    const renderStripe = () => (
         <div className="bg-card border rounded-2xl overflow-hidden shadow-sm" translate="no">
             <div className="overflow-x-auto">
                 <table className="w-full text-left whitespace-nowrap text-sm">
@@ -228,7 +253,7 @@ export default function TransaccionesPage() {
         </div>
     )
 
-    const RenderEstadoCuenta = () => {
+    const renderEstadoCuenta = () => {
         if (!filtros.cliente_id) {
             return (
                 <div className="border-2 border-dashed rounded-2xl p-16 text-center flex flex-col items-center justify-center text-muted-foreground" translate="no">
@@ -301,35 +326,58 @@ export default function TransaccionesPage() {
         )
     }
 
-    const RenderAbono = () => (
+    const renderAbono = () => (
         <div className="max-w-xl mx-auto bg-card border rounded-2xl p-8 shadow-sm" translate="no">
             <h2 className="text-xl font-bold flex items-center gap-2 mb-2 text-foreground"><Wallet className="text-primary" /> Registrar Abono Manual</h2>
-            <p className="text-xs text-muted-foreground mb-8 leading-relaxed">Registre un pago recibido de forma externa (ej. depósito bancario o efectivo) para reducir la deuda de un cliente mayorista en el sistema.</p>
+            <p className="text-xs text-muted-foreground mb-4 leading-relaxed">Registre un pago recibido de forma externa (ej. depósito bancario o efectivo) para reducir la deuda de un cliente mayorista en el sistema.</p>
+
+            {filtros.cliente_id && (
+                <div className="mb-6 p-3 bg-muted/40 border rounded-xl flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground font-medium uppercase tracking-wider">Deuda Actual del Cliente:</span>
+                    <span className="font-black text-rose-600">{formatQ(deudaActual)}</span>
+                </div>
+            )}
 
             {!filtros.cliente_id ? (
                 <div className="p-4 bg-amber-500/10 border border-amber-200 text-amber-700 rounded-xl text-xs font-bold flex items-center gap-3">
                     <AlertTriangle size={18} className="shrink-0" /> Primero debe seleccionar un cliente mayorista en el área de filtros.
                 </div>
             ) : (
-                <form onSubmit={handleAbono} className="flex flex-col gap-5">
-                    {/* Input de monto controlado por texto plano para evitar bloqueos y saltos de foco */}
+                <form onSubmit={handleAbonoSubmit} className="flex flex-col gap-5">
                     <label className="flex flex-col gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                        Monto Recibido (Q) *
-                        <input type="text" inputMode="decimal" required className="h-11 rounded-xl border px-4 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/30"
-                            value={formAbono.monto} onChange={e => setFormAbono({ ...formAbono, monto: e.target.value })} placeholder="Ej. 1500.00" />
+                        Monto Recibido (Estilo Cajero) *
+                        <input
+                            type="text"
+                            inputMode="numeric"
+                            autoComplete="off"
+                            required
+                            className="h-12 rounded-xl border px-4 text-lg font-black text-foreground outline-none focus:ring-2 focus:ring-primary/30 tracking-wide text-right"
+                            value={centavosStr ? formatQ(montoNumerico) : ''}
+                            onChange={handleMontoChange}
+                            placeholder="Q 0.00"
+                        />
+                        <span className="text-[10px] text-muted-foreground font-normal normal-case mt-0.5">Escriba los números directamente sin puntos (ej. 10000 para Q100.00).</span>
                     </label>
 
                     <label className="flex flex-col gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                         Referencia de Pago
-                        <input type="text" className="h-11 rounded-xl border px-4 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/30"
-                            value={formAbono.referencia} onChange={e => setFormAbono({ ...formAbono, referencia: e.target.value })} placeholder="Número de boleta, transferencia o cheque" />
+                        <input
+                            type="text"
+                            autoComplete="off"
+                            className="h-11 rounded-xl border px-4 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/30"
+                            value={formAbono.referencia}
+                            onChange={e => setFormAbono({ ...formAbono, referencia: e.target.value })}
+                            placeholder="Número de boleta, transferencia o cheque"
+                        />
                     </label>
 
-                    {/* Selector automático de pedidos del cliente */}
                     <label className="flex flex-col gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                         Pedido Asociado (Opcional)
-                        <select className="h-11 rounded-xl border px-4 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/30"
-                            value={formAbono.pedido_id} onChange={e => setFormAbono({ ...formAbono, pedido_id: e.target.value })}>
+                        <select
+                            className="h-11 rounded-xl border px-4 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/30"
+                            value={formAbono.pedido_id}
+                            onChange={e => setFormAbono({ ...formAbono, pedido_id: e.target.value })}
+                        >
                             <option value="">-- Sin pedido específico (Abono general) --</option>
                             {pedidosCliente.map(p => (
                                 <option key={p.id} value={p.id}>
@@ -356,7 +404,7 @@ export default function TransaccionesPage() {
                 </div>
             </div>
 
-            <RenderFiltros />
+            {renderFiltros()}
 
             <div className="flex border-b mb-6 overflow-x-auto hide-scrollbar">
                 <button type="button" onClick={() => setActiva('STRIPE')}
@@ -380,9 +428,9 @@ export default function TransaccionesPage() {
                 </div>
             ) : (
                 <div className="animate-in fade-in duration-300">
-                    {activa === 'STRIPE' && <RenderStripe />}
-                    {activa === 'ESTADO_CUENTA' && <RenderEstadoCuenta />}
-                    {activa === 'ABONOS' && <RenderAbono />}
+                    {activa === 'STRIPE' && renderStripe()}
+                    {activa === 'ESTADO_CUENTA' && renderEstadoCuenta()}
+                    {activa === 'ABONOS' && renderAbono()}
                 </div>
             )}
 
