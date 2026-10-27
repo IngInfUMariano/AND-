@@ -73,20 +73,22 @@ const obtenerFormasPago = async (pedidoId, usuarioId) => {
   const cliente   = pedido.cliente;
   const formas    = ["EN_LINEA"];
 
+  let creditoDisponible = null;
   if (cliente.tipo === "MAYORISTA") {
     const disponible =
       parseFloat(cliente.limite_credito) - parseFloat(cliente.credito_utilizado);
-
+    creditoDisponible = disponible;
     if (disponible >= parseFloat(pedido.total)) {
       formas.push("CREDITO");
     }
   }
 
   return {
-    pedido_id:    parseInt(pedidoId, 10),
-    total:        parseFloat(pedido.total),
-    tipo_cliente: cliente.tipo,
-    formas_pago:  formas,
+    pedido_id:         parseInt(pedidoId, 10),
+    total:             parseFloat(pedido.total),
+    tipo_cliente:      cliente.tipo,
+    formas_pago:       formas,
+    credito_disponible: creditoDisponible,
   };
 };
 
@@ -112,6 +114,10 @@ const crearIntencion = async (pedidoId, usuarioId) => {
       "El pedido no puede iniciar un pago en su estado actual",
       [`Estado actual: ${pedido.estado}`]
     );
+  }
+
+  if (pedido.forma_pago !== "EN_LINEA") {
+    throw AppError.reglaNegocio("Este pedido no utiliza pago en línea", []);
   }
 
   // Idempotencia: reutilizar PaymentIntent pendiente si ya existe para este pedido

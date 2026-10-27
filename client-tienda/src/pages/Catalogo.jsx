@@ -35,7 +35,7 @@ const getPrecioCard = (producto, tipoCliente) => {
 
 const LIMIT        = 10
 const LIMIT_MAY    = 25
-const SLOT_VH      = 150
+const SLOT_VH      = 175
 const NAV_H        = 52
 const FILTER_H     = 38
 const STICKY_TOP   = NAV_H + FILTER_H
@@ -192,7 +192,8 @@ function PopupCompra({ producto, onClose }) {
   const getPrecioNormal = (v) => {
     const ps = v?.precios ?? []
     if (!ps.some(p => p.tipo === 'OFERTA')) return null
-    return parseFloat(ps.find(p => p.tipo === 'MINORISTA')?.monto ?? 0)
+    const tipo = (usuario?.tipo_cliente ?? usuario?.cliente?.tipo) === 'MAYORISTA' ? 'MAYORISTA' : 'MINORISTA'
+    return parseFloat(ps.find(p => p.tipo === tipo)?.monto ?? ps.find(p => p.tipo === 'MINORISTA')?.monto ?? 0)
   }
 
   const precio = varianteActual
@@ -355,7 +356,7 @@ function PopupCompra({ producto, onClose }) {
         {/* Imagen — ocupa ~60vh fijo */}
         <div style={{ height: '60vh', flexShrink: 0, overflow: 'hidden', position: 'relative' }}>
           <img src={imgUrl(producto)} alt={producto.nombre}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'grayscale(100%) brightness(0.72)' }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'brightness(0.72)' }}
           />
           {/* Botón cerrar sobre la imagen */}
           <button
@@ -498,7 +499,7 @@ function PopupCompra({ producto, onClose }) {
         {/* Imagen izquierda */}
         <div style={{ overflow: 'hidden', minHeight: '420px' }}>
           <img src={imgUrl(producto)} alt={producto.nombre}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'grayscale(100%) brightness(0.75)' }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'brightness(0.75)' }}
           />
         </div>
         {detallesPanel}
@@ -636,7 +637,7 @@ export default function Catalogo() {
                     position: 'absolute', inset: 0,
                     width: '100%', height: '100%', objectFit: 'cover',
                     display: 'block',
-                    filter: 'grayscale(100%) brightness(0.80)',
+                    filter: 'brightness(0.80)',
                   }}
                 />
               </div>
@@ -843,7 +844,7 @@ export default function Catalogo() {
                         <img
                           src={imgUrl(p)}
                           alt={p.nombre}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'grayscale(100%) brightness(0.72)' }}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'brightness(0.72)' }}
                         />
                       </div>
                     )
@@ -954,13 +955,15 @@ export default function Catalogo() {
                   {productos.map((p, i) => {
                     const isActive = i === activeIndex
                     const ip       = isActive ? itemProgress : 0
-                    const expandIp = Math.max(0, (ip - 0.35) / 0.65)
+                    const expandIp = Math.min(1, Math.max(0, (ip - 0.25) / 0.50))
                     return (
                       <div key={p.id} style={{
                         borderBottom: '1px solid rgba(10,10,10,0.07)',
                         padding: isActive ? '1.1rem 0' : '0.7rem 0',
-                        transition: 'padding 0.42s ease, opacity 0.38s ease',
-                        opacity: isActive ? 1 : 0.27,
+                        transition: 'padding 0.42s ease',
+                        opacity: isActive
+                          ? (activeIndex === 0 ? 1 : 0.27 + 0.73 * itemProgress)
+                          : 0.27,
                       }}>
                         <div style={{ overflow: 'hidden' }}>
                           <h3 style={{
@@ -1029,7 +1032,7 @@ export default function Catalogo() {
                         <img
                           src={imgUrl(p)}
                           alt={p.nombre}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'grayscale(100%) brightness(0.75)' }}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'brightness(0.75)' }}
                         />
                       </div>
                     )

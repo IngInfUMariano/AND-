@@ -140,7 +140,8 @@ const obtener = async (id, usuario) => {
         include: [{ model: db.variante }]
       },
       { model: db.pedido_historial },
-      { model: db.sucursal, attributes: ["id", "nombre", "codigo"] }
+      { model: db.sucursal, attributes: ["id", "nombre", "codigo", "direccion", "telefono"] },
+      { model: db.cliente, attributes: ["id", "nombre", "nombre_comercial", "nit", "email", "direccion_fiscal"] }
     ]
   });
 
@@ -150,7 +151,12 @@ const obtener = async (id, usuario) => {
     throw new AppError("No tienes permisos para ver este pedido", 403);
   }
 
-  return pedido;
+  const params = await db.parametro.findAll({
+    where: { clave: ["EMPRESA_NOMBRE", "EMPRESA_NIT", "EMPRESA_DIRECCION"] }
+  });
+  const empresa = Object.fromEntries(params.map(p => [p.clave, p.valor]));
+
+  return { ...pedido.toJSON(), empresa };
 };
 
 // ─── crear (Checkout + Compromiso + Asignación Automática RF-PED-08) ────────
@@ -464,6 +470,21 @@ const anular = async (id, motivo, usuario) => {
       },
       { transaction: t }
     );
+
+    // Cancelar PaymentIntent pendiente en Stripe para que no quede como incompleto
+    const txPendiente = await db.transaccion_pago.findOne({
+      where: { pedido_id: id, proveedor: "STRIPE", tipo: "PAGO", estado: "PENDIENTE" },
+      transaction: t,
+    });
+    if (txPendiente) {
+      try {
+        const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+        await stripe.paymentIntents.cancel(txPendiente.id_externo);
+        await txPendiente.update({ estado: "CANCELADO" }, { transaction: t });
+      } catch (_) {
+        // Si Stripe falla (ya cancelado, expirado) no interrumpimos la anulación
+      }
+    }
 
     return pedido;
   });

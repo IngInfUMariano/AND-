@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import pedidoService from '@/services/pedido.service'
 import { useAuth } from '@/context/AuthContext'
 import { useCart } from '@/context/CartContext'
@@ -128,6 +130,61 @@ export default function PedidoDetalle() {
   const total = Number(pedido.total ?? items.reduce((acc, d) => acc + Number(d.subtotal ?? 0), 0))
   const costoEnvio = pedido.costo_envio ? Number(pedido.costo_envio) : null
   const necesitaPago = pedido.estado === 'PENDIENTE_PAGO' && pedido.forma_pago === 'EN_LINEA'
+
+  const descargarPDF = () => {
+    const doc = new jsPDF()
+    const emp = pedido.empresa ?? {}
+    const cli = pedido.cliente ?? {}
+    const suc = pedido.sucursal ?? {}
+    const fecha = new Date(pedido.createdAt).toLocaleDateString('es-GT')
+
+    // Cabecera empresa
+    doc.setFontSize(14)
+    doc.text(emp.EMPRESA_NOMBRE ?? 'AND& Moda', 14, 20)
+    doc.setFontSize(9)
+    doc.text(`NIT: ${emp.EMPRESA_NIT ?? '-'}`, 14, 26)
+    doc.text(emp.EMPRESA_DIRECCION ?? '', 14, 31)
+    doc.text(`Sucursal: ${suc.nombre ?? '-'}`, 14, 36)
+
+    // Título y número de boleta
+    doc.setFontSize(12)
+    doc.text('BOLETA DE VENTA', 140, 20)
+    doc.setFontSize(9)
+    doc.text(`No. ${pedido.numero}`, 140, 26)
+    doc.text(`Fecha: ${fecha}`, 140, 31)
+
+    // Datos del cliente
+    doc.setFontSize(10)
+    doc.text('Cliente', 14, 46)
+    doc.setFontSize(9)
+    doc.text(cli.nombre ?? '-', 14, 52)
+    doc.text(`NIT: ${cli.nit ?? 'CF'}`, 14, 57)
+    if (cli.direccion_fiscal) doc.text(cli.direccion_fiscal, 14, 62)
+
+    // Tabla de productos
+    autoTable(doc, {
+      startY: 70,
+      head: [['Descripción', 'SKU', 'Cant.', 'Precio unit.', 'Subtotal']],
+      body: items.map(d => [
+        d.descripcion ?? '-',
+        d.sku ?? '-',
+        d.cantidad,
+        `Q ${Number(d.precio_unitario ?? 0).toFixed(2)}`,
+        `Q ${Number(d.subtotal ?? 0).toFixed(2)}`,
+      ]),
+      styles: { fontSize: 8 },
+    })
+
+    // Totales
+    const y = doc.lastAutoTable.finalY + 8
+    doc.setFontSize(9)
+    doc.text(`Subtotal:    Q ${Number(pedido.subtotal ?? 0).toFixed(2)}`, 140, y)
+    if (costoEnvio) doc.text(`Envío:       Q ${costoEnvio.toFixed(2)}`, 140, y + 6)
+    doc.setFontSize(11)
+    doc.text(`TOTAL:       Q ${total.toFixed(2)}`, 140, y + (costoEnvio ? 13 : 6))
+
+    doc.save(`boleta-${pedido.numero}.pdf`)
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: '#fafafa', color: '#0a0a0a' }}>
@@ -259,6 +316,24 @@ export default function PedidoDetalle() {
               <span style={{ ...MONO, fontSize: '13px', color: '#0a0a0a' }}>total</span>
               <span style={{ ...MONO, fontSize: '15px', color: '#0a0a0a' }}>Q {total.toFixed(2)}</span>
             </div>
+          </div>
+
+          {/* Descargar boleta */}
+          <div style={{ marginTop: '2rem' }}>
+            <button
+              onClick={descargarPDF}
+              style={{
+                display: 'block', width: '100%', padding: '12px',
+                background: 'none', border: '1px solid rgba(10,10,10,0.18)',
+                cursor: 'pointer', ...MONO, fontSize: '10px',
+                letterSpacing: '0.3em', textTransform: 'uppercase',
+                color: 'rgba(10,10,10,0.55)', transition: 'color 0.16s ease, border-color 0.16s ease',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#0a0a0a'; e.currentTarget.style.borderColor = '#0a0a0a' }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'rgba(10,10,10,0.55)'; e.currentTarget.style.borderColor = 'rgba(10,10,10,0.18)' }}
+            >
+              descargar boleta pdf
+            </button>
           </div>
 
           {/* CTA pago pendiente */}

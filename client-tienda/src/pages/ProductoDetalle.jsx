@@ -18,10 +18,11 @@ const getPrecioEfectivo = (variante, tipoCliente) => {
       ?? ps.find(p => p.tipo === tipo)?.monto
       ?? ps[0]?.monto ?? null
 }
-const getPrecioNormal = (variante) => {
+const getPrecioNormal = (variante, tipoCliente) => {
   const ps = variante?.precios ?? []
   if (!ps.some(p => p.tipo === 'OFERTA')) return null
-  return ps.find(p => p.tipo === 'MINORISTA')?.monto ?? null
+  const tipo = tipoCliente === 'MAYORISTA' ? 'MAYORISTA' : 'MINORISTA'
+  return ps.find(p => p.tipo === tipo)?.monto ?? ps.find(p => p.tipo === 'MINORISTA')?.monto ?? null
 }
 
 const imgUrl = (producto) => {
@@ -108,7 +109,7 @@ export default function ProductoDetalle() {
   const precio = varianteActual
     ? getPrecioEfectivo(varianteActual, usuario?.tipo_cliente)
     : producto?.precio_base != null ? Number(producto.precio_base) : null
-  const precioNormal = varianteActual ? getPrecioNormal(varianteActual) : null
+  const precioNormal = varianteActual ? getPrecioNormal(varianteActual, usuario?.tipo_cliente) : null
 
   const agregarAlCarrito = async () => {
     if (!usuario) { navigate('/login'); return }

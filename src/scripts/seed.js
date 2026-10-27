@@ -102,6 +102,9 @@ async function seed() {
       { clave: "LIMITE_PAGINA",     valor: "20",              tipo_dato: "NUMERO", descripcion: "Registros por página por defecto" },
       { clave: "CREDITO_MAX_DIAS",  valor: "60",              tipo_dato: "NUMERO", descripcion: "Plazo máximo de crédito en días" },
       { clave: "EMAIL_SOPORTE",     valor: "soporte@inventa.gt", tipo_dato: "TEXTO", descripcion: "Correo de soporte al cliente" },
+      { clave: "EMPRESA_NOMBRE",    valor: "AND& Moda",          tipo_dato: "TEXTO", descripcion: "Razón social de la empresa" },
+      { clave: "EMPRESA_NIT",       valor: "1234567-8",          tipo_dato: "TEXTO", descripcion: "NIT fiscal de la empresa" },
+      { clave: "EMPRESA_DIRECCION", valor: "Ciudad de Guatemala, Guatemala", tipo_dato: "TEXTO", descripcion: "Dirección fiscal de la empresa" },
     ], { transaction: t });
 
     await db.correlativo.bulkCreate([
