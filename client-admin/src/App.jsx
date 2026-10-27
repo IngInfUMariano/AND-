@@ -73,8 +73,8 @@ export default function App() {
               </ProtectedRoute>
             }
           >
-            <Route index element={<Dashboard />} />
-            <Route path="dashboard" element={<Dashboard />} />
+            <Route index element={<DashboardPage />} />
+            <Route path="dashboard" element={<DashboardPage />} />
             <Route path="precios" element={<Precios />} />
             <Route path="clientes" element={<Clientes />} />
             <Route path="empleados" element={<Empleados />} />
@@ -187,7 +187,12 @@ export default function App() {
               }
             />
 
-            <Route path="dashboard" element={<DashboardPage />} />
+            <Route 
+              path="dashboard" 
+              element={
+                <DashboardPage />
+              } 
+            />
 
             {/* Módulos Pendientes de Desarrollo */}
             <Route path="transacciones" element={<ModuloEnDesarrollo titulo="Transacciones" />} />
