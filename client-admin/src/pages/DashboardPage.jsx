@@ -7,7 +7,6 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-// SERVICIOS Y CONTEXTO REAL
 import { useAuth } from '@/context/AuthContext'
 import { inventarioService } from '@/services/inventario.service'
 import { clienteService } from '@/services/cliente.service'
@@ -16,12 +15,9 @@ import { proveedorService } from '@/services/proveedor.service'
 import { empleadoService } from '@/services/empleado.service'
 import { catalogoService } from '@/services/catalogo.service'
 
-// ═════════════════════════════════════════════════════════════════════════════
-// CONSTANTES
-// ═════════════════════════════════════════════════════════════════════════════
-const UMBRAL_STOCK_BAJO = 5 // se usa cuando la existencia no trae stock_minimo
-const COBRADOS = ['COMPLETADO', 'ENTREGADO']
-const PENDIENTES = ['PENDIENTE', 'PROCESANDO']
+const UMBRAL_STOCK_BAJO = 5
+const COBRADOS = ['COMPLETADO', 'ENTREGADO', 'PAGADO', 'FACTURADO', 'CERRADO']
+const PENDIENTES = ['PENDIENTE', 'PROCESANDO', 'EN_ESPERA']
 const TRASLADO_CERRADO = ['RECIBIDO', 'ANULADO', 'CANCELADO', 'RECHAZADO']
 const PALETA = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899', '#84cc16']
 const COLOR_ESTADO = {
@@ -44,37 +40,31 @@ const METRICAS = {
     ticket: { nombre: 'Ticket promedio', tipo: 'linea', moneda: true, color: '#f59e0b' }
 }
 
-// Qué datos pide cada vista (si un endpoint no está permitido para el rol, solo se avisa)
+const reqOpts = { page: 1, limit: 1000 }
 const PETICIONES = {
-    pedidos: () => inventarioService.listarPedidos({ limit: 1000 }),
-    existencias: () => inventarioService.listar({ limit: 1000 }),
-    movimientos: () => inventarioService.obtenerKardex({ limit: 1000 }),
-    traslados: () => inventarioService.listarTraslados({ limit: 300 }),
+    pedidos: () => inventarioService.listarPedidos(reqOpts),
+    existencias: () => inventarioService.listar(reqOpts),
+    movimientos: () => inventarioService.obtenerKardex(reqOpts),
+    traslados: () => inventarioService.listarTraslados({ page: 1, limit: 300 }),
     sucursales: () => inventarioService.listarSucursales(),
-    clientes: () => clienteService.listarClientes({ limit: 500 }),
-    pendientes: () => clienteService.listarPendientes({ limit: 500 }),
-    categorias: () => catalogoService.listar('categorias', { limit: 200 }),
-    productos: () => productoService.listarProductos({ limit: 500 }),
-    proveedores: () => proveedorService.listarProveedores({ limit: 500 }),
-    empleados: () => empleadoService.listarEmpleados({ limit: 500 })
+    clientes: () => clienteService.listarClientes({ page: 1, limit: 500 }),
+    pendientes: () => clienteService.listarPendientes({ page: 1, limit: 500 }),
+    categorias: () => catalogoService.listar('categorias', { page: 1, limit: 200 }),
+    productos: () => productoService.listarProductos({ page: 1, limit: 500 }),
+    proveedores: () => proveedorService.listarProveedores({ page: 1, limit: 500 }),
+    empleados: () => empleadoService.listarEmpleados({ page: 1, limit: 500 })
 }
 const NECESARIAS = {
     admin: Object.keys(PETICIONES),
     bodega: ['pedidos', 'existencias', 'movimientos', 'traslados', 'sucursales', 'categorias'],
-    // 'existencias' solo se usa para traducir variantes a nombres de producto
     vendedor: ['pedidos', 'clientes', 'sucursales', 'existencias']
 }
-// Datos de apoyo: si el rol no tiene permiso para pedirlos, no se muestra ninguna alerta
-const OPCIONALES = { admin: [], bodega: [], vendedor: ['existencias'] }
 const NOMBRE_DATASET = {
     pedidos: 'pedidos', existencias: 'existencias', movimientos: 'movimientos', traslados: 'traslados',
     sucursales: 'sucursales', clientes: 'clientes', pendientes: 'clientes pendientes', categorias: 'categorías',
     productos: 'productos', proveedores: 'proveedores', empleados: 'empleados'
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// UTILIDADES
-// ═════════════════════════════════════════════════════════════════════════════
 const safeNumber = (val) => (Number.isFinite(Number(val)) ? Number(val) : 0)
 const normalizar = (val) => String(val ?? '').toUpperCase()
 const formatQ = (val) => new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ' }).format(safeNumber(val))
@@ -94,10 +84,10 @@ const formatNumCorto = (v) => {
 const suma = (lista, fn) => lista.reduce((s, x) => s + safeNumber(fn(x)), 0)
 const colorEstado = (e, i = 0) => COLOR_ESTADO[e] || PALETA[i % PALETA.length]
 
-// Fechas siempre en hora LOCAL (evita el desfase de toISOString/UTC en Guatemala)
 const aFecha = (v) => {
     if (!v) return null
-    const d = new Date(v)
+    const parseable = typeof v === 'string' ? v.replace(' ', 'T') : v
+    const d = new Date(parseable)
     return Number.isNaN(d.getTime()) ? null : d
 }
 const inicioDia = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x }
@@ -110,11 +100,10 @@ const desdeInput = (v) => {
     return Number.isNaN(d.getTime()) ? null : d
 }
 
-// Extrae SIEMPRE un array, sin importar la forma de la respuesta del backend
 const extraerData = (res) => {
     if (!res || res.status !== 'fulfilled') return []
     const v = res.value
-    for (const c of [v, v?.rows, v?.data, v?.data?.rows, v?.items, v?.results]) {
+    for (const c of [v, v?.rows, v?.data, v?.data?.rows, v?.data?.datos, v?.datos, v?.items, v?.results]) {
         if (Array.isArray(c)) return c
     }
     return []
@@ -156,7 +145,7 @@ const agrupacionEfectiva = (elegida, dias) => {
     let a = elegida
     if (a === 'auto') a = dias <= 31 ? 'dia' : dias <= 120 ? 'semana' : 'mes'
     if (a === 'dia' && dias > 366) a = 'semana'
-    if (a === 'dia' && dias <= 1) a = 'hora' // un solo día: se muestra hora por hora
+    if (a === 'dia' && dias <= 1) a = 'hora'
     return a
 }
 const pad2 = (n) => String(n).padStart(2, '0')
@@ -170,7 +159,6 @@ const claveBucket = (fecha, agr) => {
 const capitalizar = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s)
 const nombreMes = (d) => capitalizar(d.toLocaleDateString('es-GT', { month: 'long', year: 'numeric' }))
 
-// Cada bucket del gráfico trae su mes (mesClave/mesNombre) para rotular el eje X
 const etiquetasBucket = (fecha, agr, dias) => {
     const mes = { mesClave: claveMes(fecha), mesNombre: nombreMes(fecha) }
     if (agr === 'hora') {
@@ -178,11 +166,7 @@ const etiquetasBucket = (fecha, agr, dias) => {
         return { name: `${pad2(fecha.getHours())}h`, etiqueta: `${dia}, ${pad2(fecha.getHours())}:00`, ...mes }
     }
     if (agr === 'mes') {
-        return {
-            name: fecha.toLocaleDateString('es-GT', { month: 'short', year: '2-digit' }),
-            etiqueta: nombreMes(fecha),
-            ...mes
-        }
+        return { name: fecha.toLocaleDateString('es-GT', { month: 'short', year: '2-digit' }), etiqueta: nombreMes(fecha), ...mes }
     }
     if (agr === 'semana') {
         const ini = sumarDias(inicioDia(fecha), -((fecha.getDay() + 6) % 7))
@@ -193,7 +177,6 @@ const etiquetasBucket = (fecha, agr, dias) => {
         }
     }
     return {
-        // Con más de 7 días solo el número: el mes se rotula debajo, en la banda de meses
         name: dias <= 7 ? fecha.toLocaleDateString('es-GT', { weekday: 'short' }) : String(fecha.getDate()),
         etiqueta: capitalizar(fecha.toLocaleDateString('es-GT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })),
         ...mes
@@ -216,36 +199,15 @@ const crearBuckets = (desde, hasta, agr, dias) => {
     return out
 }
 
-// Textos que describen el periodo filtrado (mes/año incluidos)
-const textoPeriodo = (desde, hasta) => {
-    const f = (d, o) => d.toLocaleDateString('es-GT', o)
-    if (claveLocal(desde) === claveLocal(hasta)) return capitalizar(f(desde, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))
-    if (claveMes(desde) === claveMes(hasta)) return nombreMes(desde)
-    if (desde.getFullYear() === hasta.getFullYear()) {
-        return `${capitalizar(f(desde, { month: 'long' }))} – ${capitalizar(f(hasta, { month: 'long' }))} ${hasta.getFullYear()}`
-    }
-    return `${capitalizar(f(desde, { month: 'short', year: 'numeric' }))} – ${capitalizar(f(hasta, { month: 'short', year: 'numeric' }))}`
-}
-const rangoExacto = (desde, hasta) => {
-    const f = (d, o) => d.toLocaleDateString('es-GT', o)
-    if (claveLocal(desde) === claveLocal(hasta)) return f(desde, { day: 'numeric', month: 'long', year: 'numeric' })
-    return `${f(desde, { day: 'numeric', month: 'short' })} – ${f(hasta, { day: 'numeric', month: 'short', year: 'numeric' })}`
-}
-const fechaCorta = (d) => (d
-    ? `${d.toLocaleDateString('es-GT', { day: 'numeric', month: 'short' })}, ${d.toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' })}`
-    : '—')
-
-// Variación porcentual contra el periodo anterior (undefined = no mostrar, null = "Nuevo")
 const variacion = (actual, previo) => {
     if (previo > 0) return ((actual - previo) / previo) * 100
     return actual > 0 ? null : 0
 }
 
-// Escala "bonita" del eje Y
 const crearEscala = (maxValor, minimo = 4, divisiones = 4) => {
     const max = Math.max(safeNumber(maxValor), minimo)
     const bruto = max / divisiones
-    const magnitud = Math.pow(10, Math.floor(Math.log10(bruto)))
+    const magnitud = Math.pow(10, Math.floor(Math.log10(bruto || 1)))
     const norm = bruto / magnitud
     const paso = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * magnitud
     const cuenta = Math.max(1, Math.ceil(max / paso - 1e-9))
@@ -253,10 +215,6 @@ const crearEscala = (maxValor, minimo = 4, divisiones = 4) => {
     return { ticks, tope: ticks[ticks.length - 1] }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// NORMALIZACIÓN DE DATOS DEL BACKEND (tolerante a nombres de campo distintos)
-// ═════════════════════════════════════════════════════════════════════════════
-// Los ids internos NUNCA se muestran: se traducen a nombres con los catálogos cargados (ctx)
 const nombreCliente = (c) => {
     if (!c) return ''
     const compuesto = [c.nombres ?? c.nombre, c.apellidos ?? c.apellido].filter(Boolean).join(' ')
@@ -354,9 +312,6 @@ const normalizarTraslado = (t) => {
     }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// COMPONENTES DE GRÁFICOS (SVG/HTML puro, sin librerías)
-// ═════════════════════════════════════════════════════════════════════════════
 function useAncho() {
     const ref = useRef(null)
     const [ancho, setAncho] = useState(0)
@@ -399,7 +354,6 @@ function Tarjeta({ titulo, icono: Icono, children, className = '', derecha }) {
     )
 }
 
-// Líneas / áreas / barras (agrupadas) con tooltip, leyenda interactiva y clic por categoría
 function GraficoCartesiano({ datos, series, formatoY, formatoValor, altura = 300, minimoEscala = 4 }) {
     const [ref, ancho] = useAncho()
     const [activo, setActivo] = useState(null)
@@ -410,7 +364,15 @@ function GraficoCartesiano({ datos, series, formatoY, formatoValor, altura = 300
     const visibles = series.filter((s) => !ocultas.includes(s.clave))
     const barras = visibles.filter((s) => s.tipo === 'barra')
     const lineas = visibles.filter((s) => s.tipo !== 'barra')
-    const maxVal = Math.max(0, ...visibles.flatMap((s) => datos.map((d) => safeNumber(d[s.clave]))))
+
+    let maxVal = 0;
+    visibles.forEach((s) => {
+        datos.forEach((d) => {
+            const val = safeNumber(d[s.clave]);
+            if (val > maxVal) maxVal = val;
+        });
+    });
+
     const { ticks, tope } = crearEscala(maxVal, minimoEscala)
     const etiquetasY = ticks.map((t) => formatoY(t))
     const margen = { top: 12, right: 14, bottom: 28, left: Math.max(...etiquetasY.map((e) => e.length), 1) * 6.5 + 14 }
@@ -543,7 +505,6 @@ function GraficoCartesiano({ datos, series, formatoY, formatoValor, altura = 300
     )
 }
 
-// Dona con leyenda; clic en un segmento = filtrar
 function Dona({ items, formatoValor = formatNum, centroTitulo, centroValor, activoId, onSeleccionar }) {
     const [hover, setHover] = useState(null)
     const lista = items.filter((i) => i.valor > 0)
@@ -601,7 +562,6 @@ function Dona({ items, formatoValor = formatNum, centroTitulo, centroValor, acti
     )
 }
 
-// Ranking de barras horizontales; clic = filtrar
 function BarrasH({ items, formato = formatNum, color = '#3b82f6', activoId, onSeleccionar, vacio }) {
     const lista = items.filter((i) => i.valor > 0)
     if (lista.length === 0) return <SinDatos texto={vacio} />
@@ -632,7 +592,6 @@ function BarrasH({ items, formato = formatNum, color = '#3b82f6', activoId, onSe
     )
 }
 
-// Mapa de calor día de semana × hora
 function MapaCalor({ matriz }) {
     const max = Math.max(0, ...matriz.flat())
     if (max <= 0) return <SinDatos />
@@ -779,9 +738,6 @@ function Campo({ etiqueta, children }) {
 }
 const CLASE_CONTROL = 'h-9 rounded-lg border bg-card px-2.5 text-xs font-medium normal-case tracking-normal text-foreground outline-none focus:ring-2 focus:ring-primary/30'
 
-// ═════════════════════════════════════════════════════════════════════════════
-// PÁGINA
-// ═════════════════════════════════════════════════════════════════════════════
 export default function DashboardPage() {
     const { usuario } = useAuth()
 
@@ -804,7 +760,6 @@ export default function DashboardPage() {
     const setFiltro = (campo, valor) => setFiltros((f) => ({ ...f, [campo]: valor }))
     const alternarFiltro = (campo, valor) => setFiltros((f) => ({ ...f, [campo]: f[campo] === valor ? '' : valor }))
 
-    // ─── Carga de datos (tolerante a fallos) ─────────────────────────────────
     useEffect(() => {
         if (!claveUsuario) return undefined
         let vivo = true
@@ -826,8 +781,8 @@ export default function DashboardPage() {
                 setActualizado(new Date())
                 if (malas.length === claves.length) toast.error('No se pudo conectar con el servidor.')
             } catch (error) {
-                console.error('Error grave en Dashboard:', error)
-                if (vivo) toast.error('Hubo un problema al cargar los datos en vivo.')
+                console.error('Error en Dashboard:', error)
+                if (vivo) toast.error('Hubo un problema al cargar los datos.')
             } finally {
                 if (vivo) setCargando(false)
             }
@@ -836,7 +791,6 @@ export default function DashboardPage() {
         return () => { vivo = false }
     }, [claveUsuario, vista, recarga])
 
-    // ─── Datos normalizados (una sola vez por carga) ─────────────────────────
     const base = useMemo(() => {
         if (!datos) return null
         const lista = (k) => extraerData(datos[k]).filter((x) => x && typeof x === 'object')
@@ -875,9 +829,8 @@ export default function DashboardPage() {
         }
     }, [datos, vista, misIds])
 
-    const rango = useMemo(() => calcularRango(filtros), [filtros.rango, filtros.desde, filtros.hasta]) // eslint-disable-line react-hooks/exhaustive-deps
+    const rango = useMemo(() => calcularRango(filtros), [filtros.rango, filtros.desde, filtros.hasta])
 
-    // ─── Cálculo de TODAS las estadísticas según los filtros ─────────────────
     const an = useMemo(() => {
         if (!base) return null
         const { desde, hasta, dias, prevDesde, prevHasta } = rango
@@ -893,7 +846,6 @@ export default function DashboardPage() {
         const okCat = (id) => !filtros.categoria || id === filtros.categoria
         const { nombreSuc } = base
 
-        // — Pedidos —
         const pedRangoSuc = base.pedidos.filter((p) => dentro(p.fecha, desde, hasta) && okSuc(p.sucursalId))
         const pedRangoEst = base.pedidos.filter((p) => dentro(p.fecha, desde, hasta) && okEst(p.estado))
         const pedAct = pedRangoSuc.filter((p) => okEst(p.estado))
@@ -938,13 +890,11 @@ export default function DashboardPage() {
             }
         })
 
-        // Estados (ignora el filtro de estado para poder cambiar de opinión con un clic)
         const mapaEstados = new Map()
         pedRangoSuc.forEach((p) => mapaEstados.set(p.estado, (mapaEstados.get(p.estado) || 0) + 1))
         const estados = [...mapaEstados.entries()].sort((a, b) => b[1] - a[1])
             .map(([e, v], i) => ({ id: e, etiqueta: e, valor: v, color: colorEstado(e, i) }))
 
-        // Ventas por sucursal (ignora el filtro de sucursal)
         const mapaSucVentas = new Map()
         pedRangoEst.filter((p) => COBRADOS.includes(p.estado)).forEach((p) => {
             const m = mapaSucVentas.get(p.sucursalId) || { id: p.sucursalId, etiqueta: nombreSuc(p.sucursalId, p.sucursalNombre), valor: 0 }
@@ -953,7 +903,6 @@ export default function DashboardPage() {
         })
         const ventasSucursal = [...mapaSucVentas.values()].sort((a, b) => b.valor - a.valor).slice(0, 8)
 
-        // Top productos (pedidos con detalle; si no vienen, se usa el kardex de ventas)
         const mapaProd = new Map()
         pedAct.filter((p) => p.estado !== 'ANULADO').forEach((p) => p.items.forEach((it) => {
             const m = mapaProd.get(it.nombre) || { id: it.nombre, etiqueta: it.nombre, valor: 0, unidades: 0 }
@@ -971,7 +920,6 @@ export default function DashboardPage() {
         }
         const topProductos = [...mapaProd.values()].sort((a, b) => b.valor - a.valor).slice(0, 8)
 
-        // Top clientes
         const mapaCli = new Map()
         pedAct.filter((p) => COBRADOS.includes(p.estado)).forEach((p) => {
             const m = mapaCli.get(p.clienteId || p.cliente) || { id: p.clienteId || p.cliente, etiqueta: p.cliente, valor: 0 }
@@ -980,7 +928,6 @@ export default function DashboardPage() {
         })
         const topClientes = [...mapaCli.values()].sort((a, b) => b.valor - a.valor).slice(0, 8)
 
-        // Mapa de calor y día de semana
         const matriz = Array.from({ length: 7 }, () => Array(24).fill(0))
         const porDia = DIAS_SEMANA.map((d) => ({ name: d, clave: d, etiqueta: d, ingresos: 0, pedidos: 0 }))
         pedAct.filter((p) => p.estado !== 'ANULADO').forEach((p) => {
@@ -990,7 +937,6 @@ export default function DashboardPage() {
             if (COBRADOS.includes(p.estado)) porDia[dw].ingresos += p.total
         })
 
-        // — Movimientos de inventario —
         const movAct = base.movimientos.filter((m) => dentro(m.fecha, desde, hasta) && okSuc(m.sucursalId))
         const movPrev = base.movimientos.filter((m) => dentro(m.fecha, prevDesde, prevHasta) && okSuc(m.sucursalId))
         const serieMov = buckets.map((b) => ({ ...b, entradas: 0, salidas: 0 }))
@@ -1020,7 +966,6 @@ export default function DashboardPage() {
             comprasPrev: suma(movPrev.filter((m) => m.esCompra), (m) => m.cantidad * m.costo)
         }
 
-        // — Inventario (foto actual; solo responde a sucursal y categoría) —
         const exiAct = base.existencias.filter((e) => okSuc(e.sucursalId) && okCat(e.categoriaId))
         const criticos = exiAct.filter((e) => e.qty <= e.min).sort((a, b) => a.qty - b.qty)
         const inv = {
@@ -1043,7 +988,6 @@ export default function DashboardPage() {
         })
         const invCategoria = [...mapaInvCat.values()].sort((a, b) => b.valor - a.valor).slice(0, 7).map((x, i) => ({ ...x, color: PALETA[i % PALETA.length] }))
 
-        // — Traslados —
         const trasAct = base.traslados.filter((t) => (!t.fecha || dentro(t.fecha, desde, hasta)) &&
             (!filtros.sucursal || t.origenId === filtros.sucursal || t.destinoId === filtros.sucursal))
         const mapaTras = new Map()
@@ -1052,7 +996,6 @@ export default function DashboardPage() {
         const trasActivos = trasAct.filter((t) => !TRASLADO_CERRADO.includes(t.estado)).length
         const trasRecibidos = trasAct.filter((t) => t.estado === 'RECIBIDO').length
 
-        // — Clientes —
         const clientesNuevos = base.clientesFechas.filter((f) => dentro(f, desde, hasta)).length
 
         return {
@@ -1066,7 +1009,6 @@ export default function DashboardPage() {
         }
     }, [base, rango, filtros])
 
-    // ─── Render ───────────────────────────────────────────────────────────────
     const hayFiltrosActivos = !!(filtros.sucursal || filtros.estado || filtros.categoria || filtros.rango !== '30d' || filtros.agrupar !== 'auto')
     const opcionesSucursal = useMemo(() => {
         if (!base) return []
@@ -1085,7 +1027,7 @@ export default function DashboardPage() {
     const encabezado = (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">Hola, {nombreUsuario} 👋</h1>
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">Hola, {nombreUsuario}</h1>
                 <p className="text-xs md:text-sm text-muted-foreground mt-1">
                     Panel de Control • <span className="font-semibold text-primary">{rolUsuario}</span> • {fechaHoy}
                 </p>
@@ -1134,9 +1076,7 @@ export default function DashboardPage() {
 
     const t = an.tendencia
     const spark = (clave) => t.map((d) => d[clave])
-    const dMoneda = (v) => formatQ(v)
 
-    // ── Filtros globales ─────────────────────────────────────────────────────
     const barraFiltros = (
         <div className="bg-card border rounded-2xl p-4 shadow-sm flex flex-col gap-3" role="search" aria-label="Filtros del dashboard">
             <div className="flex flex-wrap items-end gap-3">
@@ -1215,7 +1155,6 @@ export default function DashboardPage() {
         </div>
     )
 
-    // ── Bloques reutilizables ────────────────────────────────────────────────
     const bloqueTendencia = (
         <Tarjeta
             titulo={`${defMetrica.nombre} por ${an.agr === 'dia' ? 'día' : an.agr === 'semana' ? 'semana' : 'mes'}`} icono={TrendingUp} className="lg:col-span-2"
@@ -1233,7 +1172,7 @@ export default function DashboardPage() {
                 ]}
                 formatoY={(v) => (esMoneda ? formatQCorto(v) : formatNumCorto(v))}
                 formatoValor={(v) => (esMoneda ? formatQ(v) : formatNum(v))}
-                minimoEscala={esMoneda ? 100 : 4}
+                minimoEscala={esMoneda ? 10 : 2}
             />
         </Tarjeta>
     )
@@ -1270,7 +1209,7 @@ export default function DashboardPage() {
 
     const bloqueDiaSemana = (
         <Tarjeta titulo="Ingresos por día de la semana" icono={BarChart3}>
-            <GraficoCartesiano datos={an.porDia} series={[{ clave: 'ingresos', nombre: 'Ingresos', color: '#10b981', tipo: 'barra' }]} formatoY={formatQCorto} formatoValor={formatQ} altura={240} minimoEscala={100} />
+            <GraficoCartesiano datos={an.porDia} series={[{ clave: 'ingresos', nombre: 'Ingresos', color: '#10b981', tipo: 'barra' }]} formatoY={formatQCorto} formatoValor={formatQ} altura={240} minimoEscala={10} />
         </Tarjeta>
     )
 
@@ -1382,7 +1321,6 @@ export default function DashboardPage() {
         </Tarjeta>
     )
 
-    // ── KPIs por vista (de lo general a lo detallado: izquierda→derecha, arriba→abajo) ──
     const kpiIngresos = { titulo: 'Ingresos', valor: formatQ(an.act.ingresos), subtitulo: `${an.act.cobrados} pedidos cobrados`, icono: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-500/10', delta: variacion(an.act.ingresos, an.prev.ingresos), spark: spark('ingresos'), sparkColor: '#10b981' }
     const kpiPedidos = { titulo: 'Pedidos', valor: formatNum(an.act.activos), subtitulo: `${an.act.total} registrados`, icono: ShoppingCart, color: 'text-blue-600', bg: 'bg-blue-500/10', delta: variacion(an.act.activos, an.prev.activos), spark: spark('pedidos'), sparkColor: '#3b82f6' }
     const kpiTicket = { titulo: 'Ticket promedio', valor: formatQ(an.act.ticket), subtitulo: 'Por pedido cobrado', icono: Receipt, color: 'text-amber-600', bg: 'bg-amber-500/10', delta: variacion(an.act.ticket, an.prev.ticket), spark: spark('ticket'), sparkColor: '#f59e0b' }
@@ -1440,7 +1378,6 @@ export default function DashboardPage() {
             {barraFiltros}
             {avisoFallos}
 
-            {/* KPIs: generales → detallados */}
             <div className="flex flex-col gap-4 md:gap-6">
                 {filasKpi.map((fila, i) => (
                     <div key={i} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
@@ -1449,7 +1386,6 @@ export default function DashboardPage() {
                 ))}
             </div>
 
-            {/* Gráficos: de lo más importante a lo menos importante */}
             {vista === 'admin' && (
                 <>
                     <div className={grid3}>{bloqueTendencia}{bloqueEstados}</div>
