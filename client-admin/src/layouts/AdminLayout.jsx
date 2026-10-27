@@ -55,8 +55,10 @@ const MENU = [
     perfiles: ['ADMIN', 'GERENTE'],
     items: [
       { label: 'Informes', to: '/informes' },
+      { label: 'Dashboard', to: '/dashboard' },
     ],
   },
+  
   {
     grupo: 'Dev',
     perfiles: ['ADMIN', 'GERENTE', 'VENDEDOR', 'BODEGUERO'],

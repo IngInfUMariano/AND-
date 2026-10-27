@@ -26,6 +26,7 @@ import Comprobantes from '@/pages/ComprobantesPage'
 import EntradasInventario from '@/pages/EntradasInventario' 
 import ComprasInventario from '@/pages/ComprasInventario'
 import InformesPage from '@/pages/InformePage' 
+import DashboardPage from '@/pages/DashboardPage'
 
 // Componente provisional para módulos pendientes o sin permisos
 function ModuloEnDesarrollo({ titulo }) {
@@ -185,6 +186,8 @@ export default function App() {
                 </RoleRoute>
               }
             />
+
+            <Route path="dashboard" element={<DashboardPage />} />
 
             {/* Módulos Pendientes de Desarrollo */}
             <Route path="transacciones" element={<ModuloEnDesarrollo titulo="Transacciones" />} />
