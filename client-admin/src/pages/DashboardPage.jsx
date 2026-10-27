@@ -3,7 +3,7 @@ import {
     DollarSign, ShoppingCart, Package, Users, AlertTriangle, ArrowRightLeft, TrendingUp,
     Activity, Clock, CheckCircle2, FileText, RefreshCw, Filter, X, ArrowUpRight,
     ArrowDownRight, Minus, XCircle, Truck, Receipt, Boxes, Building2, PackageX,
-    Wallet, Flame, Store, Tag, Trash2, ShieldCheck, Layers, PieChart, BarChart3, Briefcase
+    Wallet, Flame, Store, Tag, Trash2, ShieldCheck, Layers, PieChart, BarChart3, Briefcase, LayoutDashboard
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -56,9 +56,11 @@ const PETICIONES = {
 }
 const NECESARIAS = {
     admin: Object.keys(PETICIONES),
-    bodega: ['pedidos', 'existencias', 'movimientos', 'traslados', 'sucursales', 'categorias'],
+    bodega: ['pedidos', 'existencias', 'movimientos', 'traslados', 'sucursales', 'categorias', 'clientes'],
     vendedor: ['pedidos', 'clientes', 'sucursales', 'existencias']
 }
+// Datos de apoyo (solo sirven para traducir ids a nombres): si el rol no tiene permiso, no se muestra alerta
+const OPCIONALES = { admin: [], bodega: ['clientes'], vendedor: ['existencias'] }
 const NOMBRE_DATASET = {
     pedidos: 'pedidos', existencias: 'existencias', movimientos: 'movimientos', traslados: 'traslados',
     sucursales: 'sucursales', clientes: 'clientes', pendientes: 'clientes pendientes', categorias: 'categorías',
@@ -215,10 +217,61 @@ const crearEscala = (maxValor, minimo = 4, divisiones = 4) => {
     return { ticks, tope: ticks[ticks.length - 1] }
 }
 
+const textoValido = (v) => (typeof v === 'string' && v.trim() ? v.trim() : '')
+
+// Nombre legible de un cliente/empleado/usuario: busca en el objeto y en los anidados (persona, usuario...)
 const nombreCliente = (c) => {
     if (!c) return ''
-    const compuesto = [c.nombres ?? c.nombre, c.apellidos ?? c.apellido].filter(Boolean).join(' ')
-    return c.nombre_completo || c.razon_social || c.nombre_comercial || compuesto || ''
+    if (typeof c === 'string') return textoValido(c)
+    if (typeof c !== 'object') return ''
+    const fuentes = [c, c.persona, c.usuario, c.user].filter((x) => x && typeof x === 'object')
+    for (const f of fuentes) {
+        const compuesto = [f.nombres ?? f.nombre ?? f.primer_nombre, f.apellidos ?? f.apellido ?? f.primer_apellido]
+            .map(textoValido).filter(Boolean).join(' ')
+        const n = textoValido(f.nombre_completo) || textoValido(f.razon_social) || textoValido(f.nombre_comercial) || compuesto
+        if (n) return n
+    }
+    // Sin nombre: lo más útil para un administrador es un dato de contacto, no un id
+    for (const f of fuentes) {
+        const alt = textoValido(f.email) || textoValido(f.correo) || (f.nit ? `NIT ${f.nit}` : '') || textoValido(f.telefono)
+        if (alt) return alt
+    }
+    return ''
+}
+
+// El token JWT se guarda al iniciar sesión (ver api.js): sirve de respaldo si el usuario del contexto viene sin nombre
+const leerPayloadToken = () => {
+    try {
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token')
+        const parte = token ? token.split('.')[1] : null
+        if (!parte) return null
+        const b64 = parte.replace(/-/g, '+').replace(/_/g, '/')
+        const json = decodeURIComponent(atob(b64).split('').map((ch) => `%${`00${ch.charCodeAt(0).toString(16)}`.slice(-2)}`).join(''))
+        const payload = JSON.parse(json)
+        return payload && typeof payload === 'object' ? payload : null
+    } catch {
+        return null
+    }
+}
+
+const nombreVisibleUsuario = (usr) => {
+    if (typeof usr === 'string' && usr.trim()) return usr.trim()
+    const payload = leerPayloadToken()
+    const fuentes = [usr, usr?.user, usr?.usuario, usr?.empleado, usr?.persona, usr?.data, payload, payload?.user, payload?.usuario]
+        .filter((f) => f && typeof f === 'object')
+    for (const f of fuentes) {
+        const compuesto = [f.nombres ?? f.nombre ?? f.primer_nombre, f.apellidos ?? f.apellido ?? f.primer_apellido]
+            .map(textoValido).filter(Boolean).join(' ')
+        const n = textoValido(f.nombre_completo) || textoValido(f.nombreCompleto) || textoValido(f.full_name) ||
+            textoValido(f.fullName) || textoValido(f.displayName) || textoValido(f.name) || compuesto
+        if (n) return n
+    }
+    for (const f of fuentes) {
+        const alt = textoValido(f.username) || textoValido(f.user_name) || textoValido(f.email) || textoValido(f.correo) ||
+            textoValido(f.correo_electronico) || textoValido(f.mail) || (textoValido(f.sub).includes('@') ? textoValido(f.sub) : '')
+        if (alt) return alt
+    }
+    return 'Usuario'
 }
 
 const nombreProducto = (o, ctx) => {
@@ -245,7 +298,8 @@ const normalizarPedido = (p, ctx) => {
         sucursalId: sucId != null ? String(sucId) : '',
         sucursalNombre: p.sucursal?.nombre,
         clienteId: cliId != null ? String(cliId) : '',
-        cliente: nombreCliente(p.cliente) || p.cliente_nombre || (cliId != null ? ctx?.mapaCli?.[String(cliId)] : '') ||
+        cliente: nombreCliente(p.cliente) || textoValido(p.cliente_nombre) || textoValido(p.nombre_cliente) ||
+            (cliId != null ? ctx?.mapaCli?.[String(cliId)] : '') ||
             (cliId != null ? 'Cliente sin nombre' : 'Consumidor final'),
         vendedorIds: [p.vendedor_id, p.empleado_id, p.usuario_id, p.created_by, p.vendedor?.id, p.empleado?.id, p.usuario?.id]
             .filter((v) => v != null).map(String),
@@ -341,7 +395,7 @@ function SinDatos({ texto = 'Sin datos para los filtros seleccionados', altura =
 
 function Tarjeta({ titulo, icono: Icono, children, className = '', derecha }) {
     return (
-        <section className={`bg-card border rounded-2xl p-4 md:p-6 shadow-sm flex flex-col min-w-0 ${className}`}>
+        <section className={`bg-card border rounded-2xl p-4 md:p-6 shadow-sm flex flex-col min-w-0 w-full ${className}`}>
             <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
                 <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
                     {Icono && <Icono size={16} className="text-primary" />}
@@ -516,7 +570,7 @@ function Dona({ items, formatoValor = formatNum, centroTitulo, centroValor, acti
     const enHover = lista.find((i) => i.id === hover)
 
     return (
-        <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-center gap-4">
+        <div className="flex flex-col sm:flex-row lg:flex-col 2xl:flex-row items-center gap-4">
             <svg viewBox="0 0 160 160" className="h-40 w-40 shrink-0 text-muted-foreground" role="img" aria-label="Gráfico de dona">
                 <circle cx="80" cy="80" r={R} fill="none" stroke="currentColor" strokeOpacity="0.1" strokeWidth="22" />
                 {lista.map((it) => {
@@ -675,10 +729,10 @@ function Kpi({ titulo, valor, subtitulo, icono: Icono, color, bg, delta, buenoSi
         }
     }
     return (
-        <div className="bg-card border rounded-2xl p-5 shadow-sm flex items-center justify-between gap-3 min-w-0">
+        <div className="bg-card border rounded-2xl p-5 shadow-sm flex items-center justify-between gap-3 min-w-0 h-full">
             <div className="min-w-0 flex-1">
                 <p className="text-[10px] md:text-[11px] font-bold uppercase text-muted-foreground tracking-wider mb-1">{titulo}</p>
-                <h3 className="text-2xl md:text-3xl font-black text-foreground mb-0.5 truncate" title={String(valor)}>{valor}</h3>
+                <h3 className="text-2xl md:text-3xl lg:text-2xl 2xl:text-3xl font-black text-foreground mb-0.5 truncate" title={String(valor)}>{valor}</h3>
                 <div className="flex items-center gap-2 flex-wrap">
                     {chip}
                     <p className="text-[11px] md:text-xs text-muted-foreground">{subtitulo}</p>
@@ -742,7 +796,9 @@ export default function DashboardPage() {
     const { usuario } = useAuth()
 
     const rolUsuario = normalizar(usuario?.perfil || usuario?.rol || 'ADMIN')
-    const nombreUsuario = usuario?.nombres || usuario?.nombre || usuario?.email || 'Usuario'
+
+    const nombreUsuario = useMemo(() => nombreVisibleUsuario(usuario), [usuario])
+
     const esAdmin = rolUsuario === 'ADMIN' || rolUsuario === 'GERENTE'
     const esBodega = rolUsuario === 'BODEGUERO' || rolUsuario === 'BODEGA'
     const vista = esAdmin ? 'admin' : esBodega ? 'bodega' : 'vendedor'
@@ -756,6 +812,21 @@ export default function DashboardPage() {
     const [actualizado, setActualizado] = useState(null)
     const [filtros, setFiltros] = useState(FILTROS_INICIALES)
     const [metrica, setMetrica] = useState('ingresos')
+    const [seccion, setSeccion] = useState('resumen')
+
+    // Si el usuario del contexto no trae nombre ni correo, se busca su ficha en empleados (solo coincidencias seguras)
+    const nombreEmpleado = useMemo(() => {
+        if (!datos?.empleados || !usuario || typeof usuario !== 'object') return ''
+        const idEmp = usuario.empleado_id ?? usuario.empleado?.id
+        const correo = textoValido(usuario.email) || textoValido(usuario.correo)
+        const e = extraerData(datos.empleados).find((x) => x && (
+            (idEmp != null && String(x.id) === String(idEmp)) ||
+            (usuario.id != null && x.usuario_id != null && String(x.usuario_id) === String(usuario.id)) ||
+            (correo && (x.email === correo || x.correo === correo))
+        ))
+        return e ? nombreCliente(e) : ''
+    }, [datos, usuario])
+    const nombreMostrado = nombreUsuario !== 'Usuario' ? nombreUsuario : (nombreEmpleado || 'Usuario')
 
     const setFiltro = (campo, valor) => setFiltros((f) => ({ ...f, [campo]: valor }))
     const alternarFiltro = (campo, valor) => setFiltros((f) => ({ ...f, [campo]: f[campo] === valor ? '' : valor }))
@@ -795,6 +866,22 @@ export default function DashboardPage() {
         if (!datos) return null
         const lista = (k) => extraerData(datos[k]).filter((x) => x && typeof x === 'object')
 
+        // Catálogos id → nombre, para no mostrar ids internos
+        const mapaVar = {}
+        lista('existencias').forEach((e) => {
+            const id = e.variante_id ?? e.variante?.id
+            const nombre = e.variante?.producto?.nombre || e.producto?.nombre || e.nombre_producto
+            if (id != null && nombre) mapaVar[String(id)] = nombre
+        })
+        const mapaProd = {}
+        lista('productos').forEach((pr) => { if (pr.id != null && pr.nombre) mapaProd[String(pr.id)] = pr.nombre })
+        const mapaCli = {}
+        lista('clientes').forEach((c) => {
+            const n = nombreCliente(c)
+            if (n) [c.id, c.cliente_id, c.id_cliente].filter((v) => v != null).forEach((v) => { mapaCli[String(v)] = n })
+        })
+        const ctx = { mapaVar, mapaProd, mapaCli }
+
         const sucursales = lista('sucursales').map((s) => ({
             id: String(s.id ?? s.sucursal_id ?? ''),
             nombre: s.nombre ?? s.name ?? `Sucursal ${s.id ?? ''}`.trim()
@@ -804,7 +891,7 @@ export default function DashboardPage() {
         const mapaCat = Object.fromEntries(categorias.map((c) => [c.id, c.nombre]))
         const nombreSuc = (id, alt) => mapaSuc[id] || alt || (id ? `Sucursal ${id}` : 'Sin sucursal')
 
-        let pedidos = lista('pedidos').map(normalizarPedido)
+        let pedidos = lista('pedidos').map((p) => normalizarPedido(p, ctx))
         const ids = misIds ? misIds.split(',') : []
         const hayCampoVendedor = pedidos.some((p) => p.vendedorIds.length > 0)
         const filtradoPorVendedor = vista === 'vendedor' && hayCampoVendedor && ids.length > 0
@@ -817,8 +904,8 @@ export default function DashboardPage() {
             sucursales, categorias, nombreSuc, filtradoPorVendedor,
             pedidos,
             estados: [...new Set([...ESTADOS_BASE, ...estadosVistos])],
-            existencias: lista('existencias').map((e) => normalizarExistencia(e, mapaCat)),
-            movimientos: lista('movimientos').map(normalizarMovimiento),
+            existencias: lista('existencias').map((e) => normalizarExistencia(e, mapaCat, ctx)),
+            movimientos: lista('movimientos').map((m) => normalizarMovimiento(m, ctx)),
             traslados: lista('traslados').map(normalizarTraslado),
             clientesFechas: clientes.map((c) => aFecha(c.createdAt ?? c.created_at)).filter(Boolean),
             totalClientes: extraerTotal(datos.clientes),
@@ -921,7 +1008,8 @@ export default function DashboardPage() {
         const topProductos = [...mapaProd.values()].sort((a, b) => b.valor - a.valor).slice(0, 8)
 
         const mapaCli = new Map()
-        pedAct.filter((p) => COBRADOS.includes(p.estado)).forEach((p) => {
+        // Las ventas sin cliente (consumidor final) no son un cliente identificable: no entran al ranking
+        pedAct.filter((p) => COBRADOS.includes(p.estado) && (p.clienteId || p.cliente !== 'Consumidor final')).forEach((p) => {
             const m = mapaCli.get(p.clienteId || p.cliente) || { id: p.clienteId || p.cliente, etiqueta: p.cliente, valor: 0 }
             m.valor += p.total
             mapaCli.set(p.clienteId || p.cliente, m)
@@ -1020,14 +1108,14 @@ export default function DashboardPage() {
     }, [base])
 
     const fechaHoy = new Date().toLocaleDateString('es-GT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-    const fallidasRelevantes = fallidas.map((k) => NOMBRE_DATASET[k] || k)
+    const fallidasRelevantes = fallidas.filter((k) => !(OPCIONALES[vista] || []).includes(k)).map((k) => NOMBRE_DATASET[k] || k)
     const esMoneda = METRICAS[metrica].moneda
     const defMetrica = METRICAS[metrica]
 
     const encabezado = (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">Hola, {nombreUsuario}</h1>
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">Hola, {nombreMostrado}</h1>
                 <p className="text-xs md:text-sm text-muted-foreground mt-1">
                     Panel de Control • <span className="font-semibold text-primary">{rolUsuario}</span> • {fechaHoy}
                 </p>
@@ -1157,7 +1245,7 @@ export default function DashboardPage() {
 
     const bloqueTendencia = (
         <Tarjeta
-            titulo={`${defMetrica.nombre} por ${an.agr === 'dia' ? 'día' : an.agr === 'semana' ? 'semana' : 'mes'}`} icono={TrendingUp} className="lg:col-span-2"
+            titulo={`${defMetrica.nombre} por ${an.agr === 'dia' ? 'día' : an.agr === 'semana' ? 'semana' : 'mes'}`} icono={TrendingUp}
             derecha={
                 <select aria-label="Métrica del gráfico" className={CLASE_CONTROL} value={metrica} onChange={(e) => setMetrica(e.target.value)}>
                     {Object.entries(METRICAS).map(([k, m]) => <option key={k} value={k}>{m.nombre}</option>)}
@@ -1202,7 +1290,7 @@ export default function DashboardPage() {
     )
 
     const bloqueCalor = (
-        <Tarjeta titulo="Horas pico de pedidos" icono={Flame} className="lg:col-span-2">
+        <Tarjeta titulo="Horas pico de pedidos" icono={Flame}>
             <MapaCalor matriz={an.matriz} />
         </Tarjeta>
     )
@@ -1218,14 +1306,14 @@ export default function DashboardPage() {
             <div className="flex flex-col gap-4">
                 <Progreso etiqueta="Cumplimiento de pedidos" valor={an.act.cumplimiento} detalle={`${an.act.cobrados} de ${an.act.activos} pedidos activos cobrados`} />
                 <Progreso etiqueta="Tasa de anulación" valor={an.act.tasaAnulacion} buenoSiAlto={false} detalle={`${an.act.anulados} anulados de ${an.act.total}`} />
-                {base.existencias.length > 0 && <Progreso etiqueta="Cobertura de stock" valor={an.inv.cobertura} detalle={`${an.inv.criticos} de ${an.inv.skus} SKUs bajo mínimo`} />}
+                {vista !== 'vendedor' && base.existencias.length > 0 && <Progreso etiqueta="Cobertura de stock" valor={an.inv.cobertura} detalle={`${an.inv.criticos} de ${an.inv.skus} SKUs bajo mínimo`} />}
                 {an.trasTotal > 0 && <Progreso etiqueta="Traslados recibidos" valor={(an.trasRecibidos / an.trasTotal) * 100} detalle={`${an.trasRecibidos} de ${an.trasTotal} traslados`} />}
             </div>
         </Tarjeta>
     )
 
     const bloqueMovimientos = (
-        <Tarjeta titulo="Entradas vs. salidas de inventario" icono={Boxes} className="lg:col-span-2">
+        <Tarjeta titulo="Entradas vs. salidas de inventario" icono={Boxes}>
             <GraficoCartesiano
                 datos={an.serieMov}
                 series={[
@@ -1265,18 +1353,18 @@ export default function DashboardPage() {
     )
 
     const columnasPedidos = [
-        { titulo: 'Ref', mono: true, render: (f) => f.ref },
+        { titulo: 'Ref', mono: true, render: (f) => f.ref || '—' },
         { titulo: 'Cliente', render: (f) => <span className="inline-block max-w-[140px] truncate align-bottom">{f.cliente}</span> },
         { titulo: 'Estado', alinear: 'center', render: (f) => <EstadoChip estado={f.estado} /> },
         { titulo: 'Monto', alinear: 'right', render: (f) => formatQ(f.total) }
     ]
     const bloqueTablaPedidos = (
-        <Tarjeta titulo="Transacciones recientes" icono={FileText} className="lg:col-span-2">
+        <Tarjeta titulo="Transacciones recientes" icono={FileText}>
             <Tabla columnas={columnasPedidos} filas={an.pedidosRecientes.map((p) => ({ ...p, key: p.id }))} vacio="No hay pedidos para los filtros seleccionados." />
         </Tarjeta>
     )
     const bloqueTablaDespacho = (
-        <Tarjeta titulo="Pedidos por despachar" icono={Clock} className="lg:col-span-2">
+        <Tarjeta titulo="Pedidos por despachar" icono={Clock}>
             <Tabla columnas={columnasPedidos} filas={an.porDespachar.map((p) => ({ ...p, key: p.id }))} vacio="No hay pedidos pendientes de despacho." />
         </Tarjeta>
     )
@@ -1293,10 +1381,10 @@ export default function DashboardPage() {
         </Tarjeta>
     )
     const bloqueTablaTraslados = (
-        <Tarjeta titulo="Traslados recientes" icono={ArrowRightLeft} className="lg:col-span-2">
+        <Tarjeta titulo="Traslados recientes" icono={ArrowRightLeft}>
             <Tabla
                 columnas={[
-                    { titulo: 'Ref', mono: true, render: (f) => f.ref },
+                    { titulo: 'Ref', mono: true, render: (f) => f.ref || '—' },
                     { titulo: 'Ruta', render: (f) => `${an.nombreSuc(f.origenId, f.origenNombre)} → ${an.nombreSuc(f.destinoId, f.destinoNombre)}` },
                     { titulo: 'Estado', alinear: 'center', render: (f) => <EstadoChip estado={f.estado} /> }
                 ]}
@@ -1306,7 +1394,7 @@ export default function DashboardPage() {
     )
     const bloqueResumen = (
         <Tarjeta titulo="Resumen del negocio" icono={Briefcase}>
-            <dl className="grid grid-cols-2 gap-3">
+            <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 {[
                     ['Productos', base.totalProductos], ['Proveedores', base.totalProveedores],
                     ['Empleados', base.totalEmpleados], ['Sucursales', base.sucursales.length],
@@ -1326,51 +1414,91 @@ export default function DashboardPage() {
     const kpiTicket = { titulo: 'Ticket promedio', valor: formatQ(an.act.ticket), subtitulo: 'Por pedido cobrado', icono: Receipt, color: 'text-amber-600', bg: 'bg-amber-500/10', delta: variacion(an.act.ticket, an.prev.ticket), spark: spark('ticket'), sparkColor: '#f59e0b' }
     const kpiClientes = { titulo: 'Clientes', valor: formatNum(base.totalClientes), subtitulo: base.totalPendientes ? `${formatNum(base.totalPendientes)} por aprobar` : `${formatNum(an.clientesNuevos)} nuevos`, icono: Users, color: 'text-violet-600', bg: 'bg-violet-500/10' }
 
-    let filasKpi
+    // ── Secciones: cada vista se divide en pestañas para no mostrar todo a la vez ──
+    const kpi = {
+        valorInventario: { titulo: 'Valor inventario', valor: formatQ(an.inv.valor), subtitulo: `${formatNum(an.inv.unidades)} unidades`, icono: Package, color: 'text-indigo-600', bg: 'bg-indigo-500/10' },
+        cumplimiento: { titulo: 'Cumplimiento', valor: formatPct(an.act.cumplimiento), subtitulo: 'Cobrados / activos', icono: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-500/10', delta: variacion(an.act.cumplimiento, an.prev.cumplimiento) },
+        perdidaMermas: { titulo: 'Pérdida por mermas', valor: formatQ(an.perdidaMermas), subtitulo: `${formatNum(an.mov.mermasUnid)} unidades`, icono: Trash2, color: 'text-rose-600', bg: 'bg-rose-500/10', delta: variacion(an.perdidaMermas, an.perdidaMermasPrev), buenoSiSube: false },
+        stockCritico: { titulo: 'Stock crítico', valor: formatNum(an.inv.criticos), subtitulo: `${formatNum(an.inv.agotados)} agotados`, icono: AlertTriangle, color: 'text-amber-600', bg: 'bg-amber-500/10' },
+        pendientes: { titulo: 'Pedidos pendientes', valor: formatNum(an.act.pendientes), subtitulo: 'Requieren atención', icono: Clock, color: 'text-blue-600', bg: 'bg-blue-500/10' },
+        trasladosActivos: { titulo: 'Traslados activos', valor: formatNum(an.trasActivos), subtitulo: 'En ruta o pendientes', icono: ArrowRightLeft, color: 'text-amber-600', bg: 'bg-amber-500/10' },
+        compras: { titulo: 'Compras del periodo', valor: formatQ(an.mov.compras), subtitulo: 'Entradas por compra', icono: Wallet, color: 'text-indigo-600', bg: 'bg-indigo-500/10', delta: variacion(an.mov.compras, an.mov.comprasPrev), buenoSiSube: false },
+        anulacion: { titulo: 'Tasa de anulación', valor: formatPct(an.act.tasaAnulacion), subtitulo: `${an.act.anulados} anulados`, icono: XCircle, color: 'text-rose-600', bg: 'bg-rose-500/10', delta: variacion(an.act.tasaAnulacion, an.prev.tasaAnulacion), buenoSiSube: false },
+        unidades: { titulo: 'Unidades físicas', valor: formatNum(an.inv.unidades), subtitulo: 'Stock total', icono: Package, color: 'text-blue-600', bg: 'bg-blue-500/10' },
+        skus: { titulo: 'SKUs registrados', valor: formatNum(an.inv.skus), subtitulo: 'Variantes con existencia', icono: Boxes, color: 'text-indigo-600', bg: 'bg-indigo-500/10' },
+        stockCriticoBodega: { titulo: 'Stock crítico', valor: formatNum(an.inv.criticos), subtitulo: `${formatNum(an.inv.agotados)} agotados`, icono: AlertTriangle, color: 'text-rose-600', bg: 'bg-rose-500/10' },
+        aDespachar: { titulo: 'Pedidos a despachar', valor: formatNum(an.act.pendientes), subtitulo: 'Esperando salida', icono: Activity, color: 'text-emerald-600', bg: 'bg-emerald-500/10' },
+        entradas: { titulo: 'Entradas del periodo', valor: formatNum(an.mov.entradas), subtitulo: 'Unidades ingresadas', icono: Boxes, color: 'text-emerald-600', bg: 'bg-emerald-500/10', spark: an.serieMov.map((d) => d.entradas), sparkColor: '#10b981' },
+        salidas: { titulo: 'Salidas del periodo', valor: formatNum(an.mov.salidas), subtitulo: 'Unidades despachadas', icono: Truck, color: 'text-amber-600', bg: 'bg-amber-500/10', spark: an.serieMov.map((d) => d.salidas), sparkColor: '#f59e0b' },
+        mermasUnid: { titulo: 'Mermas', valor: formatNum(an.mov.mermasUnid), subtitulo: formatQ(an.perdidaMermas), icono: Trash2, color: 'text-rose-600', bg: 'bg-rose-500/10', delta: variacion(an.perdidaMermas, an.perdidaMermasPrev), buenoSiSube: false },
+        vPendientes: { titulo: 'Pendientes', valor: formatNum(an.act.pendientes), subtitulo: 'Órdenes no cerradas', icono: Clock, color: 'text-amber-600', bg: 'bg-amber-500/10' },
+        vCompletados: { titulo: 'Completados', valor: formatNum(an.act.cobrados), subtitulo: 'Órdenes exitosas', icono: CheckCircle2, color: 'text-blue-600', bg: 'bg-blue-500/10', delta: variacion(an.act.cobrados, an.prev.cobrados) },
+        vCierre: { titulo: 'Tasa de cierre', valor: formatPct(an.act.cumplimiento), subtitulo: 'Cobrados / activos', icono: ShieldCheck, color: 'text-emerald-600', bg: 'bg-emerald-500/10', delta: variacion(an.act.cumplimiento, an.prev.cumplimiento) },
+        vAnulados: { titulo: 'Anulados', valor: formatNum(an.act.anulados), subtitulo: formatPct(an.act.tasaAnulacion), icono: XCircle, color: 'text-rose-600', bg: 'bg-rose-500/10', delta: variacion(an.act.anulados, an.prev.anulados), buenoSiSube: false }
+    }
+
+    // Cada fila suma 3 columnas: [bloque, columnas que ocupa]
+    let secciones
     if (vista === 'admin') {
-        filasKpi = [
-            [kpiIngresos, kpiPedidos, kpiTicket, kpiClientes],
-            [
-                { titulo: 'Valor inventario', valor: formatQ(an.inv.valor), subtitulo: `${formatNum(an.inv.unidades)} unidades`, icono: Package, color: 'text-indigo-600', bg: 'bg-indigo-500/10' },
-                { titulo: 'Cumplimiento', valor: formatPct(an.act.cumplimiento), subtitulo: 'Cobrados / activos', icono: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-500/10', delta: variacion(an.act.cumplimiento, an.prev.cumplimiento) },
-                { titulo: 'Pérdida por mermas', valor: formatQ(an.perdidaMermas), subtitulo: `${formatNum(an.mov.mermasUnid)} unidades`, icono: Trash2, color: 'text-rose-600', bg: 'bg-rose-500/10', delta: variacion(an.perdidaMermas, an.perdidaMermasPrev), buenoSiSube: false },
-                { titulo: 'Stock crítico', valor: formatNum(an.inv.criticos), subtitulo: `${formatNum(an.inv.agotados)} agotados`, icono: AlertTriangle, color: 'text-amber-600', bg: 'bg-amber-500/10' }
-            ],
-            [
-                { titulo: 'Pedidos pendientes', valor: formatNum(an.act.pendientes), subtitulo: 'Requieren atención', icono: Clock, color: 'text-blue-600', bg: 'bg-blue-500/10' },
-                { titulo: 'Traslados activos', valor: formatNum(an.trasActivos), subtitulo: 'En ruta o pendientes', icono: ArrowRightLeft, color: 'text-amber-600', bg: 'bg-amber-500/10' },
-                { titulo: 'Compras del periodo', valor: formatQ(an.mov.compras), subtitulo: 'Entradas por compra', icono: Wallet, color: 'text-indigo-600', bg: 'bg-indigo-500/10', delta: variacion(an.mov.compras, an.mov.comprasPrev), buenoSiSube: false },
-                { titulo: 'Tasa de anulación', valor: formatPct(an.act.tasaAnulacion), subtitulo: `${an.act.anulados} anulados`, icono: XCircle, color: 'text-rose-600', bg: 'bg-rose-500/10', delta: variacion(an.act.tasaAnulacion, an.prev.tasaAnulacion), buenoSiSube: false }
-            ]
+        secciones = [
+            {
+                id: 'resumen', nombre: 'Resumen', icono: LayoutDashboard, descripcion: 'Lo más importante del negocio de un vistazo',
+                kpis: [kpiIngresos, kpiPedidos, kpiTicket, kpiClientes],
+                filas: [[[bloqueTendencia, 2], [bloqueEstados, 1]], [[bloqueSalud, 1], [bloqueTablaPedidos, 2]], [[bloqueResumen, 3]]]
+            },
+            {
+                id: 'ventas', nombre: 'Ventas', icono: TrendingUp, descripcion: 'Dónde se vende, qué se vende y quién compra',
+                kpis: [kpi.cumplimiento, kpi.pendientes, kpi.anulacion],
+                filas: [[[bloqueSucursales, 1], [bloqueProductos, 1], [bloqueClientes, 1]], [[bloqueCalor, 3]]]
+            },
+            {
+                id: 'inventario', nombre: 'Inventario y traslados', icono: Package, badge: an.inv.criticos, descripcion: 'Existencias, movimientos, mermas y traslados entre sucursales',
+                kpis: [kpi.valorInventario, kpi.stockCritico, kpi.perdidaMermas, kpi.compras, kpi.trasladosActivos],
+                filas: [
+                    [[bloqueMovimientos, 2], [bloqueMermas, 1]],
+                    [[bloqueInvSucursal, 1], [bloqueInvCategoria, 1], [bloqueTraslados, 1]],
+                    [[bloqueTablaCritico, 3]],
+                    [[bloqueTablaTraslados, 3]]
+                ]
+            }
         ]
     } else if (vista === 'bodega') {
-        filasKpi = [
-            [
-                { titulo: 'Unidades físicas', valor: formatNum(an.inv.unidades), subtitulo: 'Stock total', icono: Package, color: 'text-blue-600', bg: 'bg-blue-500/10' },
-                { titulo: 'SKUs registrados', valor: formatNum(an.inv.skus), subtitulo: 'Variantes con existencia', icono: Boxes, color: 'text-indigo-600', bg: 'bg-indigo-500/10' },
-                { titulo: 'Stock crítico', valor: formatNum(an.inv.criticos), subtitulo: `${formatNum(an.inv.agotados)} agotados`, icono: AlertTriangle, color: 'text-rose-600', bg: 'bg-rose-500/10' },
-                { titulo: 'Traslados activos', valor: formatNum(an.trasActivos), subtitulo: 'En ruta o pendientes', icono: ArrowRightLeft, color: 'text-amber-600', bg: 'bg-amber-500/10' }
-            ],
-            [
-                { titulo: 'Pedidos a despachar', valor: formatNum(an.act.pendientes), subtitulo: 'Esperando salida', icono: Activity, color: 'text-emerald-600', bg: 'bg-emerald-500/10' },
-                { titulo: 'Entradas del periodo', valor: formatNum(an.mov.entradas), subtitulo: 'Unidades ingresadas', icono: Boxes, color: 'text-emerald-600', bg: 'bg-emerald-500/10', spark: an.serieMov.map((d) => d.entradas), sparkColor: '#10b981' },
-                { titulo: 'Salidas del periodo', valor: formatNum(an.mov.salidas), subtitulo: 'Unidades despachadas', icono: Truck, color: 'text-amber-600', bg: 'bg-amber-500/10', spark: an.serieMov.map((d) => d.salidas), sparkColor: '#f59e0b' },
-                { titulo: 'Mermas', valor: formatNum(an.mov.mermasUnid), subtitulo: formatQ(an.perdidaMermas), icono: Trash2, color: 'text-rose-600', bg: 'bg-rose-500/10', delta: variacion(an.perdidaMermas, an.perdidaMermasPrev), buenoSiSube: false }
-            ]
+        secciones = [
+            {
+                id: 'resumen', nombre: 'Resumen', icono: LayoutDashboard, descripcion: 'Estado general de la bodega',
+                kpis: [kpi.unidades, kpi.skus, kpi.stockCriticoBodega, kpi.trasladosActivos, kpi.aDespachar],
+                filas: [[[bloqueMovimientos, 2], [bloqueSalud, 1]], [[bloqueTablaDespacho, 2], [bloqueEstados, 1]]]
+            },
+            {
+                id: 'inventario', nombre: 'Inventario', icono: Package, badge: an.inv.criticos, descripcion: 'Entradas, salidas, mermas y valor de las existencias',
+                kpis: [kpi.entradas, kpi.salidas, kpi.mermasUnid],
+                filas: [[[bloqueInvSucursal, 1], [bloqueInvCategoria, 1], [bloqueMermas, 1]], [[bloqueTablaCritico, 3]]]
+            },
+            {
+                id: 'traslados', nombre: 'Traslados', icono: Truck, badge: an.trasActivos, descripcion: 'Movimiento de mercadería entre sucursales',
+                kpis: [],
+                filas: [[[bloqueTraslados, 1], [bloqueTablaTraslados, 2]]]
+            }
         ]
     } else {
-        filasKpi = [
-            [{ ...kpiIngresos, titulo: 'Mis ventas' }, kpiPedidos, kpiTicket, kpiClientes],
-            [
-                { titulo: 'Pendientes', valor: formatNum(an.act.pendientes), subtitulo: 'Órdenes no cerradas', icono: Clock, color: 'text-amber-600', bg: 'bg-amber-500/10' },
-                { titulo: 'Completados', valor: formatNum(an.act.cobrados), subtitulo: 'Órdenes exitosas', icono: CheckCircle2, color: 'text-blue-600', bg: 'bg-blue-500/10', delta: variacion(an.act.cobrados, an.prev.cobrados) },
-                { titulo: 'Tasa de cierre', valor: formatPct(an.act.cumplimiento), subtitulo: 'Cobrados / activos', icono: ShieldCheck, color: 'text-emerald-600', bg: 'bg-emerald-500/10', delta: variacion(an.act.cumplimiento, an.prev.cumplimiento) },
-                { titulo: 'Anulados', valor: formatNum(an.act.anulados), subtitulo: formatPct(an.act.tasaAnulacion), icono: XCircle, color: 'text-rose-600', bg: 'bg-rose-500/10', delta: variacion(an.act.anulados, an.prev.anulados), buenoSiSube: false }
-            ]
+        secciones = [
+            {
+                id: 'resumen', nombre: 'Resumen', icono: LayoutDashboard, descripcion: 'Tu desempeño de ventas',
+                kpis: [{ ...kpiIngresos, titulo: 'Mis ventas' }, kpiPedidos, kpiTicket, kpiClientes],
+                filas: [[[bloqueTendencia, 2], [bloqueEstados, 1]], [[bloqueSalud, 1], [bloqueTablaPedidos, 2]]]
+            },
+            {
+                id: 'ventas', nombre: 'Mis ventas', icono: TrendingUp, descripcion: 'Detalle de tus productos, clientes y horarios',
+                kpis: [kpi.vPendientes, kpi.vCompletados, kpi.vCierre, kpi.vAnulados],
+                filas: [[[bloqueProductos, 1], [bloqueClientes, 1], [bloqueDiaSemana, 1]], [[bloqueCalor, 3]]]
+            }
         ]
     }
 
-    const grid3 = 'grid grid-cols-1 lg:grid-cols-3 gap-6'
+    const activa = secciones.find((s) => s.id === seccion) || secciones[0]
+    const claseKpis = (n) => (n >= 5 ? 'sm:grid-cols-2 lg:grid-cols-6 2xl:grid-cols-5' : n === 4 ? 'sm:grid-cols-2 lg:grid-cols-4' : n === 3 ? 'sm:grid-cols-2 lg:grid-cols-3' : 'sm:grid-cols-2')
+    const claseKpiItem = (n, i) => (n >= 5 ? (i < 3 ? 'lg:col-span-2 2xl:col-span-1' : 'lg:col-span-3 2xl:col-span-1') : '')
+    const claseColumnas = { 1: '', 2: 'lg:col-span-2', 3: 'lg:col-span-3' }
 
     return (
         <div className={`flex flex-col gap-6 p-4 md:p-6 lg:p-8 max-w-[1600px] mx-auto min-h-screen transition-opacity ${cargando ? 'opacity-70' : ''}`} translate="no">
@@ -1378,42 +1506,48 @@ export default function DashboardPage() {
             {barraFiltros}
             {avisoFallos}
 
-            <div className="flex flex-col gap-4 md:gap-6">
-                {filasKpi.map((fila, i) => (
-                    <div key={i} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                        {fila.map((k) => <Kpi key={k.titulo} {...k} />)}
+            <nav role="tablist" aria-label="Secciones del dashboard" className="flex flex-wrap gap-2">
+                {secciones.map((s) => {
+                    const Icono = s.icono
+                    const esActiva = s.id === activa.id
+                    return (
+                        <button
+                            key={s.id} type="button" role="tab" data-seccion={s.id} aria-selected={esActiva}
+                            onClick={() => setSeccion(s.id)}
+                            className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-bold transition-colors ${esActiva ? 'border-primary bg-primary text-white shadow-sm' : 'bg-card text-muted-foreground hover:bg-muted/40 hover:text-foreground'}`}
+                        >
+                            <Icono size={15} />
+                            {s.nombre}
+                            {s.badge > 0 && (
+                                <span className={`rounded-full px-1.5 py-0.5 text-[10px] leading-none ${esActiva ? 'bg-white/25 text-white' : 'bg-rose-500/10 text-rose-700'}`}>{formatNum(s.badge)}</span>
+                            )}
+                        </button>
+                    )
+                })}
+            </nav>
+
+            <div role="tabpanel" className="flex flex-col gap-6 md:gap-8">
+                <div>
+                    <h2 className="text-lg md:text-xl font-bold tracking-tight text-foreground">{activa.nombre}</h2>
+                    <p className="text-xs md:text-sm text-muted-foreground mt-0.5">{activa.descripcion}</p>
+                </div>
+
+                {activa.kpis.length > 0 && (
+                    <div className={`grid grid-cols-1 gap-4 md:gap-6 ${claseKpis(activa.kpis.length)}`}>
+                        {activa.kpis.map((k, i) => (
+                            <div key={k.titulo} className={`min-w-0 ${claseKpiItem(activa.kpis.length, i)}`}><Kpi {...k} /></div>
+                        ))}
+                    </div>
+                )}
+
+                {activa.filas.map((fila, i) => (
+                    <div key={`${activa.id}-${i}`} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {fila.map(([bloque, columnas], j) => (
+                            <div key={j} className={`flex min-w-0 ${claseColumnas[columnas] || ''}`}>{bloque}</div>
+                        ))}
                     </div>
                 ))}
             </div>
-
-            {vista === 'admin' && (
-                <>
-                    <div className={grid3}>{bloqueTendencia}{bloqueEstados}</div>
-                    <div className={grid3}>{bloqueSucursales}{bloqueProductos}{bloqueClientes}</div>
-                    <div className={grid3}>{bloqueCalor}{bloqueSalud}</div>
-                    <div className={grid3}>{bloqueMovimientos}{bloqueMermas}</div>
-                    <div className={grid3}>{bloqueInvSucursal}{bloqueInvCategoria}{bloqueTraslados}</div>
-                    <div className={grid3}>{bloqueTablaPedidos}{bloqueTablaCritico}</div>
-                    <div className={grid3}>{bloqueTablaTraslados}{bloqueResumen}</div>
-                </>
-            )}
-            {vista === 'bodega' && (
-                <>
-                    <div className={grid3}>{bloqueMovimientos}{bloqueTraslados}</div>
-                    <div className={grid3}>{bloqueInvSucursal}{bloqueInvCategoria}{bloqueMermas}</div>
-                    <div className={grid3}>{bloqueTablaDespacho}{bloqueTablaCritico}</div>
-                    <div className={grid3}>{bloqueTablaTraslados}{bloqueEstados}</div>
-                    <div className={grid3}>{bloqueSalud}</div>
-                </>
-            )}
-            {vista === 'vendedor' && (
-                <>
-                    <div className={grid3}>{bloqueTendencia}{bloqueEstados}</div>
-                    <div className={grid3}>{bloqueProductos}{bloqueClientes}{bloqueDiaSemana}</div>
-                    <div className={grid3}>{bloqueCalor}{bloqueSalud}</div>
-                    <div className={grid3}>{bloqueTablaPedidos}</div>
-                </>
-            )}
         </div>
     )
 }
