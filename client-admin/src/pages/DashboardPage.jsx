@@ -742,7 +742,16 @@ export default function DashboardPage() {
     const { usuario } = useAuth()
 
     const rolUsuario = normalizar(usuario?.perfil || usuario?.rol || 'ADMIN')
-    const nombreUsuario = usuario?.nombres || usuario?.nombre || usuario?.email || 'Usuario'
+
+    // Extracción ultra-segura del nombre de usuario para evitar que en modo incógnito se quede en "Usuario"
+    // Busca en todos los campos posibles de la carga útil del JWT/BD
+    const getNombreUsuario = (usr) => {
+        if (!usr) return 'Usuario'
+        if (typeof usr === 'string') return usr
+        return usr.nombres || usr.nombre || usr.email || usr.correo || usr.username || 'Usuario'
+    }
+    const nombreUsuario = getNombreUsuario(usuario)
+
     const esAdmin = rolUsuario === 'ADMIN' || rolUsuario === 'GERENTE'
     const esBodega = rolUsuario === 'BODEGUERO' || rolUsuario === 'BODEGA'
     const vista = esAdmin ? 'admin' : esBodega ? 'bodega' : 'vendedor'

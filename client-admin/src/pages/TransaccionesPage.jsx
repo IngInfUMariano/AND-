@@ -33,6 +33,7 @@ export default function TransaccionesPage() {
     const [transacciones, setTransacciones] = useState([])
     const [estadoCuenta, setEstadoCuenta] = useState(null)
 
+    // Estados para el modal de reembolso
     const [modalReembolso, setModalReembolso] = useState(null)
     const [motivoReembolso, setMotivoReembolso] = useState('')
 
@@ -98,7 +99,7 @@ export default function TransaccionesPage() {
         if (!motivoReembolso.trim()) return toast.error('Debe ingresar un motivo para el reembolso.')
 
         try {
-            await transaccionService.reembolsarPago(modalReembolso.id, { motivo: motivoReembolso })
+            await transaccionService.reembolsarPago(modalReembolso.id, { motivo: motivoReembolso.trim() })
             toast.success('Reembolso procesado exitosamente.')
             setModalReembolso(null)
             setMotivoReembolso('')
@@ -113,7 +114,6 @@ export default function TransaccionesPage() {
     const deudaActual = estadoCuenta?.cliente?.credito_utilizado ? Number(estadoCuenta.cliente.credito_utilizado) : 0
 
     const handleMontoChange = (e) => {
-        // Solo permite números, eliminando letras y caracteres especiales
         const soloDigitos = e.target.value.replace(/\D/g, '')
         setCentavosStr(soloDigitos)
     }
@@ -145,7 +145,6 @@ export default function TransaccionesPage() {
         }
     }
 
-    // Convertimos a funciones normales para evitar la recarga del DOM
     const renderFiltros = () => (
         <div className="bg-card border rounded-2xl p-5 shadow-sm flex flex-wrap items-end gap-4 mb-6" translate="no">
             <div className="flex items-center gap-2 text-sm font-bold text-foreground pb-1">
@@ -239,7 +238,11 @@ export default function TransaccionesPage() {
                                     <td className="px-5 py-3.5 text-right font-black text-foreground">{formatQ(tx.monto)}</td>
                                     <td className="px-5 py-3.5 text-center">
                                         {tx.tipo === 'PAGO' && tx.estado === 'EXITOSA' && (
-                                            <button type="button" onClick={() => setModalReembolso(tx)} className="text-[10px] font-bold border border-rose-200 bg-rose-50 text-rose-700 px-3 py-1.5 rounded-lg hover:bg-rose-100 transition-colors">
+                                            <button
+                                                type="button"
+                                                onClick={() => { setModalReembolso(tx); setMotivoReembolso(''); }}
+                                                className="text-[10px] font-bold border border-rose-200 bg-rose-50 text-rose-700 px-3 py-1.5 rounded-lg hover:bg-rose-100 transition-colors shadow-sm"
+                                            >
                                                 Reembolsar
                                             </button>
                                         )}
