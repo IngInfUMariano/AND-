@@ -19,10 +19,11 @@ const getPrecioEfectivo = (variante, tipoCliente) => {
   const tipo = tipoCliente === 'MAYORISTA' ? 'MAYORISTA' : 'MINORISTA'
   return parseFloat(ps.find(p => p.tipo === 'OFERTA')?.monto ?? ps.find(p => p.tipo === tipo)?.monto ?? ps[0]?.monto ?? 0)
 }
-const getPrecioNormal = (variante) => {
+const getPrecioNormal = (variante, tipoCliente) => {
   const ps = variante?.precios ?? []
   if (!ps.some(p => p.tipo === 'OFERTA')) return null
-  return parseFloat(ps.find(p => p.tipo === 'MINORISTA')?.monto ?? 0)
+  const tipo = tipoCliente === 'MAYORISTA' ? 'MAYORISTA' : 'MINORISTA'
+  return parseFloat(ps.find(p => p.tipo === tipo)?.monto ?? ps.find(p => p.tipo === 'MINORISTA')?.monto ?? 0)
 }
 
 const imgUrl = (producto) => {
@@ -175,8 +176,12 @@ export default function Carrito() {
   const isMobile     = useIsMobile()
   const [menuAbierto, setMenuAbierto] = useState(false)
   const [procesando, setProcesando]   = useState(null)
+  const [errorCheckout, setErrorCheckout] = useState(null)
 
   const detalles = carrito?.carrito_detalles ?? []
+
+  // Limpiar error cuando el carrito cambia (el usuario ajustó cantidades)
+  useEffect(() => { setErrorCheckout(null) }, [carrito])
   const subtotal = detalles.reduce(
     (acc, d) => acc + getPrecioEfectivo(d.variante, usuario?.tipo_cliente) * d.cantidad, 0
   )
@@ -207,11 +212,20 @@ export default function Carrito() {
   }
 
   const irAlCheckout = async () => {
+    setErrorCheckout(null)
     try {
-      await carritoService.revalidar()
+      const result = await carritoService.revalidar()
+      if (!result.data?.listo_para_checkout) {
+        const msg = result.data?.mensaje_global ?? 'No se puede proceder al checkout'
+        setErrorCheckout(msg)
+        toast.error(msg)
+        return
+      }
       navigate('/checkout')
     } catch (err) {
-      toast.error(err.response?.data?.error?.mensaje ?? 'Error al validar el carrito')
+      const msg = err.response?.data?.error?.mensaje ?? 'Error al validar el carrito'
+      setErrorCheckout(msg)
+      toast.error(msg)
     }
   }
 
@@ -279,7 +293,7 @@ export default function Carrito() {
                 <div>
                   {detalles.map(d => {
                     const precio      = getPrecioEfectivo(d.variante, usuario?.tipo_cliente)
-                    const precioNormal = getPrecioNormal(d.variante)
+                    const precioNormal = getPrecioNormal(d.variante, usuario?.tipo_cliente)
                     const dis         = procesando === d.id
                     return (
                       <div key={d.id} style={{
@@ -352,7 +366,7 @@ export default function Carrito() {
 
                   {detalles.map(d => {
                     const precio       = getPrecioEfectivo(d.variante, usuario?.tipo_cliente)
-                    const precioNormal = getPrecioNormal(d.variante)
+                    const precioNormal = getPrecioNormal(d.variante, usuario?.tipo_cliente)
                     const dis          = procesando === d.id
                     return (
                       <div key={d.id} style={{
@@ -448,6 +462,37 @@ export default function Carrito() {
                     <span style={{ ...MONO, fontSize: '14px', color: '#0a0a0a' }}>Total</span>
                     <span style={{ ...MONO, fontSize: '15px', color: '#0a0a0a' }}>Q {subtotal.toFixed(2)}</span>
                   </div>
+
+                  {usuario?.tipo_cliente === 'MAYORISTA' && (() => {
+                    const totalPrendas = detalles.reduce((acc, d) => acc + d.cantidad, 0)
+                    const cumple = totalPrendas >= 40
+                    return (
+                      <div style={{
+                        marginBottom: '1.2rem', padding: '10px 14px',
+                        background: cumple ? 'rgba(0,120,0,0.04)' : 'rgba(180,0,0,0.04)',
+                        border: `1px solid ${cumple ? 'rgba(0,120,0,0.18)' : 'rgba(180,0,0,0.18)'}`,
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      }}>
+                        <span style={{ ...MONO, fontSize: '10px', letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.45)' }}>
+                          mínimo mayorista
+                        </span>
+                        <span style={{ ...MONO, fontSize: '12px', color: cumple ? 'rgba(0,100,0,0.8)' : 'rgba(160,0,0,0.8)' }}>
+                          {totalPrendas} / 40 prendas
+                        </span>
+                      </div>
+                    )
+                  })()}
+
+                  {errorCheckout && (
+                    <div style={{
+                      marginBottom: '1rem', padding: '10px 14px',
+                      background: 'rgba(180,0,0,0.05)', border: '1px solid rgba(180,0,0,0.2)',
+                      ...MONO, fontSize: '11px', letterSpacing: '0.06em',
+                      color: 'rgba(160,0,0,0.8)', lineHeight: 1.5,
+                    }}>
+                      {errorCheckout}
+                    </div>
+                  )}
 
                   <button onClick={irAlCheckout} style={{
                     width: '100%', padding: '15px',

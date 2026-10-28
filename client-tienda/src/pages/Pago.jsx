@@ -175,19 +175,95 @@ function FormPago({ pedidoId, monto }) {
   )
 }
 
+function FormCredito({ pedidoId, monto, creditoDisponible }) {
+  const navigate = useNavigate()
+  const [procesando, setProcesando] = useState(false)
+  const suficiente = creditoDisponible >= monto
+
+  const confirmar = async () => {
+    setProcesando(true)
+    try {
+      await pagoService.pagarConCredito(Number(pedidoId))
+      toast.success('Pago con crédito aplicado')
+      navigate(`/pedidos/${pedidoId}`)
+    } catch (err) {
+      toast.error(err.response?.data?.error?.mensaje ?? 'Error al procesar el pago')
+      setProcesando(false)
+    }
+  }
+
+  return (
+    <>
+      {procesando && <ProcesandoOverlay />}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+        <div style={{ borderBottom: '1px solid rgba(10,10,10,0.08)', paddingBottom: '1.8rem' }}>
+          <p style={{ ...MONO, fontSize: '10px', letterSpacing: '0.38em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.38)', marginBottom: '0.5rem' }}>
+            total del pedido
+          </p>
+          <p style={{ ...DISPLAY, fontSize: 'clamp(2rem, 4vw, 3rem)', lineHeight: 1 }}>
+            Q {parseFloat(monto).toFixed(2)}
+          </p>
+        </div>
+
+        <div style={{ borderBottom: '1px solid rgba(10,10,10,0.08)', paddingBottom: '1.8rem' }}>
+          <p style={{ ...MONO, fontSize: '10px', letterSpacing: '0.38em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.38)', marginBottom: '0.5rem' }}>
+            crédito disponible
+          </p>
+          <p style={{ ...DISPLAY, fontSize: 'clamp(1.6rem, 3vw, 2.4rem)', lineHeight: 1, color: suficiente ? '#0a0a0a' : 'rgba(160,0,0,0.8)' }}>
+            Q {parseFloat(creditoDisponible).toFixed(2)}
+          </p>
+          {!suficiente && (
+            <p style={{ ...MONO, fontSize: '11px', color: 'rgba(160,0,0,0.7)', marginTop: '0.6rem' }}>
+              Crédito insuficiente para cubrir este pedido.
+            </p>
+          )}
+        </div>
+
+        <button
+          onClick={confirmar}
+          disabled={procesando || !suficiente}
+          style={{
+            width: '100%', padding: '14px',
+            background: procesando || !suficiente ? 'rgba(10,10,10,0.08)' : '#0a0a0a',
+            color: procesando || !suficiente ? 'rgba(10,10,10,0.22)' : '#fafafa',
+            border: 'none', cursor: procesando || !suficiente ? 'default' : 'pointer',
+            ...MONO, fontSize: '11px', letterSpacing: '0.3em', textTransform: 'uppercase',
+            transition: 'background 0.22s ease, color 0.22s ease',
+            marginTop: '0.5rem',
+          }}
+        >
+          {procesando ? 'procesando...' : 'confirmar pago con crédito'}
+        </button>
+      </div>
+    </>
+  )
+}
+
 export default function Pago() {
   const { pedidoId } = useParams()
   const navigate = useNavigate()
   const [clientSecret, setClientSecret] = useState(null)
   const [monto, setMonto] = useState(0)
+  const [formaPago, setFormaPago] = useState(null)
+  const [creditoDisponible, setCreditoDisponible] = useState(0)
   const [cargando, setCargando] = useState(true)
   const [menuAbierto, setMenuAbierto] = useState(false)
 
   useEffect(() => {
-    pagoService.crearIntencion(Number(pedidoId))
+    pedidoService.obtener(pedidoId)
       .then(res => {
-        setClientSecret(res.data.client_secret)
-        setMonto(res.data.monto)
+        const fp = res.data?.forma_pago
+        const total = res.data?.total ?? 0
+        setFormaPago(fp)
+        setMonto(total)
+        if (fp === 'EN_LINEA') {
+          return pagoService.crearIntencion(Number(pedidoId))
+            .then(r => setClientSecret(r.data.client_secret))
+        }
+        if (fp === 'CREDITO') {
+          return pagoService.obtenerFormas(Number(pedidoId))
+            .then(r => setCreditoDisponible(r.data?.credito_disponible ?? 0))
+        }
       })
       .catch(() => {
         toast.error('No se pudo iniciar el pago')
@@ -230,6 +306,8 @@ export default function Pago() {
             <span style={{ ...MONO, fontSize: '10px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.2)' }}>
               preparando pago...
             </span>
+          ) : formaPago === 'CREDITO' ? (
+            <FormCredito pedidoId={pedidoId} monto={monto} creditoDisponible={creditoDisponible} />
           ) : clientSecret ? (
             <Elements stripe={stripePromise} options={{ clientSecret }}>
               <FormPago pedidoId={pedidoId} monto={monto} />

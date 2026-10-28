@@ -27,10 +27,11 @@ const getPrecioEfectivo = (variante, tipoCliente) => {
   const tipo = tipoCliente === 'MAYORISTA' ? 'MAYORISTA' : 'MINORISTA'
   return parseFloat(ps.find(p => p.tipo === 'OFERTA')?.monto ?? ps.find(p => p.tipo === tipo)?.monto ?? ps[0]?.monto ?? 0)
 }
-const getPrecioNormal = (variante) => {
+const getPrecioNormal = (variante, tipoCliente) => {
   const ps = variante?.precios ?? []
   if (!ps.some(p => p.tipo === 'OFERTA')) return null
-  return parseFloat(ps.find(p => p.tipo === 'MINORISTA')?.monto ?? 0)
+  const tipo = tipoCliente === 'MAYORISTA' ? 'MAYORISTA' : 'MINORISTA'
+  return parseFloat(ps.find(p => p.tipo === tipo)?.monto ?? ps.find(p => p.tipo === 'MINORISTA')?.monto ?? 0)
 }
 
 const zonaParaDept = (zonasEnvio, departamento) => {
@@ -233,11 +234,7 @@ export default function Checkout() {
       const res = await pedidoService.crear(payload)
       const pedidoId = res.data.id
 
-      if (valores.forma_pago === 'STRIPE') {
-        navigate(`/pago/${pedidoId}`)
-      } else {
-        navigate(`/pedidos/${pedidoId}`)
-      }
+      navigate(`/pago/${pedidoId}`)
       recargar()
     } catch (err) {
       toast.error(err.response?.data?.error?.mensaje ?? 'Error al crear el pedido')
@@ -481,7 +478,7 @@ export default function Checkout() {
               <div style={{ borderTop: '2px solid #0a0a0a', paddingTop: '1.4rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                 {detalles.map(d => {
                   const precio       = getPrecioEfectivo(d.variante, usuario?.tipo_cliente)
-                  const precioNormal = getPrecioNormal(d.variante)
+                  const precioNormal = getPrecioNormal(d.variante, usuario?.tipo_cliente)
                   return (
                     <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
                       <div style={{ flex: 1 }}>

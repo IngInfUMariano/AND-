@@ -25,6 +25,9 @@ import Pedidos from '@/pages/PedidosInternos'
 import Comprobantes from '@/pages/ComprobantesPage'
 import EntradasInventario from '@/pages/EntradasInventario' 
 import ComprasInventario from '@/pages/ComprasInventario'
+import InformesPage from '@/pages/InformePage' 
+import DashboardPage from '@/pages/DashboardPage'
+import TransaccionesPage from '@/pages/TransaccionesPage'
 
 // Componente provisional para módulos pendientes o sin permisos
 function ModuloEnDesarrollo({ titulo }) {
@@ -71,8 +74,8 @@ export default function App() {
               </ProtectedRoute>
             }
           >
-            <Route index element={<Dashboard />} />
-            <Route path="dashboard" element={<Dashboard />} />
+            <Route index element={<DashboardPage />} />
+            <Route path="dashboard" element={<DashboardPage />} />
             <Route path="precios" element={<Precios />} />
             <Route path="clientes" element={<Clientes />} />
             <Route path="empleados" element={<Empleados />} />
@@ -124,6 +127,7 @@ export default function App() {
             <Route path="catalogos" element={<Catalogos />} />
             <Route path="categorias" element={<Catalogos />} />
             <Route path="marcas" element={<Catalogos />} />
+            
             {/* RUTA AÑADIDA: Entradas y Conteo General */}
             <Route
               path="entradas"
@@ -164,21 +168,43 @@ export default function App() {
               }
             />
 
-            {/*Modulo de compra de inventario*/ }
+            {/* Modulo de compra de inventario */ }
             <Route
-            path="compras"
-            element={
-              <RoleRoute roles={['ADMIN', 'GERENTE']}>
-                <ComprasInventario />
-              </RoleRoute>
-            }
+              path="compras"
+              element={
+                <RoleRoute roles={['ADMIN', 'GERENTE']}>
+                  <ComprasInventario />
+                </RoleRoute>
+              }
+            />
+            
+            {/* Modulo de Informes */}
+            <Route
+              path="informes"
+              element={
+                <RoleRoute roles={['ADMIN', 'GERENTE']}>
+                  <InformesPage />
+                </RoleRoute>
+              }
             />
 
-            {/* Módulos Pendientes de Desarrollo */}
-            <Route path="transacciones" element={<ModuloEnDesarrollo titulo="Transacciones" />} />
-            <Route path="reportes" element={<ModuloEnDesarrollo titulo="Reportes" />} />
+            <Route 
+              path="dashboard" 
+              element={
+                <DashboardPage />
+              } 
+            />
 
-            {/* Dev / Referencia */}
+            <Route
+              path="transacciones"
+              element={
+                <RoleRoute roles={['ADMIN', 'GERENTE']}>
+                  <TransaccionesPage />
+                </RoleRoute>
+              }
+            />
+            {/* Módulos Pendientes de Desarrollo */}
+            
             <Route path="referencia" element={<Referencia />} />
 
             {/* Error de Permisos */}

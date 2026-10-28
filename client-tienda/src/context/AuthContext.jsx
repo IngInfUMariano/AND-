@@ -23,7 +23,7 @@ export function AuthProvider({ children }) {
     }
 
     api.get('/auth/perfil')
-      .then(({ data }) => setUsuario(data.data))
+      .then(({ data }) => setUsuario({ ...data.data, tipo_cliente: data.data.cliente?.tipo ?? null }))
       .catch(() => {
         localStorage.removeItem('token')
         setUsuario(null)
@@ -36,7 +36,7 @@ export function AuthProvider({ children }) {
     const { token } = data.data
     localStorage.setItem('token', token)
     const { data: perfil } = await api.get('/auth/perfil')
-    setUsuario(perfil.data)
+    setUsuario({ ...perfil.data, tipo_cliente: perfil.data.cliente?.tipo ?? null })
   }
 
   const logout = () => {

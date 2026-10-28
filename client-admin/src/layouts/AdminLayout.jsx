@@ -54,16 +54,11 @@ const MENU = [
     grupo: 'Reportes',
     perfiles: ['ADMIN', 'GERENTE'],
     items: [
-      { label: 'Reportes', to: '/reportes' },
+      { label: 'Informes', to: '/informes' },
+      { label: 'Dashboard', to: '/dashboard' },
     ],
   },
-  {
-    grupo: 'Dev',
-    perfiles: ['ADMIN', 'GERENTE', 'VENDEDOR', 'BODEGUERO'],
-    items: [
-      { label: 'Referencia UI', to: '/referencia' },
-    ],
-  },
+  
 ]
 
 export default function AdminLayout() {
