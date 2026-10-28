@@ -128,20 +128,19 @@ export default function Productos() {
   const obtenerUrlImagen = (prod) => {
     if (!prod) return null
 
-    // 1. Imagen url directa si se actualizó en el estado
-    if (prod.imagen_url) return prod.imagen_url
-
-    // 2. Array de imágenes asociadas (prioriza la marcada como es_principal)
+    // 1. Array de imágenes asociadas
     if (prod.imagenes && Array.isArray(prod.imagenes) && prod.imagenes.length > 0) {
-      const imgPrincipal = prod.imagenes.find((i) => i.es_principal) || prod.imagenes[prod.imagenes.length - 1]
-      return imgPrincipal?.url || imgPrincipal?.url_imagen || imgPrincipal?.path || null
+      const img = prod.imagenes.find((i) => i.es_principal) || prod.imagenes[0]
+      return img?.url || img?.url_imagen || img?.path || null
     }
 
     if (prod.imagen_productos && Array.isArray(prod.imagen_productos) && prod.imagen_productos.length > 0) {
-      const imgPrincipal = prod.imagen_productos.find((i) => i.es_principal) || prod.imagen_productos[prod.imagen_productos.length - 1]
-      return imgPrincipal?.url || imgPrincipal?.url_imagen || null
+      const img = prod.imagen_productos.find((i) => i.es_principal) || prod.imagen_productos[0]
+      return img?.url || img?.url_imagen || null
     }
 
+    // 2. Propiedad de URL directa en el objeto producto
+    if (prod.imagen_url) return prod.imagen_url
     if (prod.url_imagen) return prod.url_imagen
     if (prod.url) return prod.url
 
@@ -149,23 +148,23 @@ export default function Productos() {
   }
 
   // Callback cuando ImageUploader completa la subida
-  // Callback cuando ImageUploader completa la subida
   const handleImagenSubida = (imagenRecord) => {
-    toast.success('Imagen guardada y sustituida en el catálogo')
+    toast.success('Imagen guardada y asociada al catálogo')
     
+    // Si viene la URL del registro devuelto por Cloudinary, la asignamos al estado local inmediatamente
     const urlCreada = imagenRecord?.url || imagenRecord?.url_imagen
     if (urlCreada && productoCreadoId) {
       setProductos((prev) =>
         prev.map((p) => {
           if (p.id === productoCreadoId) {
+            const imagenesPrevias = p.imagenes || []
             return {
               ...p,
               imagen_url: urlCreada,
-              // Sustitución directa de la colección de imágenes (elimina referencias previas)
-              imagenes: [{ id: imagenRecord?.id, url: urlCreada, es_principal: true }],
+              imagenes: [{ url: urlCreada, es_principal: true }, ...imagenesPrevias],
             }
           }
-          return p
+          return p;
         })
       )
     }

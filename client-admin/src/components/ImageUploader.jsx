@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import api from '@/services/api'
+
 /**
  * Sube una imagen a Cloudinary (vía el backend) y llama a onSubida(imagenRecord)
  * cuando el upload termina.
@@ -15,7 +16,7 @@ import api from '@/services/api'
 export default function ImageUploader({
   productoId,
   colorId     = null,
-  esPrincipal = true, // Forzado por defecto a true
+  esPrincipal = false,
   orden       = 0,
   onSubida,
   onError,
@@ -28,7 +29,7 @@ export default function ImageUploader({
   const handleArchivo = async (archivo) => {
     if (!archivo) return
 
-    // Preview local temporal
+    // Preview local inmediato
     setPreview(URL.createObjectURL(archivo))
     setSubiendo(true)
     setProgreso(0)
@@ -36,10 +37,10 @@ export default function ImageUploader({
     try {
       const form = new FormData()
       form.append('imagen',       archivo)
-      form.append('producto_id',  String(productoId))
-      form.append('es_principal', 'true') // Forzado como true explícito
+      form.append('producto_id',  productoId)
+      form.append('es_principal', String(esPrincipal))
       form.append('orden',        String(orden))
-      if (colorId) form.append('color_id', String(colorId))
+      if (colorId) form.append('color_id', colorId)
 
       const res = await api.post('/imagen-productos/upload', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -48,8 +49,6 @@ export default function ImageUploader({
         },
       })
 
-      // Limpia el preview local para forzar el refresco de la imagen devuelta por el backend
-      setPreview(null)
       onSubida?.(res.data.data)
     } catch (err) {
       const msg = err.response?.data?.error?.mensaje ?? 'Error al subir la imagen'
