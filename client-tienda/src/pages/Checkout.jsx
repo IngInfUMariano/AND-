@@ -152,6 +152,7 @@ export default function Checkout() {
   const [direcciones, setDirecciones] = useState([])
   const [cargando, setCargando] = useState(true)
   const [enviando, setEnviando] = useState(false)
+  const [creditoDisponible, setCreditoDisponible] = useState(null)
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
     defaultValues: {
@@ -189,6 +190,13 @@ export default function Checkout() {
       setDirecciones(dirs.data ?? [])
     }).catch(() => {}).finally(() => setCargando(false))
   }, [])
+
+  useEffect(() => {
+    if (usuario?.tipo_cliente === 'MAYORISTA')
+      clienteService.obtenerCredito()
+        .then(res => setCreditoDisponible((res.data ?? res).disponible ?? null))
+        .catch(() => {})
+  }, [usuario?.tipo_cliente])
 
   const onSubmit = async (valores) => {
     setEnviando(true)
@@ -445,7 +453,14 @@ export default function Checkout() {
               <div style={{ display: 'flex', gap: '8px' }}>
                 <RadioBtn label="Tarjeta (Stripe)" value="STRIPE" current={formaPago} onChange={v => setValue('forma_pago', v)} />
                 {usuario?.tipo_cliente === 'MAYORISTA' && (
-                  <RadioBtn label="Crédito" value="CREDITO" current={formaPago} onChange={v => setValue('forma_pago', v)} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <RadioBtn label="Crédito" value="CREDITO" current={formaPago} onChange={v => setValue('forma_pago', v)} />
+                    {creditoDisponible !== null && (
+                      <span style={{ ...MONO, fontSize: '9px', letterSpacing: '0.15em', color: creditoDisponible > 0 ? 'rgba(10,10,10,0.45)' : 'rgba(160,0,0,0.7)' }}>
+                        disponible: Q {parseFloat(creditoDisponible).toFixed(2)}
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
             </section>
