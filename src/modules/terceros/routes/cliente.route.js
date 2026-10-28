@@ -68,4 +68,9 @@ module.exports = (app) => {
   misDirRouter.delete("/:did",...tienda, ctrl.desactivarMiDireccion);
 
   app.use("/api/mis-direcciones", misDirRouter);
+
+  // ── Mi crédito (tienda — CLIENTE mayorista autenticado) ───────────────────
+  const miCreditoRouter = require("express").Router();
+  miCreditoRouter.get("/", ...tienda, ctrl.obtenerMiCredito);
+  app.use("/api/mi-credito", miCreditoRouter);
 };

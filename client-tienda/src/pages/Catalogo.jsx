@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/context/AuthContext'
 import { useCart } from '@/context/CartContext'
@@ -150,8 +150,9 @@ function NavHeader({ progress, usuario, totalItems, onOpenMenu }) {
    ═══════════════════════════════════════════════════════════════ */
 function PopupCompra({ producto, onClose }) {
   const { usuario } = useAuth()
-  const { recargar } = useCart()
+  const { recargar, carrito } = useCart()
   const navigate = useNavigate()
+  const location = useLocation()
   const isMobile = useIsMobile()
 
   const [variantes, setVariantes]   = useState([])
@@ -184,7 +185,13 @@ function PopupCompra({ producto, onClose }) {
   const colores = [...new Map(variantes.map(v => [v.color?.id, v.color])).values()].filter(Boolean)
   const varianteActual = variantes.find(v => v.talla?.id === tallaId && v.color?.id === colorId)
   const stockVariante = (v) => (v?.existencias ?? []).reduce((s, e) => s + ((e.cantidad_fisica ?? 0) - (e.cantidad_comprometida ?? 0)), 0)
-  const sinStock = varianteActual != null && stockVariante(varianteActual) <= 0
+  const enCarrito = carrito?.carrito_detalles?.find(d => d.variante_id === varianteActual?.id)?.cantidad ?? 0
+  const stockDisponible = varianteActual != null ? stockVariante(varianteActual) : 0
+  const stockRestante = Math.max(0, stockDisponible - enCarrito)
+  const sinStock = varianteActual != null && stockRestante <= 0
+  const excedeCantidad = varianteActual != null && stockRestante > 0 && cantidad > stockRestante
+
+  useEffect(() => { setCantidad(1) }, [varianteActual?.id])
 
   const getPrecioEfectivo = (v) => {
     const ps = v?.precios ?? []
@@ -206,7 +213,12 @@ function PopupCompra({ producto, onClose }) {
   const combinacionNoDisponible = tallaId && colorId && !varianteActual
 
   const agregar = async () => {
-    if (!usuario) { onClose(); navigate('/login'); return }
+    if (!usuario) {
+      sessionStorage.setItem('pendingCartItem', JSON.stringify({ varianteId: varianteActual?.id ?? null, cantidad }))
+      onClose()
+      navigate('/login', { state: { from: location.pathname } })
+      return
+    }
     if (!varianteActual) { toast.error('Selecciona talla y color'); return }
     setAgregando(true)
     try {
@@ -221,7 +233,7 @@ function PopupCompra({ producto, onClose }) {
     }
   }
 
-  const listo = (varianteActual || (tallas.length === 0 && colores.length === 0)) && !agregando && !sinStock
+  const listo = (varianteActual || (tallas.length === 0 && colores.length === 0)) && !agregando && !sinStock && !excedeCantidad
 
   /* ── Panel de detalles (compartido mobile/desktop) ── */
   const detallesPanel = (
@@ -319,7 +331,7 @@ function PopupCompra({ producto, onClose }) {
               <button onClick={() => setCantidad(q => Math.max(1, q - 1))}
                 style={{ ...MONO, fontSize: '20px', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(10,10,10,0.4)', lineHeight: 1, padding: '4px 8px' }}>−</button>
               <span style={{ ...MONO, fontSize: '13px', minWidth: '22px', textAlign: 'center' }}>{cantidad}</span>
-              <button onClick={() => setCantidad(q => q + 1)}
+              <button onClick={() => setCantidad(q => Math.min(q + 1, stockRestante > 0 ? stockRestante : q))}
                 style={{ ...MONO, fontSize: '20px', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(10,10,10,0.4)', lineHeight: 1, padding: '4px 8px' }}>+</button>
             </div>
           </div>
@@ -334,6 +346,11 @@ function PopupCompra({ producto, onClose }) {
               sin stock disponible
             </p>
           )}
+          {excedeCantidad && (
+            <p style={{ ...MONO, fontSize: '10px', letterSpacing: '0.18em', color: 'rgba(160,0,0,0.6)', marginBottom: '0.8rem', textTransform: 'uppercase' }}>
+              solo {stockRestante} disponible{stockRestante !== 1 ? 's' : ''}
+            </p>
+          )}
 
           <button onClick={agregar} disabled={!listo} style={{
             marginTop: 'auto', width: '100%', padding: '15px',
@@ -343,7 +360,7 @@ function PopupCompra({ producto, onClose }) {
             ...MONO, fontSize: '11px', letterSpacing: '0.3em', textTransform: 'uppercase',
             transition: 'background 0.22s ease, color 0.22s ease',
           }}>
-            {agregando ? 'agregando...' : sinStock ? 'agotado' : 'agregar al carrito'}
+            {agregando ? 'agregando...' : sinStock ? 'agotado' : excedeCantidad ? 'sin disponibilidad' : 'agregar al carrito'}
           </button>
         </>
       )}
@@ -461,7 +478,7 @@ function PopupCompra({ producto, onClose }) {
                   <button onClick={() => setCantidad(q => Math.max(1, q - 1))}
                     style={{ ...MONO, fontSize: '22px', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(10,10,10,0.4)', lineHeight: 1, padding: '6px 10px' }}>−</button>
                   <span style={{ ...MONO, fontSize: '15px', minWidth: '24px', textAlign: 'center' }}>{cantidad}</span>
-                  <button onClick={() => setCantidad(q => q + 1)}
+                  <button onClick={() => setCantidad(q => Math.min(q + 1, stockRestante > 0 ? stockRestante : q))}
                     style={{ ...MONO, fontSize: '22px', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(10,10,10,0.4)', lineHeight: 1, padding: '6px 10px' }}>+</button>
                 </div>
               </div>
@@ -476,6 +493,11 @@ function PopupCompra({ producto, onClose }) {
                   sin stock disponible
                 </p>
               )}
+              {excedeCantidad && (
+                <p style={{ ...MONO, fontSize: '10px', letterSpacing: '0.18em', color: 'rgba(160,0,0,0.6)', marginBottom: '0.8rem', textTransform: 'uppercase' }}>
+                  solo {stockRestante} disponible{stockRestante !== 1 ? 's' : ''}
+                </p>
+              )}
 
               <button onClick={agregar} disabled={!listo} style={{
                 marginTop: 'auto', width: '100%', padding: '16px',
@@ -485,7 +507,7 @@ function PopupCompra({ producto, onClose }) {
                 ...MONO, fontSize: '12px', letterSpacing: '0.3em', textTransform: 'uppercase',
                 transition: 'background 0.22s ease, color 0.22s ease',
               }}>
-                {agregando ? 'agregando...' : sinStock ? 'agotado' : 'agregar al carrito'}
+                {agregando ? 'agregando...' : sinStock ? 'agotado' : excedeCantidad ? 'sin disponibilidad' : 'agregar al carrito'}
               </button>
             </>
           )}

@@ -76,10 +76,12 @@ const agregarItem = async (clienteId, datos) => {
 
   const cantidadTotal = detalle ? detalle.cantidad + cantidad : cantidad;
   const stockDisponible = await _obtenerStockDisponible(variante_id);
-  let advertencia = null;
 
   if (cantidadTotal > stockDisponible) {
-    advertencia = `La cantidad solicitada (${cantidadTotal}) excede la disponibilidad actual en inventario (${stockDisponible}).`;
+    throw new AppError(
+      `La cantidad solicitada (${cantidadTotal}) excede la disponibilidad actual (${stockDisponible})`,
+      400
+    );
   }
 
   if (detalle) {
@@ -92,7 +94,7 @@ const agregarItem = async (clienteId, datos) => {
     });
   }
 
-  return { detalle, advertencia };
+  return { detalle };
 };
 
 const actualizarCantidad = async (clienteId, itemId, cantidad) => {
@@ -104,6 +106,14 @@ const actualizarCantidad = async (clienteId, itemId, cantidad) => {
 
   if (!detalle) {
     throw new AppError("El ítem especificado no existe en tu carrito activo", 404);
+  }
+
+  const stockDisponible = await _obtenerStockDisponible(detalle.variante_id);
+  if (cantidad > stockDisponible) {
+    throw new AppError(
+      `La cantidad solicitada (${cantidad}) excede la disponibilidad actual (${stockDisponible})`,
+      400
+    );
   }
 
   return detalle.update({ cantidad });

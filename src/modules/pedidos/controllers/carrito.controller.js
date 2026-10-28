@@ -33,10 +33,7 @@ const agregarItem = asyncHandler(async (req, res) => {
   const { clienteId, tipoCliente } = await _obtenerDatosCliente(req);
   const resultado = await CarritoService.agregarItem(clienteId, req.body, tipoCliente);
 
-  creado(res, {
-    detalle: resultado.detalle,
-    advertencia: resultado.advertencia
-  });
+  creado(res, resultado.detalle);
 });
 
 // PUT /api/pedidos/carrito/items/:itemId
