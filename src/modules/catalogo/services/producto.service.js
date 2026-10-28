@@ -41,7 +41,7 @@ const listar = async (query) => {
             { model: db.categoria, attributes: ["id", "nombre"] },
             { model: db.marca, attributes: ["id", "nombre"] },
             { model: db.temporada, attributes: ["id", "nombre"] },
-            { model: db.imagen_producto, attributes: ["id", "url", "es_principal"], separate: true, order: [["orden", "ASC"]] },
+            { model: db.imagen_producto, attributes: ["id", "url", "es_principal"], separate: true, order: [["es_principal", "DESC"], ["id", "DESC"]] },
             {
                 model: db.variante, attributes: ["id"], required: false, separate: true,
                 include: [{ model: db.precio, attributes: ["tipo", "monto"], where: { vigente_hasta: null }, required: false }]
@@ -57,7 +57,7 @@ const obtener = async (id) => {
             { model: db.categoria, attributes: ["id", "nombre"] },
             { model: db.marca, attributes: ["id", "nombre"] },
             { model: db.temporada, attributes: ["id", "nombre"] },
-            { model: db.imagen_producto, attributes: ["id", "url", "es_principal"], separate: true, orden: [['order', 'ASC']] }
+            { model: db.imagen_producto, attributes: ["id", "url", "es_principal"], separate: true, order: [["es_principal", "DESC"], ["id", "DESC"]] }
         ]
     });
 
