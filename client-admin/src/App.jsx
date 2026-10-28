@@ -28,6 +28,7 @@ import ComprasInventario from '@/pages/ComprasInventario'
 import InformesPage from '@/pages/InformePage' 
 import DashboardPage from '@/pages/DashboardPage'
 import TransaccionesPage from '@/pages/TransaccionesPage'
+import SucursalesZonasPage from '@/pages/SucursalesZonasPage'
 
 // Componente provisional para módulos pendientes o sin permisos
 function ModuloEnDesarrollo({ titulo }) {
@@ -158,6 +159,16 @@ export default function App() {
               }
             />
 
+            {/* RUTA NUEVA (Tarea 5): Sucursales y Zonas de Envío */}
+            <Route
+              path="sucursales"
+              element={
+                <RoleRoute roles={['ADMIN', 'GERENTE']}>
+                  <SucursalesZonasPage />
+                </RoleRoute>
+              }
+            />
+
             {/* Modulo de Comprobantes */}
             <Route
               path="comprobantes"
@@ -168,7 +179,7 @@ export default function App() {
               }
             />
 
-            {/* Modulo de compra de inventario */ }
+            {/* Modulo de compra de inventario */}
             <Route
               path="compras"
               element={
@@ -188,23 +199,9 @@ export default function App() {
               }
             />
 
-            <Route 
-              path="dashboard" 
-              element={
-                <DashboardPage />
-              } 
-            />
+            <Route path="transacciones" element={<RoleRoute roles={['ADMIN', 'GERENTE']}><TransaccionesPage /></RoleRoute>} />
 
-            <Route
-              path="transacciones"
-              element={
-                <RoleRoute roles={['ADMIN', 'GERENTE']}>
-                  <TransaccionesPage />
-                </RoleRoute>
-              }
-            />
             {/* Módulos Pendientes de Desarrollo */}
-            
             <Route path="referencia" element={<Referencia />} />
 
             {/* Error de Permisos */}
