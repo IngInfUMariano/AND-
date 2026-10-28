@@ -1,7 +1,8 @@
 import { useForm } from 'react-hook-form'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/context/AuthContext'
+import carritoService from '@/services/carrito.service'
 
 const MONO    = { fontFamily: "'IBM Plex Mono', monospace" }
 const DISPLAY = { fontFamily: "'EB Garamond', Georgia, serif", fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.18em' }
@@ -9,12 +10,22 @@ const DISPLAY = { fontFamily: "'EB Garamond', Georgia, serif", fontWeight: 400, 
 export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const from = location.state?.from ?? '/'
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm()
 
   const onSubmit = async ({ email, password }) => {
     try {
       await login(email, password)
-      navigate('/', { replace: true })
+      const pending = JSON.parse(sessionStorage.getItem('pendingCartItem') || 'null')
+      sessionStorage.removeItem('pendingCartItem')
+      if (pending?.varianteId) {
+        try {
+          await carritoService.agregar(pending.varianteId, pending.cantidad)
+          toast.success('Producto agregado al carrito')
+        } catch { /* CartContext recargará igualmente */ }
+      }
+      navigate(from, { replace: true })
     } catch (err) {
       const mensaje = err.response?.data?.error?.mensaje ?? 'Error al iniciar sesión'
       toast.error(mensaje)

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import catalogoService from '@/services/catalogo.service'
 import carritoService from '@/services/carrito.service'
@@ -79,6 +79,7 @@ function NavHeader({ onOpenMenu }) {
 export default function ProductoDetalle() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const { usuario } = useAuth()
   const { recargar } = useCart()
   const [menuAbierto, setMenuAbierto] = useState(false)
@@ -116,7 +117,11 @@ export default function ProductoDetalle() {
   const precioNormal = varianteActual ? getPrecioNormal(varianteActual, usuario?.tipo_cliente) : null
 
   const agregarAlCarrito = async () => {
-    if (!usuario) { navigate('/login'); return }
+    if (!usuario) {
+      sessionStorage.setItem('pendingCartItem', JSON.stringify({ varianteId: varianteActual?.id ?? null, cantidad }))
+      navigate('/login', { state: { from: location.pathname } })
+      return
+    }
     if (!varianteActual) { toast.error('Selecciona talla y color'); return }
     setAgregando(true)
     try {
@@ -285,7 +290,7 @@ export default function ProductoDetalle() {
               >−</button>
               <span style={{ ...MONO, fontSize: '13px', minWidth: '22px', textAlign: 'center' }}>{cantidad}</span>
               <button
-                onClick={() => setCantidad(q => q + 1)}
+                onClick={() => setCantidad(q => Math.min(varianteActual ? stockVariante(varianteActual) : Infinity, q + 1))}
                 style={{ ...MONO, fontSize: '18px', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(10,10,10,0.35)', lineHeight: 1 }}
               >+</button>
             </div>

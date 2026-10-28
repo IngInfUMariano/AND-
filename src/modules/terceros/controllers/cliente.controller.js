@@ -77,6 +77,11 @@ const obtenerCredito = asyncHandler(async (req, res) => {
   ok(res, await ClienteService.obtenerCredito(req.params.id));
 });
 
+const obtenerMiCredito = asyncHandler(async (req, res) => {
+  const clienteId = await ClienteService.obtenerClienteDeUsuario(req.usuario.id);
+  ok(res, await ClienteService.obtenerCredito(clienteId));
+});
+
 // ── Direcciones (portal interno: /api/clientes/:id/direcciones) ───────────────
 
 const listarDirecciones = asyncHandler(async (req, res) => {
@@ -124,7 +129,7 @@ const desactivarMiDireccion = asyncHandler(async (req, res) => {
 
 module.exports = {
   listar, listarPendientes, obtener, crear, actualizar, desactivar,
-  aprobar, rechazar, obtenerCredito,
+  aprobar, rechazar, obtenerCredito, obtenerMiCredito,
   listarDirecciones, crearDireccion, actualizarDireccion, desactivarDireccion,
   listarMisDirecciones, crearMiDireccion, actualizarMiDireccion, desactivarMiDireccion,
 };

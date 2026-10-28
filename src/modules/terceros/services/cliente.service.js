@@ -202,7 +202,7 @@ const rechazar = async (id, motivo) => {
 // El disponible se calcula, no se almacena como campo suelto.
 const obtenerCredito = async (id) => {
   const cliente = await db.cliente.findByPk(id, {
-    attributes: ["id", "nombre", "limite_credito", "credito_utilizado"],
+    attributes: ["id", "nombre", "limite_credito", "credito_utilizado", "plazo_credito_dias"],
   });
   if (!cliente) throw AppError.noEncontrado("Cliente");
 
@@ -211,11 +211,12 @@ const obtenerCredito = async (id) => {
   const disponible = Math.max(0, limite - utilizado);
 
   return {
-    cliente_id:       cliente.id,
-    nombre:           cliente.nombre,
-    limite_credito:   limite,
+    cliente_id:        cliente.id,
+    nombre:            cliente.nombre,
+    limite_credito:    limite,
     credito_utilizado: utilizado,
     disponible,
+    plazo_credito_dias: cliente.plazo_credito_dias,
   };
 };
 
