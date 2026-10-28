@@ -17,6 +17,8 @@ import { empleadoService } from '@/services/empleado.service'
 const safeNumber = (val) => (isNaN(Number(val)) ? 0 : Number(val))
 const formatQ = (val) => new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ' }).format(safeNumber(val))
 
+const ESTADOS_EXCLUIDOS = ['ANULADO', 'CANCELADO', 'RECHAZADO']
+
 const CATEGORIAS_REPORTES = [
     {
         grupo: "Operaciones e Inventario",
@@ -29,7 +31,7 @@ const CATEGORIAS_REPORTES = [
     {
         grupo: "Documentos y Transacciones",
         reportes: [
-            { id: 'PEDIDOS', nombre: 'Pedidos / Ventas', icono: ShoppingCart, desc: 'Órdenes de clientes', requiereSucursal: true, requiereFechas: true },
+            { id: 'PEDIDOS', nombre: 'Pedidos / Ventas', icono: ShoppingCart, desc: 'Órdenes de clientes (Precios Congelados)', requiereSucursal: true, requiereFechas: true },
             { id: 'COMPROBANTES', nombre: 'Comprobantes Internos', icono: FileText, desc: 'Recibos de emisión y control', requiereSucursal: true, requiereFechas: true },
             { id: 'TRASLADOS', nombre: 'Traslados de Mercancía', icono: ArrowRightLeft, desc: 'Auditoría de envíos entre tiendas', requiereSucursal: true, requiereFechas: true },
         ]
@@ -114,13 +116,12 @@ export default function InformesPage() {
 
         } catch (err) {
             console.error(`Error al cargar ${reporteActivo.id}:`, err)
-            toast.error('Error del servidor al obtener datos. Revisa la consola.')
+            toast.error('Error del servidor al obtener datos.')
         } finally {
             setCargando(false)
         }
     }, [reporteActivo, fechaDesde, fechaHasta])
 
-    // Disparar carga al cambiar de reporte
     useEffect(() => {
         setBusqueda('')
         setFiltroSucursal('TODAS')
@@ -162,7 +163,7 @@ export default function InformesPage() {
         setBusqueda(''); setFiltroSucursal('TODAS'); setFechaDesde(''); setFechaHasta('');
     }
 
-    // --- EXPORTACIÓN CSV ESTANDARIZADA ---
+    // --- EXPORTACIÓN CSV ESTANDARIZADA CON PRECIOS HISTÓRICOS ---
     const exportarCSV = () => {
         if (datosFiltrados.length === 0) return toast.error('No hay datos filtrados para exportar')
         const escapeCSV = (val) => `"${String(val ?? '').replace(/"/g, '""')}"`
@@ -179,8 +180,14 @@ export default function InformesPage() {
                 rows = datosFiltrados.map(d => [escapeCSV(new Date(d.createdAt || d.fecha).toLocaleString()), escapeCSV(d.sucursal?.nombre), escapeCSV(d.variante?.producto?.nombre), escapeCSV(d.variante?.sku), escapeCSV(d.tipo_movimiento || d.tipo), safeNumber(d.cantidad), safeNumber(d.saldo_resultante || d.saldo), escapeCSV(d.motivo || d.comprobante?.numero)])
                 break;
             case 'PEDIDOS':
-                headers = ['Fecha', 'Correlativo', 'Cliente', 'Estado', 'Total']
-                rows = datosFiltrados.map(d => [escapeCSV(new Date(d.createdAt).toLocaleString()), escapeCSV(d.correlativo || d.numero), escapeCSV(d.cliente?.nombre), escapeCSV(d.estado), safeNumber(d.total)])
+                headers = ['Fecha', 'Correlativo', 'Cliente', 'Estado', 'Total Pedido (Q)']
+                rows = datosFiltrados.map(d => [
+                    escapeCSV(new Date(d.createdAt || d.fecha).toLocaleString()),
+                    escapeCSV(d.correlativo || d.numero || `#${d.id}`),
+                    escapeCSV(d.cliente?.nombre || 'Consumidor Final'),
+                    escapeCSV(d.estado),
+                    safeNumber(d.total)
+                ])
                 break;
             case 'COMPROBANTES':
                 headers = ['Fecha', 'Numero', 'Tipo', 'Sucursal', 'Estado', 'Tercero', 'Total']
@@ -230,7 +237,7 @@ export default function InformesPage() {
         document.body.removeChild(link)
     }
 
-    // --- CÁLCULO DE KPIs ---
+    // --- CÁLCULO DE KPIs CORREGIDO (EXCLUYE VENTAS ANULADAS) ---
     const kpis = useMemo(() => {
         if (datosFiltrados.length === 0) return null
 
@@ -244,12 +251,14 @@ export default function InformesPage() {
             ]
         }
         if (reporteActivo.id === 'PEDIDOS') {
-            const totalVentas = datosFiltrados.reduce((acc, d) => acc + safeNumber(d.total), 0)
-            const completados = datosFiltrados.filter(d => d.estado === 'COMPLETADO' || d.estado === 'ENTREGADO').length
+            const pedidosValidos = datosFiltrados.filter(d => !ESTADOS_EXCLUIDOS.includes(d.estado?.toUpperCase()))
+            const totalVentas = pedidosValidos.reduce((acc, d) => acc + safeNumber(d.total), 0)
+            const completados = datosFiltrados.filter(d => ['COMPLETADO', 'ENTREGADO', 'PAGADO'].includes(d.estado?.toUpperCase())).length
+            
             return [
                 { label: 'Pedidos Filtrados', valor: datosFiltrados.length, icono: ShoppingCart, color: 'text-blue-600', bg: 'bg-blue-500/10' },
                 { label: 'Pedidos Exitosos', valor: completados, icono: Activity, color: 'text-emerald-600', bg: 'bg-emerald-500/10' },
-                { label: 'Total Ingresos', valor: formatQ(totalVentas), icono: DollarSign, color: 'text-indigo-600', bg: 'bg-indigo-500/10' }
+                { label: 'Total Ingresos Reales', valor: formatQ(totalVentas), icono: DollarSign, color: 'text-indigo-600', bg: 'bg-indigo-500/10' }
             ]
         }
         if (reporteActivo.id === 'COMPROBANTES') {
@@ -261,7 +270,7 @@ export default function InformesPage() {
                 { label: 'Total Transaccionado', valor: formatQ(valorGasto), icono: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-500/10' }
             ]
         }
-        if (reporteActivo.id === 'PRODUCTOS' || reporteActivo.id === 'CLIENTES' || reporteActivo.id === 'PROVEEDORES' || reporteActivo.id === 'EMPLEADOS') {
+        if (['PRODUCTOS', 'CLIENTES', 'PROVEEDORES', 'EMPLEADOS'].includes(reporteActivo.id)) {
             const activos = datosFiltrados.filter(d => d.activo || d.estado === 'ACTIVO' || d.estado_credito === 'APROBADO').length
             return [
                 { label: 'Total Registros', valor: datosFiltrados.length, icono: Users, color: 'text-blue-600', bg: 'bg-blue-500/10' },
@@ -342,20 +351,25 @@ export default function InformesPage() {
         if (reporteActivo.id === 'PEDIDOS') {
             return (
                 <WrapTable headers={[{ label: 'Documento' }, { label: 'Fecha' }, { label: 'Cliente / Canal' }, { label: 'Estado', align: 'text-center' }, { label: 'Total', align: 'text-right' }]}>
-                    {datosFiltrados.slice(0, 100).map(d => (
-                        <tr key={d.id} className="hover:bg-muted/20">
-                            <td className="px-4 py-3 font-bold text-primary">{d.correlativo || d.numero || `#${d.id}`}</td>
-                            <td className="px-4 py-3 text-muted-foreground">{new Date(d.createdAt).toLocaleString()}</td>
-                            <td className="px-4 py-3">
-                                <div className="font-medium text-foreground">{d.cliente?.nombre || 'Consumidor Final'}</div>
-                                <div className="text-[10px] text-muted-foreground">{d.canal || 'N/A'}</div>
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                                <Badge text={d.estado || 'PENDIENTE'} type={(d.estado === 'ANULADO') ? 'danger' : (d.estado === 'COMPLETADO' || d.estado === 'ENTREGADO') ? 'success' : 'info'} />
-                            </td>
-                            <td className="px-4 py-3 text-right font-bold">{formatQ(d.total)}</td>
-                        </tr>
-                    ))}
+                    {datosFiltrados.slice(0, 100).map(d => {
+                        const esAnulado = ESTADOS_EXCLUIDOS.includes(d.estado?.toUpperCase())
+                        return (
+                            <tr key={d.id} className={`hover:bg-muted/20 ${esAnulado ? 'opacity-60 bg-rose-500/5' : ''}`}>
+                                <td className="px-4 py-3 font-bold text-primary">{d.correlativo || d.numero || `#${d.id}`}</td>
+                                <td className="px-4 py-3 text-muted-foreground">{new Date(d.createdAt || d.fecha).toLocaleString()}</td>
+                                <td className="px-4 py-3">
+                                    <div className="font-medium text-foreground">{d.cliente?.nombre || 'Consumidor Final'}</div>
+                                    <div className="text-[10px] text-muted-foreground">{d.canal || 'TIENDA'}</div>
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                    <Badge text={d.estado || 'PENDIENTE'} type={esAnulado ? 'danger' : (d.estado === 'COMPLETADO' || d.estado === 'ENTREGADO' || d.estado === 'PAGADO') ? 'success' : 'info'} />
+                                </td>
+                                <td className={`px-4 py-3 text-right font-bold ${esAnulado ? 'line-through text-rose-600' : 'text-foreground'}`}>
+                                    {formatQ(d.total)}
+                                </td>
+                            </tr>
+                        )
+                    })}
                 </WrapTable>
             )
         }
@@ -398,8 +412,6 @@ export default function InformesPage() {
                 </WrapTable>
             )
         }
-
-        // --- DIRECTORIOS ESPECIALIZADOS ---
 
         if (reporteActivo.id === 'PRODUCTOS') {
             return (
