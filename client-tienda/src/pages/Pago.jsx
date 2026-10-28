@@ -8,6 +8,7 @@ import pedidoService from '@/services/pedido.service'
 import { useAuth } from '@/context/AuthContext'
 import { useCart } from '@/context/CartContext'
 import MenuOverlay from '@/components/MenuOverlay'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 const MONO    = { fontFamily: "'IBM Plex Mono', monospace" }
 const DISPLAY = { fontFamily: "'EB Garamond', Georgia, serif", fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.18em' }
@@ -248,6 +249,7 @@ export default function Pago() {
   const [creditoDisponible, setCreditoDisponible] = useState(0)
   const [cargando, setCargando] = useState(true)
   const [menuAbierto, setMenuAbierto] = useState(false)
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     pedidoService.obtener(pedidoId)
@@ -277,30 +279,32 @@ export default function Pago() {
       <NavHeader onOpenMenu={() => setMenuAbierto(true)} />
       <MenuOverlay open={menuAbierto} onClose={() => setMenuAbierto(false)} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '44% 1fr', paddingTop: `${NAV_H}px`, minHeight: `calc(100vh - ${NAV_H}px)` }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '44% 1fr', paddingTop: `${NAV_H}px`, minHeight: `calc(100vh - ${NAV_H}px)` }}>
 
-        {/* Imagen sticky */}
-        <div style={{ position: 'sticky', top: `${NAV_H}px`, height: `calc(100vh - ${NAV_H}px)`, overflow: 'hidden' }}>
-          <img
-            src="https://picsum.photos/seed/andpago22/800/1100"
-            alt=""
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'grayscale(100%) brightness(0.52)' }}
-          />
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <h1 style={{
-              ...DISPLAY,
-              fontSize: 'clamp(2.5rem, 5vw, 4.5rem)',
-              color: '#ffffff',
-              textAlign: 'center',
-              lineHeight: 1.15,
-            }}>
-              Pago<br />Seguro
-            </h1>
+        {/* Imagen sticky, solo desktop */}
+        {!isMobile && (
+          <div style={{ position: 'sticky', top: `${NAV_H}px`, height: `calc(100vh - ${NAV_H}px)`, overflow: 'hidden' }}>
+            <img
+              src="https://picsum.photos/seed/andpago22/800/1100"
+              alt=""
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'grayscale(100%) brightness(0.52)' }}
+            />
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <h1 style={{
+                ...DISPLAY,
+                fontSize: 'clamp(2.5rem, 5vw, 4.5rem)',
+                color: '#ffffff',
+                textAlign: 'center',
+                lineHeight: 1.15,
+              }}>
+                Pago<br />Seguro
+              </h1>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Panel derecho */}
-        <div style={{ padding: '4rem 4rem 5rem 4.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+        <div style={{ padding: isMobile ? '2rem 1.2rem 4rem' : '4rem 4rem 5rem 4.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
 
           {cargando ? (
             <span style={{ ...MONO, fontSize: '10px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.2)' }}>

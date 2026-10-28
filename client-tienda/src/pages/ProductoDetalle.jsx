@@ -6,6 +6,7 @@ import carritoService from '@/services/carrito.service'
 import { useAuth } from '@/context/AuthContext'
 import { useCart } from '@/context/CartContext'
 import MenuOverlay from '@/components/MenuOverlay'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 const MONO    = { fontFamily: "'IBM Plex Mono', monospace" }
 const DISPLAY = { fontFamily: "'EB Garamond', Georgia, serif", fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.18em' }
@@ -81,6 +82,7 @@ export default function ProductoDetalle() {
   const { usuario } = useAuth()
   const { recargar } = useCart()
   const [menuAbierto, setMenuAbierto] = useState(false)
+  const isMobile = useIsMobile()
 
   const [producto, setProducto] = useState(null)
   const [variantes, setVariantes] = useState([])
@@ -106,6 +108,8 @@ export default function ProductoDetalle() {
   const tallas = [...new Map(variantes.map(v => [v.talla?.id, v.talla])).values()].filter(Boolean)
   const colores = [...new Map(variantes.map(v => [v.color?.id, v.color])).values()].filter(Boolean)
   const varianteActual = variantes.find(v => v.talla?.id === tallaSeleccionada && v.color?.id === colorSeleccionado)
+  const stockVariante = (v) => (v?.existencias ?? []).reduce((s, e) => s + ((e.cantidad_fisica ?? 0) - (e.cantidad_comprometida ?? 0)), 0)
+  const sinStock = varianteActual != null && stockVariante(varianteActual) <= 0
   const precio = varianteActual
     ? getPrecioEfectivo(varianteActual, usuario?.tipo_cliente)
     : producto?.precio_base != null ? Number(producto.precio_base) : null
@@ -126,7 +130,7 @@ export default function ProductoDetalle() {
     }
   }
 
-  const listo = (varianteActual || (tallas.length === 0 && colores.length === 0)) && !agregando
+  const listo = (varianteActual || (tallas.length === 0 && colores.length === 0)) && !agregando && !sinStock
   const combinacionNoDisponible = tallaSeleccionada && colorSeleccionado && !varianteActual
 
   if (cargando) return (
@@ -148,19 +152,21 @@ export default function ProductoDetalle() {
       <NavHeader onOpenMenu={() => setMenuAbierto(true)} />
       <MenuOverlay open={menuAbierto} onClose={() => setMenuAbierto(false)} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '52% 1fr', paddingTop: `${NAV_H}px`, minHeight: `calc(100vh - ${NAV_H}px)` }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '52% 1fr', paddingTop: `${NAV_H}px`, minHeight: `calc(100vh - ${NAV_H}px)` }}>
 
-        {/* Imagen — sticky */}
-        <div style={{ position: 'sticky', top: `${NAV_H}px`, height: `calc(100vh - ${NAV_H}px)`, overflow: 'hidden' }}>
-          <img
-            src={imgUrl(producto)}
-            alt={producto.nombre}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'grayscale(100%) brightness(0.75)' }}
-          />
-        </div>
+        {/* Imagen — sticky, solo desktop */}
+        {!isMobile && (
+          <div style={{ position: 'sticky', top: `${NAV_H}px`, height: `calc(100vh - ${NAV_H}px)`, overflow: 'hidden' }}>
+            <img
+              src={imgUrl(producto)}
+              alt={producto.nombre}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'grayscale(100%) brightness(0.75)' }}
+            />
+          </div>
+        )}
 
         {/* Panel derecho */}
-        <div style={{ padding: '4rem 4rem 5rem 4rem', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: isMobile ? '2rem 1.2rem 4rem' : '4rem 4rem 5rem 4rem', display: 'flex', flexDirection: 'column' }}>
 
           {/* Volver */}
           <button
@@ -290,6 +296,11 @@ export default function ProductoDetalle() {
               combinación no disponible
             </p>
           )}
+          {sinStock && (
+            <p style={{ ...MONO, fontSize: '10px', letterSpacing: '0.18em', color: 'rgba(160,0,0,0.6)', marginBottom: '0.8rem', textTransform: 'uppercase' }}>
+              sin stock disponible
+            </p>
+          )}
 
           <button
             onClick={agregarAlCarrito}
@@ -303,7 +314,7 @@ export default function ProductoDetalle() {
               transition: 'background 0.22s ease, color 0.22s ease',
             }}
           >
-            {agregando ? 'agregando...' : 'agregar al carrito'}
+            {agregando ? 'agregando...' : sinStock ? 'agotado' : 'agregar al carrito'}
           </button>
 
           <Link
