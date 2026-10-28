@@ -197,11 +197,11 @@ export default function ProductoDetalle() {
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '2.5rem' }}>
               {precioNormal != null && (
                 <span style={{ ...MONO, fontSize: '14px', color: 'rgba(10,10,10,0.35)', textDecoration: 'line-through' }}>
-                  ₡ {Number(precioNormal).toLocaleString('es-CR')}
+                  Q {Number(precioNormal).toFixed(2)}
                 </span>
               )}
               <span style={{ ...MONO, fontSize: '18px', color: precioNormal != null ? 'rgba(180,30,30,0.85)' : 'rgba(10,10,10,0.7)', fontWeight: 500 }}>
-                ₡ {Number(precio).toLocaleString('es-CR')}
+                Q {Number(precio).toFixed(2)}
               </span>
               {precioNormal != null && (
                 <span style={{ ...MONO, fontSize: '9px', letterSpacing: '0.18em', color: 'rgba(180,30,30,0.75)', border: '1px solid rgba(180,30,30,0.3)', padding: '2px 6px' }}>
