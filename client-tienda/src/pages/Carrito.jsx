@@ -98,7 +98,7 @@ function SlideImg({ src, alt }) {
       transition: `transform ${SLIDE_DUR}ms cubic-bezier(0.25, 0.46, 0.45, 0.94)`,
     }}>
       <img src={src} alt={alt}
-        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'grayscale(100%) brightness(0.72)' }}
+        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'none' }}
       />
     </div>
   )
@@ -146,7 +146,7 @@ function ImagenLateral({ detalles }) {
       {/* Imagen actual — siempre visible debajo */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
         <img src={src} alt={d?.variante?.producto?.nombre ?? ''}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'grayscale(100%) brightness(0.72)' }}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'none' }}
         />
       </div>
 
