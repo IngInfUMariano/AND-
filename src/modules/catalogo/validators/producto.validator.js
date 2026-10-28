@@ -23,7 +23,7 @@ const crearValidator = [
         .trim(),
 
     body("genero")
-        .optional()
+        .optional({ nullable: true })
         .isIn(["HOMBRE", "MUJER", "NINO", "UNISEX"]) // Validando el ENUM[cite: 13]
         .withMessage("El género debe ser HOMBRE, MUJER, NINO o UNISEX"),
 
@@ -75,7 +75,7 @@ const actualizarValidator = [
         .trim(),
 
     body("genero")
-        .optional()
+        .optional({ nullable: true })
         .isIn(["HOMBRE", "MUJER", "NINO", "UNISEX"])
         .withMessage("El género debe ser HOMBRE, MUJER, NINO o UNISEX"),
 

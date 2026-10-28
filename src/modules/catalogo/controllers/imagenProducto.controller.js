@@ -44,13 +44,26 @@ const subirImagen = asyncHandler(async (req, res) => {
         transformation: [{ quality: "auto", fetch_format: "auto" }],
     });
 
+    const productoId   = Number(req.body.producto_id);
+    const colorId      = req.body.color_id ? Number(req.body.color_id) : null;
+    const esPrincipal  = req.body.es_principal === "true" || req.body.es_principal === true;
+
+    // (1) Si la nueva será la principal, localizar la(s) principal(es) anterior(es)
+    const anteriores = esPrincipal
+        ? await ImagenProductoService.buscarPrincipales(productoId, colorId)
+        : [];
+
+    // (2) Guardar la nueva
     const imagen = await ImagenProductoService.crear({
         url:          resultado.secure_url,
-        producto_id:  Number(req.body.producto_id),
-        color_id:     req.body.color_id   ? Number(req.body.color_id)   : null,
-        es_principal: req.body.es_principal === "true" || req.body.es_principal === true,
+        producto_id:  productoId,
+        color_id:     colorId,
+        es_principal: esPrincipal,
         orden:        req.body.orden       ? Number(req.body.orden)       : 0,
     });
+
+    // (3) Eliminar las anteriores (registro + archivo en Cloudinary)
+    await ImagenProductoService.descartar(anteriores);
 
     creado(res, { ...imagen.toJSON(), cloudinary_id: resultado.public_id });
 });

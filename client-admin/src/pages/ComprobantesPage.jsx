@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
     FileText,
     Printer,
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import inventarioService from '@/services/inventario.service'
+import productoService from '@/services/producto.service'
 import api from '@/services/api'
 
 const safeNumber = (val) => (isNaN(Number(val)) ? 0 : Number(val))
@@ -43,6 +44,61 @@ const normalizarArreglo = (res) => {
     return []
 }
 
+// ── Líneas (ítems) del comprobante ───────────────────────────────────────────
+// El backend puede devolver el detalle bajo distintos nombres y envuelto en { data }.
+// Antes se hacía normalizarArreglo(res.data) y, como res.data es el comprobante (un objeto,
+// no un arreglo), el resultado era siempre [] → "Sin líneas registradas".
+const CLAVES_LINEAS = ['detalles', 'comprobante_detalles', 'comprobanteDetalles', 'detalle', 'items', 'lineas', 'traslado_detalles', 'movimientos']
+const CLAVES_ANIDADAS = ['data', 'datos', 'rows', 'comprobante', 'traslado', 'pedido']
+
+const extraerLineas = (obj, nivel = 0) => {
+    if (!obj || nivel > 3) return []
+    if (Array.isArray(obj)) return obj
+    if (typeof obj !== 'object') return []
+    for (const k of CLAVES_LINEAS) {
+        if (Array.isArray(obj[k]) && obj[k].length > 0) return obj[k]
+    }
+    for (const k of CLAVES_ANIDADAS) {
+        const r = extraerLineas(obj[k], nivel + 1)
+        if (r.length > 0) return r
+    }
+    return []
+}
+
+const primerNumero = (...vals) => {
+    for (const v of vals) {
+        if (v !== undefined && v !== null && v !== '' && !isNaN(Number(v))) return Number(v)
+    }
+    return null
+}
+
+const textoDe = (v, ...claves) => {
+    if (!v) return ''
+    if (typeof v === 'string' || typeof v === 'number') return String(v)
+    for (const k of claves) if (v[k]) return String(v[k])
+    return ''
+}
+
+// Une cada línea con el catálogo de variantes para garantizar producto, SKU, talla y color
+const resolverLinea = (det, catalogo) => {
+    const v = det.variante || {}
+    const varId = det.variante_id ?? v.id
+    const cat = varId !== undefined && varId !== null ? catalogo.get(String(varId)) : null
+
+    const producto =
+        det.producto?.nombre || v.producto?.nombre || cat?.producto?.nombre || det.producto_nombre || det.descripcion || 'Producto'
+    const sku = v.sku || det.sku || cat?.sku || 'N/A'
+    const talla = textoDe(v.talla, 'codigo', 'descripcion', 'nombre') || textoDe(det.talla, 'codigo', 'descripcion', 'nombre') || textoDe(cat?.talla, 'codigo', 'descripcion')
+    const color = textoDe(v.color, 'nombre', 'codigo') || textoDe(det.color, 'nombre', 'codigo') || textoDe(cat?.color, 'nombre')
+
+    const cantidad = primerNumero(det.cantidad, det.cantidad_recibida, det.cantidad_despachada, det.cantidad_movida, det.cantidad_solicitada) ?? 0
+    const despachada = primerNumero(det.cantidad_despachada)
+    const recibida = primerNumero(det.cantidad_recibida)
+    const costo = primerNumero(det.costo_unitario, det.precio_unitario)
+
+    return { id: det.id, producto, sku, talla, color, cantidad, despachada, recibida, costo }
+}
+
 export default function ComprobantesPage() {
     const [comprobantes, setComprobantes] = useState([])
     const [sucursales, setSucursales] = useState([])
@@ -61,6 +117,8 @@ export default function ComprobantesPage() {
     const [comprobanteSeleccionado, setComprobanteSeleccionado] = useState(null)
     const [cargandoDetalle, setCargandoDetalle] = useState(false)
     const [detallesComprobante, setDetallesComprobante] = useState([])
+    const [errorDetalle, setErrorDetalle] = useState('')
+    const catalogoRef = useRef(null) // Map variante_id → variante (con producto, talla y color)
 
     // Modal de Anulación
     const [modalAnulacionAbierto, setModalAnulacionAbierto] = useState(false)
@@ -157,19 +215,62 @@ export default function ComprobantesPage() {
         cargarComprobantes()
     }, [cargarComprobantes])
 
+    const cargarCatalogoVariantes = async () => {
+        if (catalogoRef.current) return catalogoRef.current
+        try {
+            const res = await productoService.listarVariantes({ limit: 1000, activo: 'todos' })
+            catalogoRef.current = new Map(normalizarArreglo(res).map((v) => [String(v.id), v]))
+        } catch (err) {
+            console.error('No se pudo cargar el catálogo de variantes:', err)
+            return new Map() // sin cachear: se reintenta la próxima vez
+        }
+        return catalogoRef.current
+    }
+
     const abrirDetalleComprobante = async (comp) => {
         setComprobanteSeleccionado(comp)
+        setDetallesComprobante([])
+        setErrorDetalle('')
         setModalDetalleAbierto(true)
         setCargandoDetalle(true)
         try {
-            const res = inventarioService.obtenerDetalleComprobante
-                ? await inventarioService.obtenerDetalleComprobante(comp.id)
-                : await api.get(`/comprobantes/${comp.id}`).catch(() => api.get(`/recibos/${comp.id}`)).catch(() => ({ data: comp.detalles || [] }))
+            let lineas = []
 
-            setDetallesComprobante(normalizarArreglo(res?.detalles || res?.data || res))
+            // 1) Detalle del comprobante
+            try {
+                const res = inventarioService.obtenerDetalleComprobante
+                    ? await inventarioService.obtenerDetalleComprobante(comp.id)
+                    : await api.get(`/comprobantes/${comp.id}`).then((r) => r.data)
+
+                lineas = extraerLineas(res)
+
+                // Completa la cabecera (usuario, sucursal, observaciones...) con lo que traiga el detalle
+                const cabecera = res?.data && !Array.isArray(res.data) ? res.data : res
+                if (cabecera && typeof cabecera === 'object' && !Array.isArray(cabecera) && String(cabecera.id) === String(comp.id)) {
+                    setComprobanteSeleccionado((prev) => ({ ...prev, ...cabecera }))
+                }
+            } catch (err) {
+                console.error('Error al obtener detalle del comprobante:', err)
+            }
+
+            // 2) Lo que ya venía en la lista
+            if (lineas.length === 0) lineas = extraerLineas(comp)
+
+            // 3) Respaldo: movimientos de kardex ligados a este comprobante (filtrado estricto por id)
+            if (lineas.length === 0 && inventarioService.obtenerKardex) {
+                try {
+                    const kardex = normalizarArreglo(await inventarioService.obtenerKardex({ comprobante_id: comp.id, limit: 1000 }))
+                    lineas = kardex.filter((m) => String(m.comprobante_id ?? m.comprobante?.id ?? '') === String(comp.id))
+                } catch (err) {
+                    console.error('Error al consultar movimientos del comprobante:', err)
+                }
+            }
+
+            const catalogo = await cargarCatalogoVariantes()
+            setDetallesComprobante(lineas.map((l) => resolverLinea(l, catalogo)))
         } catch (err) {
-            console.error('Error al obtener detalle del comprobante:', err)
-            setDetallesComprobante(normalizarArreglo(comp.detalles || comp.items))
+            console.error('Error al preparar el detalle del comprobante:', err)
+            setErrorDetalle('No se pudo cargar el detalle del comprobante.')
         } finally {
             setCargandoDetalle(false)
         }
@@ -217,6 +318,11 @@ export default function ComprobantesPage() {
             setAnulando(false)
         }
     }
+
+    const hayCostos = detallesComprobante.some((d) => d.costo !== null)
+    const columnasDetalle = hayCostos ? 6 : 4
+    const totalUnidades = detallesComprobante.reduce((acc, d) => acc + d.cantidad, 0)
+    const totalCosto = detallesComprobante.reduce((acc, d) => acc + (d.costo !== null ? d.costo * d.cantidad : 0), 0)
 
     return (
         <div className="flex flex-col gap-5 p-6 max-w-[1600px] mx-auto" translate="no">
@@ -424,40 +530,78 @@ export default function ComprobantesPage() {
                             {/* Detalles de Ítems */}
                             <div>
                                 <h4 className="font-bold text-foreground mb-2">Detalle de Variantes y Cantidades</h4>
-                                <div className="border rounded-lg overflow-hidden divide-y">
+                                <div className="border rounded-lg overflow-x-auto">
                                     <table className="w-full text-left">
                                         <thead className="bg-muted/50 text-[11px] font-medium text-muted-foreground border-b">
                                             <tr>
                                                 <th className="px-3 py-2">SKU</th>
-                                                <th className="px-3 py-2">Producto / Variante</th>
+                                                <th className="px-3 py-2">Producto</th>
+                                                <th className="px-3 py-2">Variante (Talla / Color)</th>
                                                 <th className="px-3 py-2 text-center">Cantidad</th>
+                                                {hayCostos && <th className="px-3 py-2 text-right">Costo Unit.</th>}
+                                                {hayCostos && <th className="px-3 py-2 text-right">Subtotal</th>}
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y text-xs">
                                             {cargandoDetalle ? (
                                                 <tr>
-                                                    <td colSpan={3} className="py-6 text-center text-muted-foreground">Cargando detalles...</td>
+                                                    <td colSpan={columnasDetalle} className="py-6 text-center text-muted-foreground">Cargando detalles...</td>
+                                                </tr>
+                                            ) : errorDetalle ? (
+                                                <tr>
+                                                    <td colSpan={columnasDetalle} className="py-6 text-center text-destructive">{errorDetalle}</td>
                                                 </tr>
                                             ) : detallesComprobante.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={3} className="py-6 text-center text-muted-foreground">Sin líneas registradas en el comprobante</td>
+                                                    <td colSpan={columnasDetalle} className="py-6 text-center text-muted-foreground">Sin líneas registradas en el comprobante</td>
                                                 </tr>
                                             ) : (
-                                                detallesComprobante.map((det, idx) => {
-                                                    const prodNom = det.producto?.nombre || det.variante?.producto?.nombre || det.descripcion || 'Producto'
-                                                    const sku = det.variante?.sku || det.sku || 'N/A'
-                                                    const cant = safeNumber(det.cantidad || det.cantidad_despachada || det.cantidad_recibida)
-
-                                                    return (
-                                                        <tr key={det.id || idx} className="hover:bg-muted/20">
-                                                            <td className="px-3 py-2 font-mono text-muted-foreground">{sku}</td>
-                                                            <td className="px-3 py-2 font-medium text-foreground">{prodNom}</td>
-                                                            <td className="px-3 py-2 text-center font-bold">{cant} u.</td>
-                                                        </tr>
-                                                    )
-                                                })
+                                                detallesComprobante.map((det, idx) => (
+                                                    <tr key={det.id ?? idx} className="hover:bg-muted/20">
+                                                        <td className="px-3 py-2 font-mono text-muted-foreground">{det.sku}</td>
+                                                        <td className="px-3 py-2 font-medium text-foreground">{det.producto}</td>
+                                                        <td className="px-3 py-2">
+                                                            {det.talla || det.color ? (
+                                                                <span className="inline-flex flex-wrap gap-1">
+                                                                    {det.talla && <span className="rounded bg-muted px-1.5 py-0.5 font-semibold">Talla {det.talla}</span>}
+                                                                    {det.color && <span className="rounded bg-muted px-1.5 py-0.5 font-semibold">{det.color}</span>}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-muted-foreground">—</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-3 py-2 text-center font-bold">
+                                                            {det.cantidad} u.
+                                                            {det.despachada !== null && det.recibida !== null && det.despachada !== det.recibida && (
+                                                                <div className="text-[10px] font-normal text-muted-foreground">
+                                                                    Despachada {det.despachada} · Recibida {det.recibida}
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                        {hayCostos && (
+                                                            <td className="px-3 py-2 text-right">{det.costo !== null ? `Q ${det.costo.toFixed(2)}` : '—'}</td>
+                                                        )}
+                                                        {hayCostos && (
+                                                            <td className="px-3 py-2 text-right font-semibold">
+                                                                {det.costo !== null ? `Q ${(det.costo * det.cantidad).toFixed(2)}` : '—'}
+                                                            </td>
+                                                        )}
+                                                    </tr>
+                                                ))
                                             )}
                                         </tbody>
+                                        {!cargandoDetalle && detallesComprobante.length > 0 && (
+                                            <tfoot className="border-t bg-muted/30 text-xs font-bold">
+                                                <tr>
+                                                    <td colSpan={3} className="px-3 py-2 text-right text-muted-foreground">
+                                                        {detallesComprobante.length} línea{detallesComprobante.length === 1 ? '' : 's'} · Total unidades
+                                                    </td>
+                                                    <td className="px-3 py-2 text-center">{totalUnidades} u.</td>
+                                                    {hayCostos && <td />}
+                                                    {hayCostos && <td className="px-3 py-2 text-right">Q {totalCosto.toFixed(2)}</td>}
+                                                </tr>
+                                            </tfoot>
+                                        )}
                                     </table>
                                 </div>
                             </div>

@@ -38,7 +38,7 @@ const listar = async (query) => {
         offset,
         order: order.length ? order : [["sku", "asc"]],
         include: [
-            { model: db.producto, attributes: ["id", "nombre", "codigo"] },
+            { model: db.producto, attributes: ["id", "nombre", "codigo", "activo"] },
             { model: db.talla, attributes: ["id", "codigo", "descripcion"] },
             { model: db.color, attributes: ["id", "nombre"] },
             { model: db.precio, attributes: ["tipo", "monto"], where: { vigente_hasta: null }, required: false },

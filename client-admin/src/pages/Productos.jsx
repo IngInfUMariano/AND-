@@ -40,6 +40,7 @@ export default function Productos() {
   const [modalAbierto, setModalAbierto] = useState(false)
   const [productoEditar, setProductoEditar] = useState(null)
   const [productoCreadoId, setProductoCreadoId] = useState(null)
+  const [codigoGuardado, setCodigoGuardado] = useState('') // código del producto recién creado en este modal
   const [pestañaModal, setPestañaModal] = useState('general') // 'general' | 'variantes' | 'imagen'
 
   // Modal para Ampliar Foto en Pop-up
@@ -60,8 +61,6 @@ export default function Productos() {
   // Matriz de Variantes Generadas
   const [tallasSeleccionadas, setTallasSeleccionadas] = useState([])
   const [coloresSeleccionados, setColoresSeleccionados] = useState([])
-  const [precioBase, setPrecioBase] = useState('')
-  const [stockBase, setStockBase] = useState('10')
   const [variantes, setVariantes] = useState([])
   const [guardando, setGuardando] = useState(false)
 
@@ -128,14 +127,21 @@ export default function Productos() {
   const obtenerUrlImagen = (prod) => {
     if (!prod) return null
 
-    // 1. Array de imágenes asociadas
+    // 1. Array de imágenes asociadas. Si hubiera varias principales (p. ej. una
+    //    huérfana de antes de reemplazar), se usa la más reciente (id mayor).
+    const elegir = (lista) => {
+      const principales = lista.filter((i) => i.es_principal)
+      const candidatas = principales.length > 0 ? principales : lista
+      return candidatas.reduce((a, b) => (Number(b.id || 0) > Number(a.id || 0) ? b : a))
+    }
+
     if (prod.imagenes && Array.isArray(prod.imagenes) && prod.imagenes.length > 0) {
-      const img = prod.imagenes.find((i) => i.es_principal) || prod.imagenes[0]
+      const img = elegir(prod.imagenes)
       return img?.url || img?.url_imagen || img?.path || null
     }
 
     if (prod.imagen_productos && Array.isArray(prod.imagen_productos) && prod.imagen_productos.length > 0) {
-      const img = prod.imagen_productos.find((i) => i.es_principal) || prod.imagen_productos[0]
+      const img = elegir(prod.imagen_productos)
       return img?.url || img?.url_imagen || null
     }
 
@@ -156,12 +162,13 @@ export default function Productos() {
     if (urlCreada && productoCreadoId) {
       setProductos((prev) =>
         prev.map((p) => {
-          if (p.id === productoCreadoId) {
-            const imagenesPrevias = p.imagenes || []
+          if (String(p.id) === String(productoCreadoId)) {
+            // Al reemplazar, la nueva imagen sustituye a la anterior en pantalla
             return {
               ...p,
               imagen_url: urlCreada,
-              imagenes: [{ url: urlCreada, es_principal: true }, ...imagenesPrevias],
+              imagenes: [{ id: imagenRecord?.id, url: urlCreada, es_principal: true }],
+              imagen_productos: undefined,
             }
           }
           return p;
@@ -179,7 +186,8 @@ export default function Productos() {
       return toast.error('Seleccione al menos una Talla y un Color')
     }
 
-    const nuevasVariantes = []
+    // Conserva las variantes ya guardadas y solo agrega las combinaciones nuevas
+    const nuevasVariantes = variantes.filter((v) => v.id)
     const prefix = (formData.codigo || formData.nombre).substring(0, 3).toUpperCase()
 
     tallasSeleccionadas.forEach((tallaId) => {
@@ -191,6 +199,11 @@ export default function Productos() {
         const colorNom = colorObj?.nombre || colorId
         const skuGenerado = `${prefix}-${tallaCod}-${colorNom.substring(0, 3).toUpperCase()}`
 
+        const yaExiste = nuevasVariantes.some(
+          (v) => String(v.talla_id) === String(tallaId) && String(v.color_id) === String(colorId)
+        )
+        if (yaExiste) return
+
         nuevasVariantes.push({
           talla_id: tallaId,
           color_id: colorId,
@@ -198,15 +211,14 @@ export default function Productos() {
           color_nombre: colorNom,
           color_hex: colorObj?.hex || '#ffffff',
           sku: skuGenerado,
-          precio_venta: precioBase || 0,
-          stock: stockBase || 0,
           activo: true,
         })
       })
     })
 
+    const nuevas = nuevasVariantes.filter((v) => !v.id).length
     setVariantes(nuevasVariantes)
-    toast.success(`${nuevasVariantes.length} variantes generadas`)
+    toast.success(`${nuevas} variantes nuevas generadas`)
   }
 
   const toggleTalla = (id) => {
@@ -260,6 +272,7 @@ export default function Productos() {
   const abrirModalCrear = () => {
     setProductoEditar(null)
     setProductoCreadoId(null)
+    setCodigoGuardado('')
     setFormData({
       codigo: '',
       nombre: '',
@@ -268,13 +281,11 @@ export default function Productos() {
       categoria_id: categorias[0]?.id || '',
       marca_id: marcas[0]?.id || '',
       temporada_id: temporadas[0]?.id || '',
-      activo: true,
+      activo: false, // todo producto nuevo nace inactivo hasta tener stock y precio
     })
     setVariantes([])
     setTallasSeleccionadas([])
     setColoresSeleccionados([])
-    setPrecioBase('')
-    setStockBase('10')
     setPestañaModal('general')
     setModalAbierto(true)
   }
@@ -282,6 +293,7 @@ export default function Productos() {
   const abrirModalEditar = async (prod) => {
     setProductoEditar(prod)
     setProductoCreadoId(prod.id)
+    setCodigoGuardado('')
     setFormData({
       codigo: prod.codigo || '',
       nombre: prod.nombre || '',
@@ -294,7 +306,7 @@ export default function Productos() {
     })
 
     try {
-      const varsRes = await productoService.listarVariantesPorProducto(prod.id)
+      const varsRes = await productoService.listarVariantesPorProducto(prod.id, { limit: 100, activo: 'todos' })
       const listaVars = Array.isArray(varsRes)
         ? varsRes
         : Array.isArray(varsRes?.datos)
@@ -318,58 +330,78 @@ export default function Productos() {
 
     setGuardando(true)
 
-    const codigoFinal =
-      formData.codigo.trim() ||
-      `${formData.nombre.substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-5)}`
+    // Si ya se creó en este modal (y el usuario vuelve a guardar), se ACTUALIZA, no se duplica
+    const idExistente = productoEditar?.id || productoCreadoId
+    const esEdicion = Boolean(idExistente)
 
     const payload = {
-      codigo: codigoFinal,
-      nombre: formData.nombre,
+      nombre: formData.nombre.trim(),
       descripcion: formData.descripcion,
-      genero: formData.genero || undefined,
+      ...(formData.genero ? { genero: formData.genero } : {}),
       categoria_id: Number(formData.categoria_id),
       marca_id: formData.marca_id ? Number(formData.marca_id) : null,
       temporada_id: formData.temporada_id ? Number(formData.temporada_id) : null,
-      activo: Boolean(formData.activo),
-      estado: Boolean(formData.activo),
+    }
+
+    if (esEdicion) {
+      // En edición solo se manda el código si el usuario lo cambió: reenviar el mismo
+      // código puede disparar el error "código duplicado" contra el propio registro.
+      const codigoActual = productoEditar?.codigo || codigoGuardado
+      const codigoNuevo = formData.codigo.trim()
+      if (codigoNuevo && codigoNuevo !== codigoActual) payload.codigo = codigoNuevo
+      if (!formData.genero && productoEditar?.genero) payload.genero = null // el usuario lo limpió
+      payload.activo = Boolean(formData.activo)
+    } else {
+      payload.codigo =
+        formData.codigo.trim() ||
+        `${formData.nombre.substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-5)}`
+      // Flujo correcto: se crea INACTIVO; stock va en Inventario y precio en Precios
+      payload.activo = false
     }
 
     try {
-      let prodId = productoEditar?.id
-      if (productoEditar) {
-        await productoService.actualizarProducto(productoEditar.id, payload)
+      let prodId = idExistente
+      if (esEdicion) {
+        await productoService.actualizarProducto(idExistente, payload)
         toast.success('Producto actualizado')
       } else {
         const nuevoProd = await productoService.crearProducto(payload)
         prodId = nuevoProd?.id || nuevoProd?.datos?.id || nuevoProd?.data?.id
-        toast.success('Producto creado correctamente')
+        if (!prodId) throw new Error('El servidor no devolvió el id del producto')
+        toast.success('Producto creado (inactivo). Carga su stock en Inventario y su precio en Precios.')
+        setProductoCreadoId(prodId)
+        setCodigoGuardado(payload.codigo)
+        setFormData((prev) => ({ ...prev, codigo: payload.codigo }))
       }
 
-      setProductoCreadoId(prodId)
-
-      // Guardar variantes generadas
-      if (prodId && variantes.length > 0) {
+      // Guardar solo variantes nuevas (sin stock ni precio) y marcarlas como guardadas
+      if (prodId && variantes.some((v) => !v.id)) {
+        const guardadas = []
         for (const v of variantes) {
-          if (!v.id) {
-            await productoService.crearVariante({
-              producto_id: prodId,
-              talla_id: Number(v.talla_id),
-              color_id: Number(v.color_id),
-              sku: v.sku,
-              stock: Number(v.stock),
-              precio_venta: Number(v.precio_venta),
-              activo: v.activo,
-            })
+          if (v.id) {
+            guardadas.push(v)
+            continue
           }
+          const res = await productoService.crearVariante({
+            producto_id: prodId,
+            talla_id: Number(v.talla_id),
+            color_id: Number(v.color_id),
+            sku: v.sku,
+            activo: v.activo,
+          })
+          const nueva = res?.datos || res?.data || res
+          guardadas.push({ ...v, id: nueva?.id ?? v.id })
         }
+        setVariantes(guardadas)
       }
 
-      cargarProductos()
+      await cargarProductos()
       setPestañaModal('imagen')
     } catch (error) {
       toast.error(
         error?.response?.data?.error?.mensaje ||
           error?.response?.data?.message ||
+          error?.message ||
           'Error al guardar el producto'
       )
     } finally {
@@ -850,11 +882,17 @@ export default function Productos() {
                       type="checkbox"
                       id="prodActivo"
                       checked={formData.activo}
+                      disabled={!productoEditar}
                       onChange={(e) => setFormData({ ...formData, activo: e.target.checked })}
-                      className="h-4 w-4 rounded text-slate-900"
+                      className="h-4 w-4 rounded text-slate-900 disabled:opacity-50"
                     />
                     <label htmlFor="prodActivo" className="text-sm font-medium">
                       Producto Activo
+                      {!productoEditar && (
+                        <span className="ml-2 text-xs font-normal text-slate-500">
+                          Se crea inactivo; actívalo después de cargar stock (Inventario) y precio (Precios).
+                        </span>
+                      )}
                     </label>
                   </div>
                 </div>
@@ -922,34 +960,10 @@ export default function Productos() {
                       </div>
                     </div>
 
-                    {/* Valores Default */}
-                    <div className="grid grid-cols-2 gap-3 pt-2">
-                      <div>
-                        <label className="block text-[10px] font-bold uppercase text-slate-500">
-                          Precio Venta Base (Q)
-                        </label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={precioBase}
-                          onChange={(e) => setPrecioBase(e.target.value)}
-                          className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs dark:bg-slate-800"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold uppercase text-slate-500">
-                          Stock Inicial
-                        </label>
-                        <input
-                          type="number"
-                          placeholder="10"
-                          value={stockBase}
-                          onChange={(e) => setStockBase(e.target.value)}
-                          className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs dark:bg-slate-800"
-                        />
-                      </div>
-                    </div>
+                    <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                      Aquí solo se definen las variantes. El stock se carga desde <b>Inventario</b> y el
+                      precio desde <b>Precios</b>.
+                    </p>
 
                     <button
                       type="button"
@@ -970,46 +984,14 @@ export default function Productos() {
                             <th className="p-2">SKU</th>
                             <th className="p-2">Talla</th>
                             <th className="p-2">Color</th>
-                            <th className="p-2">Precio (Q)</th>
-                            <th className="p-2">Stock</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                           {variantes.map((v, idx) => (
-                            <tr key={idx}>
+                            <tr key={v.id || `${v.talla_id}-${v.color_id}`}>
                               <td className="p-2 font-mono">{v.sku}</td>
                               <td className="p-2">{v.talla_nombre || v.talla_id}</td>
                               <td className="p-2">{v.color_nombre || v.color_id}</td>
-                              <td className="p-2">
-                                <input
-                                  type="number"
-                                  value={v.precio_venta}
-                                  onChange={(e) => {
-                                    const val = e.target.value
-                                    setVariantes((prev) =>
-                                      prev.map((item, i) =>
-                                        i === idx ? { ...item, precio_venta: val } : item
-                                      )
-                                    )
-                                  }}
-                                  className="w-16 rounded border px-1 py-0.5 text-xs dark:bg-slate-800"
-                                />
-                              </td>
-                              <td className="p-2">
-                                <input
-                                  type="number"
-                                  value={v.stock}
-                                  onChange={(e) => {
-                                    const val = e.target.value
-                                    setVariantes((prev) =>
-                                      prev.map((item, i) =>
-                                        i === idx ? { ...item, stock: val } : item
-                                      )
-                                    )
-                                  }}
-                                  className="w-16 rounded border px-1 py-0.5 text-xs dark:bg-slate-800"
-                                />
-                              </td>
                             </tr>
                           ))}
                         </tbody>

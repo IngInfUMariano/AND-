@@ -39,8 +39,13 @@ export const desactivarProducto = async (id) => {
 }
 
 // ─── Variantes ─────────────────────────────────────────────────────────────
-export const listarVariantesPorProducto = async (productoId) => {
-  const { data } = await api.get(`/productos/${productoId}/variantes`)
+export const listarVariantesPorProducto = async (productoId, params) => {
+  const { data } = await api.get(`/productos/${productoId}/variantes`, { params: limpiarParams(params) })
+  return data
+}
+
+export const listarVariantes = async (params) => {
+  const { data } = await api.get('/variantes', { params: limpiarParams(params) })
   return data
 }
 
@@ -77,6 +82,7 @@ export const productoService = {
   actualizarProducto,
   desactivarProducto,
   listarVariantesPorProducto,
+  listarVariantes,
   crearVariante,
   actualizarVariante,
   desactivarVariante,

@@ -15,15 +15,15 @@ import api from '@/services/api'
  */
 export default function ImageUploader({
   productoId,
-  colorId     = null,
+  colorId = null,
   esPrincipal = false,
-  orden       = 0,
+  orden = 0,
   onSubida,
   onError,
 }) {
-  const [preview,   setPreview]   = useState(null)
-  const [subiendo,  setSubiendo]  = useState(false)
-  const [progreso,  setProgreso]  = useState(0)
+  const [preview, setPreview] = useState(null)
+  const [subiendo, setSubiendo] = useState(false)
+  const [progreso, setProgreso] = useState(0)
   const inputRef = useRef(null)
 
   const handleArchivo = async (archivo) => {
@@ -36,20 +36,21 @@ export default function ImageUploader({
 
     try {
       const form = new FormData()
-      form.append('imagen',       archivo)
-      form.append('producto_id',  productoId)
+      form.append('imagen', archivo)
+      form.append('producto_id', productoId)
       form.append('es_principal', String(esPrincipal))
-      form.append('orden',        String(orden))
+      form.append('orden', String(orden))
+      form.append('reemplazar', String(esPrincipal)) // el backend debe sustituir la principal anterior
       if (colorId) form.append('color_id', colorId)
 
+      // Sin Content-Type manual: el navegador agrega el boundary correcto del multipart
       const res = await api.post('/imagen-productos/upload', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (e) => {
           if (e.total) setProgreso(Math.round((e.loaded * 100) / e.total))
         },
       })
 
-      onSubida?.(res.data.data)
+      onSubida?.(res.data?.data ?? res.data)
     } catch (err) {
       const msg = err.response?.data?.error?.mensaje ?? 'Error al subir la imagen'
       onError?.(msg)
