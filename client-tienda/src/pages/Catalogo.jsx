@@ -254,11 +254,11 @@ function PopupCompra({ producto, onClose }) {
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem', flexWrap: 'wrap' }}>
             {precioNormal != null && (
               <span style={{ ...MONO, fontSize: '11px', color: 'rgba(10,10,10,0.35)', textDecoration: 'line-through' }}>
-                ₡ {Number(precioNormal).toLocaleString('es-CR')}
+                Q {Number(precioNormal).toFixed(2)}
               </span>
             )}
             <span style={{ ...MONO, fontSize: '13px', color: precioNormal != null ? 'rgba(180,30,30,0.85)' : 'rgba(10,10,10,0.6)', fontWeight: 500 }}>
-              ₡ {Number(precio).toLocaleString('es-CR')}
+              Q {Number(precio).toFixed(2)}
             </span>
             {precioNormal != null && (
               <span style={{ ...MONO, fontSize: '9px', letterSpacing: '0.14em', color: 'rgba(180,30,30,0.7)', border: '1px solid rgba(180,30,30,0.25)', padding: '2px 5px' }}>
@@ -392,11 +392,11 @@ function PopupCompra({ producto, onClose }) {
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '1.4rem' }}>
               {precioNormal != null && (
                 <span style={{ ...MONO, fontSize: '12px', color: 'rgba(10,10,10,0.35)', textDecoration: 'line-through' }}>
-                  ₡ {Number(precioNormal).toLocaleString('es-CR')}
+                  Q {Number(precioNormal).toFixed(2)}
                 </span>
               )}
               <span style={{ ...MONO, fontSize: '14px', color: precioNormal != null ? 'rgba(180,30,30,0.85)' : 'rgba(10,10,10,0.6)', fontWeight: 500 }}>
-                ₡ {Number(precio).toLocaleString('es-CR')}
+                Q {Number(precio).toFixed(2)}
               </span>
               {precioNormal != null && (
                 <span style={{ ...MONO, fontSize: '9px', letterSpacing: '0.14em', color: 'rgba(180,30,30,0.7)', border: '1px solid rgba(180,30,30,0.25)', padding: '2px 5px' }}>
