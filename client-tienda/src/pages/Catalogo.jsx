@@ -658,8 +658,8 @@ export default function Catalogo() {
                   const { efectivo, normal } = getPrecioCard(p, tipoCliente)
                   return efectivo != null ? (
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem', flexWrap: 'wrap' }}>
-                      {normal != null && <span style={{ ...MONO, fontSize: '10px', color: 'rgba(10,10,10,0.35)', textDecoration: 'line-through' }}>₡ {Number(normal).toLocaleString('es-CR')}</span>}
-                      <span style={{ ...MONO, fontSize: isMobile ? '11px' : '12px', color: normal != null ? 'rgba(180,30,30,0.85)' : 'rgba(10,10,10,0.55)' }}>₡ {Number(efectivo).toLocaleString('es-CR')}</span>
+                      {normal != null && <span style={{ ...MONO, fontSize: '10px', color: 'rgba(10,10,10,0.35)', textDecoration: 'line-through' }}>Q {Number(normal).toFixed(2)}</span>}
+                      <span style={{ ...MONO, fontSize: isMobile ? '11px' : '12px', color: normal != null ? 'rgba(180,30,30,0.85)' : 'rgba(10,10,10,0.55)' }}>Q {Number(efectivo).toFixed(2)}</span>
                       {normal != null && <span style={{ ...MONO, fontSize: '8px', letterSpacing: '0.12em', color: 'rgba(180,30,30,0.7)', border: '1px solid rgba(180,30,30,0.25)', padding: '1px 4px' }}>OFERTA</span>}
                     </div>
                   ) : null
@@ -888,8 +888,8 @@ export default function Catalogo() {
                           const { efectivo, normal } = getPrecioCard(p, tipoCliente)
                           return efectivo != null ? (
                             <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem', flexWrap: 'wrap' }}>
-                              {normal != null && <span style={{ ...MONO, fontSize: '10px', color: 'rgba(10,10,10,0.35)', textDecoration: 'line-through' }}>₡ {Number(normal).toLocaleString('es-CR')}</span>}
-                              <span style={{ ...MONO, fontSize: '12px', color: normal != null ? 'rgba(180,30,30,0.85)' : 'rgba(10,10,10,0.5)' }}>₡ {Number(efectivo).toLocaleString('es-CR')}</span>
+                              {normal != null && <span style={{ ...MONO, fontSize: '10px', color: 'rgba(10,10,10,0.35)', textDecoration: 'line-through' }}>Q {Number(normal).toFixed(2)}</span>}
+                              <span style={{ ...MONO, fontSize: '12px', color: normal != null ? 'rgba(180,30,30,0.85)' : 'rgba(10,10,10,0.5)' }}>Q {Number(efectivo).toFixed(2)}</span>
                               {normal != null && <span style={{ ...MONO, fontSize: '8px', letterSpacing: '0.12em', color: 'rgba(180,30,30,0.7)', border: '1px solid rgba(180,30,30,0.25)', padding: '1px 4px' }}>OFERTA</span>}
                             </div>
                           ) : null
@@ -988,8 +988,8 @@ export default function Catalogo() {
                               const { efectivo, normal } = getPrecioCard(p, tipoCliente)
                               return efectivo != null ? (
                                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
-                                  {normal != null && <span style={{ ...MONO, fontSize: '11px', color: 'rgba(10,10,10,0.35)', textDecoration: 'line-through' }}>₡ {Number(normal).toLocaleString('es-CR')}</span>}
-                                  <span style={{ ...MONO, fontSize: '13px', color: normal != null ? 'rgba(180,30,30,0.85)' : 'rgba(10,10,10,0.6)', fontWeight: 500 }}>₡ {Number(efectivo).toLocaleString('es-CR')}</span>
+                                  {normal != null && <span style={{ ...MONO, fontSize: '11px', color: 'rgba(10,10,10,0.35)', textDecoration: 'line-through' }}>Q {Number(normal).toFixed(2)}</span>}
+                                  <span style={{ ...MONO, fontSize: '13px', color: normal != null ? 'rgba(180,30,30,0.85)' : 'rgba(10,10,10,0.6)', fontWeight: 500 }}>Q {Number(efectivo).toFixed(2)}</span>
                                   {normal != null && <span style={{ ...MONO, fontSize: '8px', letterSpacing: '0.12em', color: 'rgba(180,30,30,0.7)', border: '1px solid rgba(180,30,30,0.25)', padding: '1px 4px' }}>OFERTA</span>}
                                 </div>
                               ) : null
