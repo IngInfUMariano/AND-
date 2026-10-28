@@ -9,11 +9,13 @@ import {
     CheckCircle2,
     ArrowRightLeft,
     ShieldCheck,
-    AlertTriangle
+    AlertTriangle,
+    History
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import inventarioService from '@/services/inventario.service'
 import api from '@/services/api'
+import PedidoStepper from '@/components/PedidoStepper'
 
 const safeNumber = (val) => (isNaN(Number(val)) ? 0 : Number(val))
 
@@ -64,6 +66,10 @@ export default function PedidosInternos() {
         observaciones: ''
     })
     const [procesandoPedido, setProcesandoPedido] = useState(false)
+
+    // Estados para Modal de Historial / Stepper
+    const [modalHistorial, setModalHistorial] = useState(false)
+    const [pedidoHistorialSel, setPedidoHistorialSel] = useState(null)
 
     // Estados para Módulo de Despachos (Traslados)
     const [trasladosPendientes, setTrasladosPendientes] = useState([])
@@ -125,17 +131,6 @@ export default function PedidosInternos() {
     }, [sucursalSeleccionadaId])
 
     const sucursalAsignadaUsuario = usuarioActual?.sucursal_id || usuarioActual?.sucursal?.id
-    const esAdminOGerente = () => {
-        if (!usuarioActual) return true
-        const rol = String(
-            usuarioActual.perfil ||
-            usuarioActual.rol ||
-            usuarioActual.role ||
-            usuarioActual.tipo ||
-            ''
-        ).toUpperCase()
-        return rol.includes('ADMIN') || rol.includes('GERENTE') || usuarioActual.perfil === 'ADMIN'
-    }
 
     // 3. Cargar Pedidos
     const cargarPedidos = useCallback(async () => {
@@ -196,6 +191,16 @@ export default function PedidosInternos() {
     }, [pestañaActiva, sucursalSeleccionadaId, filtroEstadoPedido, cargarPedidos, cargarTrasladosDespacho])
 
     // --- LÓGICA DE PEDIDOS ---
+    const verHistorialPedido = async (p) => {
+        try {
+            const res = await api.get(`/pedidos/${p.id}`)
+            setPedidoHistorialSel(res.data?.data || res.data || p)
+        } catch {
+            setPedidoHistorialSel(p)
+        }
+        setModalHistorial(true)
+    }
+
     const abrirModalVerificacion = async (pedido) => {
         setPedidoSeleccionado(pedido)
         if (String(pedido.estado || '').toUpperCase() === 'PAGADO') {
@@ -257,7 +262,9 @@ export default function PedidosInternos() {
 
             await api.patch(`/pedidos/${pedidoId}/estado`, {
                 estado: 'DESPACHADO',
-                observacion: obsCompleta
+                observacion: obsCompleta,
+                numero_guia: datosDespacho.numero_guia.trim(),
+                courier: datosDespacho.transportista
             })
 
             toast.success(`Pedido #${pedidoSeleccionado.numero || pedidoId} despachado correctamente. Guía: ${datosDespacho.numero_guia}`)
@@ -476,18 +483,28 @@ export default function PedidosInternos() {
                                                     </span>
                                                 </td>
                                                 <td className="px-4 py-3 text-right">
-                                                    {p.estado === 'PAGADO' || p.estado === 'EN_PREPARACION' ? (
+                                                    <div className="flex items-center justify-end gap-2">
                                                         <button
-                                                            onClick={() => abrirModalVerificacion(p)}
-                                                            className="inline-flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-emerald-700 shadow-sm"
+                                                            onClick={() => verHistorialPedido(p)}
+                                                            className="inline-flex items-center gap-1.5 border border-slate-200 bg-card px-2.5 py-1.5 rounded-lg text-xs font-semibold hover:bg-muted shadow-sm"
+                                                            title="Ver Línea de Tiempo e Historial"
                                                         >
-                                                            <ClipboardCheck size={14} /> Verificar Empaque y Guía
+                                                            <History size={14} className="text-indigo-600" /> Historial
                                                         </button>
-                                                    ) : (
-                                                        <span className="text-muted-foreground font-medium text-[11px] flex items-center justify-end gap-1">
-                                                            <CheckCircle2 size={13} className="text-emerald-600" /> Procesado / {p.estado}
-                                                        </span>
-                                                    )}
+
+                                                        {p.estado === 'PAGADO' || p.estado === 'EN_PREPARACION' ? (
+                                                            <button
+                                                                onClick={() => abrirModalVerificacion(p)}
+                                                                className="inline-flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-emerald-700 shadow-sm"
+                                                            >
+                                                                <ClipboardCheck size={14} /> Empaque y Guía
+                                                            </button>
+                                                        ) : (
+                                                            <span className="text-muted-foreground font-medium text-[11px] flex items-center gap-1">
+                                                                <CheckCircle2 size={13} className="text-emerald-600" /> {p.estado}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))
@@ -593,6 +610,81 @@ export default function PedidosInternos() {
                                     Selecciona una solicitud pendiente para verificar y despachar.
                                 </div>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL HISTORIAL Y STEPPER */}
+            {modalHistorial && pedidoHistorialSel && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl border bg-card p-6 shadow-2xl">
+                        <div className="flex items-center justify-between border-b pb-4">
+                            <div>
+                                <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                                    <History className="h-5 w-5 text-indigo-600" /> Seguimiento del Pedido #{pedidoHistorialSel.numero || pedidoHistorialSel.id}
+                                </h3>
+                                <p className="text-xs text-muted-foreground">
+                                    Línea de tiempo y trazabilidad completa de cambios de estado.
+                                </p>
+                            </div>
+                            <button onClick={() => setModalHistorial(false)} className="rounded-lg p-1 text-muted-foreground hover:bg-muted">
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Stepper Visual */}
+                        <div className="my-6">
+                            <PedidoStepper
+                                estadoActual={pedidoHistorialSel.estado}
+                                historial={pedidoHistorialSel.pedido_historiales || pedidoHistorialSel.pedido_historial || []}
+                            />
+                        </div>
+
+                        {/* Tabla Auditoría */}
+                        <div className="mt-6 space-y-3">
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Trazabilidad de Cambios (Auditoría)</h4>
+                            <div className="overflow-hidden rounded-xl border">
+                                <table className="w-full text-left text-xs">
+                                    <thead className="bg-muted font-semibold text-muted-foreground">
+                                        <tr>
+                                            <th className="p-3">Fecha y Hora</th>
+                                            <th className="p-3">Estado Previo</th>
+                                            <th className="p-3">Nuevo Estado</th>
+                                            <th className="p-3">Motivo / Observación</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y">
+                                        {(pedidoHistorialSel.pedido_historiales || pedidoHistorialSel.pedido_historial || []).length === 0 ? (
+                                            <tr>
+                                                <td colSpan={4} className="p-6 text-center text-muted-foreground">
+                                                    No hay cambios de estado registrados para este pedido.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            (pedidoHistorialSel.pedido_historiales || pedidoHistorialSel.pedido_historial || []).map((h, i) => (
+                                                <tr key={i}>
+                                                    <td className="p-3 font-mono text-muted-foreground">
+                                                        {new Date(h.createdAt || h.created_at || h.fecha).toLocaleString()}
+                                                    </td>
+                                                    <td className="p-3 font-medium text-muted-foreground">{h.estado_anterior || '—'}</td>
+                                                    <td className="p-3 font-bold text-emerald-600">{h.estado_nuevo}</td>
+                                                    <td className="p-3 text-foreground">{h.motivo || 'Cambio registrado automáticamente'}</td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div className="mt-6 flex justify-end">
+                            <button
+                                onClick={() => setModalHistorial(false)}
+                                className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                            >
+                                Cerrar
+                            </button>
                         </div>
                     </div>
                 </div>
