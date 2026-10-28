@@ -15,6 +15,7 @@ const AppError         = require("../../../core/utils/AppError");
 const registrarBitacora = require("../../../core/utils/registrarBitacora");
 const { parsearPaginacion } = require("../../../core/utils/paginacion");
 const pedidoService    = require("../../pedidos/services/pedido.service");
+const enviarCorreo     = require("../../../core/utils/enviarCorreo");
 
 // La moneda se configura por variable de entorno. Stripe requiere minúsculas.
 const MONEDA_STRIPE = (process.env.STRIPE_CURRENCY || "GTQ").toLowerCase();
@@ -207,6 +208,85 @@ const procesarWebhook = async (rawBody, signature, ip) => {
   return { recibido: true };
 };
 
+// Construye y envía la factura HTML al email del cliente tras confirmar el pago.
+const _enviarFactura = async (pedidoId) => {
+  const pedido = await db.pedido.findByPk(pedidoId, {
+    include: [
+      { model: db.pedido_detalle },
+      { model: db.cliente, attributes: ["nombre", "email", "nit"] },
+    ],
+  });
+  if (!pedido || !pedido.cliente?.email) return;
+
+  const fecha = new Date(pedido.created_at).toLocaleDateString("es-GT", {
+    year: "numeric", month: "long", day: "numeric",
+  });
+
+  const filas = (pedido.pedido_detalles || []).map((d) => `
+    <tr>
+      <td style="padding:6px 8px;border-bottom:1px solid #eee">${d.descripcion}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center">${d.sku}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center">${d.cantidad}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right">Q ${parseFloat(d.precio_unitario).toFixed(2)}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right">Q ${parseFloat(d.subtotal).toFixed(2)}</td>
+    </tr>`).join("");
+
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><title>Factura ${pedido.numero}</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:sans-serif;color:#222">
+  <div style="max-width:600px;margin:32px auto;background:#fff;border:1px solid #e0e0e0">
+    <div style="background:#0a0a0a;color:#fff;padding:24px 32px">
+      <h1 style="margin:0;font-size:22px;letter-spacing:0.1em">AND&</h1>
+      <p style="margin:4px 0 0;font-size:12px;opacity:0.6">BOLETA DE VENTA</p>
+    </div>
+    <div style="padding:24px 32px">
+      <table style="width:100%;font-size:13px;margin-bottom:20px">
+        <tr>
+          <td><strong>Pedido:</strong> ${pedido.numero}</td>
+          <td style="text-align:right"><strong>Fecha:</strong> ${fecha}</td>
+        </tr>
+        <tr>
+          <td><strong>Cliente:</strong> ${pedido.cliente.nombre}</td>
+          <td style="text-align:right"><strong>NIT:</strong> ${pedido.cliente.nit || "CF"}</td>
+        </tr>
+      </table>
+      <table style="width:100%;font-size:13px;border-collapse:collapse">
+        <thead>
+          <tr style="background:#f9f9f9">
+            <th style="padding:8px;text-align:left;border-bottom:2px solid #ddd">Descripción</th>
+            <th style="padding:8px;text-align:center;border-bottom:2px solid #ddd">SKU</th>
+            <th style="padding:8px;text-align:center;border-bottom:2px solid #ddd">Cant.</th>
+            <th style="padding:8px;text-align:right;border-bottom:2px solid #ddd">Precio unit.</th>
+            <th style="padding:8px;text-align:right;border-bottom:2px solid #ddd">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>${filas}</tbody>
+      </table>
+      <table style="width:100%;font-size:13px;margin-top:12px">
+        ${parseFloat(pedido.costo_envio) > 0
+          ? `<tr><td style="text-align:right;padding:4px 8px">Envío:</td><td style="text-align:right;padding:4px 8px">Q ${parseFloat(pedido.costo_envio).toFixed(2)}</td></tr>`
+          : ""}
+        <tr>
+          <td style="text-align:right;padding:8px;font-weight:bold;font-size:15px">TOTAL:</td>
+          <td style="text-align:right;padding:8px;font-weight:bold;font-size:15px">Q ${parseFloat(pedido.total).toFixed(2)}</td>
+        </tr>
+      </table>
+    </div>
+    <div style="background:#f9f9f9;padding:16px 32px;font-size:11px;color:#888;text-align:center">
+      Puedes ver y descargar tu factura en la sección Mis Pedidos de nuestra tienda.
+    </div>
+  </div>
+</body>
+</html>`;
+
+  await enviarCorreo({
+    destinatario: pedido.cliente.email,
+    asunto:       `Factura pedido ${pedido.numero} — AND&`,
+    html,
+  });
+};
+
 // Marca la transacción como EXITOSA y confirma el pedido en una sola transacción BD.
 // Si confirmarPago falla, el rollback deja tx en PENDIENTE y Stripe puede reintentar.
 // Idempotencia: si ya está EXITOSA, no hace nada (el evento duplicado no genera efectos).
@@ -235,6 +315,8 @@ const _manejarPagoExitoso = async (paymentIntent) => {
     await t.rollback();
     throw err;
   }
+
+  try { await _enviarFactura(tx.pedido_id); } catch (e) { console.error("[EMAIL factura]", e.message); }
 };
 
 // Marca la transacción como RECHAZADA.
@@ -432,16 +514,18 @@ const pagarConCredito = async (pedidoId, usuarioId) => {
     });
 
     await t.commit();
-
-    return {
-      pedido_id:          parseInt(pedidoId, 10),
-      credito_utilizado:  nuevoCreditoUtilizado,
-      credito_disponible: limite - nuevoCreditoUtilizado,
-    };
   } catch (err) {
     await t.rollback();
     throw err;
   }
+
+  try { await _enviarFactura(pedidoId); } catch (e) { console.error("[EMAIL factura]", e.message); }
+
+  return {
+    pedido_id:          parseInt(pedidoId, 10),
+    credito_utilizado:  nuevoCreditoUtilizado,
+    credito_disponible: limite - nuevoCreditoUtilizado,
+  };
 };
 
 // ─── registrarAbono ───────────────────────────────────────────────────────────

@@ -41,6 +41,7 @@ const MENU = [
     perfiles: ['ADMIN', 'GERENTE', 'VENDEDOR', 'BODEGUERO'],
     items: [
       { label: 'Pedidos', to: '/pedidos' },
+      { label: 'Sucursales y Envíos', to: '/sucursales', perfiles: ['ADMIN', 'GERENTE'] },
     ],
   },
   {
@@ -58,7 +59,6 @@ const MENU = [
       { label: 'Dashboard', to: '/dashboard' },
     ],
   },
-  
 ]
 
 export default function AdminLayout() {

@@ -183,6 +183,8 @@ function PopupCompra({ producto, onClose }) {
   const tallas = [...new Map(variantes.map(v => [v.talla?.id, v.talla])).values()].filter(Boolean)
   const colores = [...new Map(variantes.map(v => [v.color?.id, v.color])).values()].filter(Boolean)
   const varianteActual = variantes.find(v => v.talla?.id === tallaId && v.color?.id === colorId)
+  const stockVariante = (v) => (v?.existencias ?? []).reduce((s, e) => s + ((e.cantidad_fisica ?? 0) - (e.cantidad_comprometida ?? 0)), 0)
+  const sinStock = varianteActual != null && stockVariante(varianteActual) <= 0
 
   const getPrecioEfectivo = (v) => {
     const ps = v?.precios ?? []
@@ -219,7 +221,7 @@ function PopupCompra({ producto, onClose }) {
     }
   }
 
-  const listo = (varianteActual || (tallas.length === 0 && colores.length === 0)) && !agregando
+  const listo = (varianteActual || (tallas.length === 0 && colores.length === 0)) && !agregando && !sinStock
 
   /* ── Panel de detalles (compartido mobile/desktop) ── */
   const detallesPanel = (
@@ -327,6 +329,11 @@ function PopupCompra({ producto, onClose }) {
               combinación no disponible
             </p>
           )}
+          {sinStock && (
+            <p style={{ ...MONO, fontSize: '10px', letterSpacing: '0.18em', color: 'rgba(160,0,0,0.6)', marginBottom: '0.8rem', textTransform: 'uppercase' }}>
+              sin stock disponible
+            </p>
+          )}
 
           <button onClick={agregar} disabled={!listo} style={{
             marginTop: 'auto', width: '100%', padding: '15px',
@@ -336,7 +343,7 @@ function PopupCompra({ producto, onClose }) {
             ...MONO, fontSize: '11px', letterSpacing: '0.3em', textTransform: 'uppercase',
             transition: 'background 0.22s ease, color 0.22s ease',
           }}>
-            {agregando ? 'agregando...' : 'agregar al carrito'}
+            {agregando ? 'agregando...' : sinStock ? 'agotado' : 'agregar al carrito'}
           </button>
         </>
       )}
@@ -464,6 +471,11 @@ function PopupCompra({ producto, onClose }) {
                   combinación no disponible
                 </p>
               )}
+              {sinStock && (
+                <p style={{ ...MONO, fontSize: '10px', letterSpacing: '0.18em', color: 'rgba(160,0,0,0.6)', marginBottom: '0.8rem', textTransform: 'uppercase' }}>
+                  sin stock disponible
+                </p>
+              )}
 
               <button onClick={agregar} disabled={!listo} style={{
                 marginTop: 'auto', width: '100%', padding: '16px',
@@ -473,7 +485,7 @@ function PopupCompra({ producto, onClose }) {
                 ...MONO, fontSize: '12px', letterSpacing: '0.3em', textTransform: 'uppercase',
                 transition: 'background 0.22s ease, color 0.22s ease',
               }}>
-                {agregando ? 'agregando...' : 'agregar al carrito'}
+                {agregando ? 'agregando...' : sinStock ? 'agotado' : 'agregar al carrito'}
               </button>
             </>
           )}
@@ -664,22 +676,24 @@ export default function Catalogo() {
                     </div>
                   ) : null
                 })()}
-                <button
-                  onClick={() => setPopup(p)}
-                  style={{
-                    marginTop: '0.5rem',
-                    ...MONO, fontSize: '9px', letterSpacing: '0.26em', textTransform: 'uppercase',
-                    background: '#0a0a0a', color: '#fafafa',
-                    border: 'none', cursor: 'pointer',
-                    padding: isMobile ? '9px 0' : '10px 0',
-                    width: '100%',
-                    transition: 'opacity 0.16s ease',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.opacity = '0.65'}
-                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-                >
-                  comprar →
-                </button>
+                {getPrecioCard(p, tipoCliente).efectivo != null && (
+                  <button
+                    onClick={() => setPopup(p)}
+                    style={{
+                      marginTop: '0.5rem',
+                      ...MONO, fontSize: '9px', letterSpacing: '0.26em', textTransform: 'uppercase',
+                      background: '#0a0a0a', color: '#fafafa',
+                      border: 'none', cursor: 'pointer',
+                      padding: isMobile ? '9px 0' : '10px 0',
+                      width: '100%',
+                      transition: 'opacity 0.16s ease',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = '0.65'}
+                    onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                  >
+                    comprar →
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -894,12 +908,14 @@ export default function Catalogo() {
                             </div>
                           ) : null
                         })()}
-                        <button onClick={() => setPopup(p)} style={{
-                          ...MONO, fontSize: '10px', letterSpacing: '0.22em', textTransform: 'uppercase',
-                          background: '#0a0a0a', color: '#fafafa',
-                          border: 'none', cursor: 'pointer',
-                          padding: '11px 22px', marginLeft: 'auto',
-                        }}>comprar →</button>
+                        {getPrecioCard(p, tipoCliente).efectivo != null && (
+                          <button onClick={() => setPopup(p)} style={{
+                            ...MONO, fontSize: '10px', letterSpacing: '0.22em', textTransform: 'uppercase',
+                            background: '#0a0a0a', color: '#fafafa',
+                            border: 'none', cursor: 'pointer',
+                            padding: '11px 22px', marginLeft: 'auto',
+                          }}>comprar →</button>
+                        )}
                       </div>
                     </div>
                   )
@@ -994,17 +1010,19 @@ export default function Catalogo() {
                                 </div>
                               ) : null
                             })()}
-                            <button
-                              onClick={() => setPopup(p)}
-                              style={{
-                                ...MONO, fontSize: '10px', letterSpacing: '0.26em', textTransform: 'uppercase',
-                                background: 'none', border: 'none',
-                                borderBottom: '1px solid rgba(10,10,10,0.26)',
-                                paddingBottom: '2px', color: '#0a0a0a', cursor: 'pointer',
-                              }}
-                            >
-                              comprar →
-                            </button>
+                            {getPrecioCard(p, tipoCliente).efectivo != null && (
+                              <button
+                                onClick={() => setPopup(p)}
+                                style={{
+                                  ...MONO, fontSize: '10px', letterSpacing: '0.26em', textTransform: 'uppercase',
+                                  background: 'none', border: 'none',
+                                  borderBottom: '1px solid rgba(10,10,10,0.26)',
+                                  paddingBottom: '2px', color: '#0a0a0a', cursor: 'pointer',
+                                }}
+                              >
+                                comprar →
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>

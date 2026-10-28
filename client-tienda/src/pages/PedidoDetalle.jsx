@@ -7,6 +7,7 @@ import pedidoService from '@/services/pedido.service'
 import { useAuth } from '@/context/AuthContext'
 import { useCart } from '@/context/CartContext'
 import MenuOverlay from '@/components/MenuOverlay'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 const MONO    = { fontFamily: "'IBM Plex Mono', monospace" }
 const DISPLAY = { fontFamily: "'EB Garamond', Georgia, serif", fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.18em' }
@@ -105,6 +106,7 @@ export default function PedidoDetalle() {
   const [pedido, setPedido] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [menuAbierto, setMenuAbierto] = useState(false)
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     pedidoService.obtener(id)
@@ -191,39 +193,60 @@ export default function PedidoDetalle() {
       <NavHeader onOpenMenu={() => setMenuAbierto(true)} />
       <MenuOverlay open={menuAbierto} onClose={() => setMenuAbierto(false)} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '38% 1fr', paddingTop: `${NAV_H}px`, minHeight: `calc(100vh - ${NAV_H}px)` }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '38% 1fr', paddingTop: `${NAV_H}px`, minHeight: `calc(100vh - ${NAV_H}px)` }}>
 
-        {/* Columna izquierda: imagen sticky */}
-        <div style={{ position: 'sticky', top: `${NAV_H}px`, height: `calc(100vh - ${NAV_H}px)`, overflow: 'hidden' }}>
-          <img
-            src="https://picsum.photos/seed/andorderdetail/800/1100"
-            alt=""
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'grayscale(100%) brightness(0.55)' }}
-          />
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'flex-end', padding: '2.5rem' }}>
-            <div>
-              <p style={{ ...MONO, fontSize: '10px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', marginBottom: '0.5rem' }}>
+        {/* Columna izquierda: imagen sticky, solo desktop */}
+        {!isMobile && (
+          <div style={{ position: 'sticky', top: `${NAV_H}px`, height: `calc(100vh - ${NAV_H}px)`, overflow: 'hidden' }}>
+            <img
+              src="https://picsum.photos/seed/andorderdetail/800/1100"
+              alt=""
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'grayscale(100%) brightness(0.55)' }}
+            />
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'flex-end', padding: '2.5rem' }}>
+              <div>
+                <p style={{ ...MONO, fontSize: '10px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', marginBottom: '0.5rem' }}>
+                  pedido
+                </p>
+                <p style={{ ...DISPLAY, fontSize: 'clamp(1.6rem, 3vw, 2.4rem)', color: '#ffffff', lineHeight: 1 }}>
+                  #{pedido.numero ?? pedido.id}
+                </p>
+                <p style={{
+                  ...MONO, fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase',
+                  color: COLOR_ESTADO[pedido.estado] ?? 'rgba(255,255,255,0.45)',
+                  marginTop: '0.6rem',
+                  background: 'rgba(250,250,250,0.1)',
+                  padding: '4px 10px',
+                  display: 'inline-block',
+                }}>
+                  {LABEL_ESTADO[pedido.estado] ?? pedido.estado?.toLowerCase()}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Columna derecha */}
+        <div style={{ padding: isMobile ? '2rem 1.2rem 4rem' : '4rem 4rem 5rem 4.5rem' }}>
+
+          {/* Número y estado mobile */}
+          {isMobile && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <p style={{ ...MONO, fontSize: '10px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.38)', marginBottom: '0.4rem' }}>
                 pedido
               </p>
-              <p style={{ ...DISPLAY, fontSize: 'clamp(1.6rem, 3vw, 2.4rem)', color: '#ffffff', lineHeight: 1 }}>
+              <p style={{ ...DISPLAY, fontSize: 'clamp(1.6rem, 6vw, 2.4rem)', lineHeight: 1 }}>
                 #{pedido.numero ?? pedido.id}
               </p>
               <p style={{
-                ...MONO, fontSize: '11px', letterSpacing: '0.22em', textTransform: 'uppercase',
-                color: COLOR_ESTADO[pedido.estado] ?? 'rgba(255,255,255,0.45)',
-                marginTop: '0.6rem',
-                background: 'rgba(250,250,250,0.1)',
-                padding: '4px 10px',
-                display: 'inline-block',
+                ...MONO, fontSize: '10px', letterSpacing: '0.22em', textTransform: 'uppercase',
+                color: COLOR_ESTADO[pedido.estado] ?? 'rgba(10,10,10,0.38)',
+                marginTop: '0.5rem',
               }}>
                 {LABEL_ESTADO[pedido.estado] ?? pedido.estado?.toLowerCase()}
               </p>
             </div>
-          </div>
-        </div>
-
-        {/* Columna derecha */}
-        <div style={{ padding: '4rem 4rem 5rem 4.5rem' }}>
+          )}
 
           {/* Volver */}
           <button
@@ -274,32 +297,55 @@ export default function PedidoDetalle() {
             </p>
 
             <div style={{ borderTop: '1px solid rgba(10,10,10,0.08)' }}>
-              {/* Cabecera */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 90px', padding: '0.6rem 0', borderBottom: '1px solid rgba(10,10,10,0.06)' }}>
-                {['PRODUCTO', 'CANT.', 'SUBTOTAL'].map(h => (
-                  <span key={h} style={{ ...MONO, fontSize: '9px', letterSpacing: '0.35em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.3)', textAlign: h === 'SUBTOTAL' ? 'right' : 'left' }}>
-                    {h}
-                  </span>
-                ))}
-              </div>
+              {/* Cabecera — solo desktop */}
+              {!isMobile && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 90px', padding: '0.6rem 0', borderBottom: '1px solid rgba(10,10,10,0.06)' }}>
+                  {['PRODUCTO', 'CANT.', 'SUBTOTAL'].map(h => (
+                    <span key={h} style={{ ...MONO, fontSize: '9px', letterSpacing: '0.35em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.3)', textAlign: h === 'SUBTOTAL' ? 'right' : 'left' }}>
+                      {h}
+                    </span>
+                  ))}
+                </div>
+              )}
 
               {items.map(d => (
-                <div key={d.id} style={{ display: 'grid', gridTemplateColumns: '1fr 60px 90px', alignItems: 'center', padding: '1.1rem 0', borderBottom: '1px solid rgba(10,10,10,0.05)' }}>
-                  <div>
+                isMobile ? (
+                  <div key={d.id} style={{ padding: '1rem 0', borderBottom: '1px solid rgba(10,10,10,0.05)' }}>
                     <p style={{ ...MONO, fontSize: '13px', color: '#0a0a0a', marginBottom: '0.2rem' }}>
                       {d.descripcion ?? d.variante?.producto?.nombre ?? 'Producto'}
                     </p>
                     {(d.sku ?? d.variante?.sku) && (
-                      <p style={{ ...MONO, fontSize: '10px', color: 'rgba(10,10,10,0.35)', letterSpacing: '0.06em' }}>
+                      <p style={{ ...MONO, fontSize: '10px', color: 'rgba(10,10,10,0.35)', letterSpacing: '0.06em', marginBottom: '0.4rem' }}>
                         {d.sku ?? d.variante?.sku}
                       </p>
                     )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ ...MONO, fontSize: '11px', color: 'rgba(10,10,10,0.50)' }}>
+                        Cant. {d.cantidad}
+                      </span>
+                      <span style={{ ...MONO, fontSize: '12px', color: 'rgba(10,10,10,0.78)' }}>
+                        Q {Number(d.subtotal ?? 0).toFixed(2)}
+                      </span>
+                    </div>
                   </div>
-                  <span style={{ ...MONO, fontSize: '12px', color: 'rgba(10,10,10,0.55)', textAlign: 'center' }}>{d.cantidad}</span>
-                  <span style={{ ...MONO, fontSize: '13px', color: 'rgba(10,10,10,0.78)', textAlign: 'right' }}>
-                    Q {Number(d.subtotal ?? 0).toFixed(2)}
-                  </span>
-                </div>
+                ) : (
+                  <div key={d.id} style={{ display: 'grid', gridTemplateColumns: '1fr 60px 90px', alignItems: 'center', padding: '1.1rem 0', borderBottom: '1px solid rgba(10,10,10,0.05)' }}>
+                    <div>
+                      <p style={{ ...MONO, fontSize: '13px', color: '#0a0a0a', marginBottom: '0.2rem' }}>
+                        {d.descripcion ?? d.variante?.producto?.nombre ?? 'Producto'}
+                      </p>
+                      {(d.sku ?? d.variante?.sku) && (
+                        <p style={{ ...MONO, fontSize: '10px', color: 'rgba(10,10,10,0.35)', letterSpacing: '0.06em' }}>
+                          {d.sku ?? d.variante?.sku}
+                        </p>
+                      )}
+                    </div>
+                    <span style={{ ...MONO, fontSize: '12px', color: 'rgba(10,10,10,0.55)', textAlign: 'center' }}>{d.cantidad}</span>
+                    <span style={{ ...MONO, fontSize: '13px', color: 'rgba(10,10,10,0.78)', textAlign: 'right' }}>
+                      Q {Number(d.subtotal ?? 0).toFixed(2)}
+                    </span>
+                  </div>
+                )
               ))}
             </div>
           </section>

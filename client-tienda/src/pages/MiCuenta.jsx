@@ -6,6 +6,7 @@ import clienteService from '@/services/cliente.service'
 import { useAuth } from '@/context/AuthContext'
 import { useCart } from '@/context/CartContext'
 import MenuOverlay from '@/components/MenuOverlay'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 const MONO    = { fontFamily: "'IBM Plex Mono', monospace" }
 const DISPLAY = { fontFamily: "'EB Garamond', Georgia, serif", fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.18em' }
@@ -105,13 +106,14 @@ function FormDireccion({ inicial, onGuardar, onCancelar }) {
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
     defaultValues: inicial ?? {}
   })
+  const isMobile = useIsMobile()
 
   return (
     <form
       onSubmit={handleSubmit(onGuardar)}
       style={{ padding: '1.4rem 0', borderBottom: '1px solid rgba(10,10,10,0.08)', display: 'flex', flexDirection: 'column', gap: '1.4rem' }}
     >
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.4rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '1.4rem' }}>
         <div>
           <label style={labelStyle}>alias (opcional)</label>
           <input placeholder="Casa, trabajo..." style={inputStyle(false)} {...register('alias')} />
@@ -127,7 +129,7 @@ function FormDireccion({ inicial, onGuardar, onCancelar }) {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.4rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '1.4rem' }}>
         <div>
           <label style={labelStyle}>departamento *</label>
           <select
@@ -155,13 +157,13 @@ function FormDireccion({ inicial, onGuardar, onCancelar }) {
         <textarea
           rows={2}
           placeholder="Calle, número, colonia, zona..."
-          style={{ ...inputStyle(!!errors.direccion), resize: 'none', display: 'block' }}
+          style={{ ...inputStyle(!!errors.direccion), resize: 'none', display: 'block', width: '100%' }}
           {...register('direccion', { required: 'La dirección es obligatoria' })}
         />
         <FieldError error={errors.direccion} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.4rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '1.4rem' }}>
         <div>
           <label style={labelStyle}>referencia (opcional)</label>
           <input
@@ -239,6 +241,8 @@ export default function MiCuenta() {
   const [cargando, setCargando] = useState(true)
   const [mostrarForm, setMostrarForm] = useState(false)
   const [editando, setEditando] = useState(null)
+  const [credito, setCredito] = useState(null)
+  const isMobile = useIsMobile()
 
   const cargarDirecciones = () => {
     clienteService.listarDirecciones()
@@ -248,6 +252,16 @@ export default function MiCuenta() {
   }
 
   useEffect(() => { cargarDirecciones() }, [])
+
+  const tipoCliente = usuario?.tipo_cliente ?? usuario?.cliente?.tipo ?? null
+
+  useEffect(() => {
+    if (tipoCliente === 'MAYORISTA') {
+      clienteService.obtenerCredito()
+        .then(res => setCredito(res.data ?? res))
+        .catch(() => {})
+    }
+  }, [tipoCliente])
 
   const crearDireccion = async (datos) => {
     try {
@@ -287,8 +301,6 @@ export default function MiCuenta() {
     ?? usuario?.email
     ?? ''
 
-  const tipoCliente = usuario?.tipo_cliente ?? usuario?.cliente?.tipo ?? null
-
   return (
     <>
       <MenuOverlay open={menuAbierto} onClose={() => setMenuAbierto(false)} />
@@ -297,31 +309,39 @@ export default function MiCuenta() {
         <NavHeader onOpenMenu={() => setMenuAbierto(true)} />
 
         {/* ── Grid: imagen izquierda | contenido derecha ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '40% 1fr', paddingTop: `${NAV_H}px`, minHeight: `calc(100vh - ${NAV_H}px)` }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '40% 1fr', paddingTop: `${NAV_H}px`, minHeight: `calc(100vh - ${NAV_H}px)` }}>
 
-          {/* ── Columna izquierda: imagen sticky con título encima ── */}
-          <div style={{ position: 'sticky', top: `${NAV_H}px`, height: `calc(100vh - ${NAV_H}px)`, overflow: 'hidden' }}>
-            <img
-              src="/cuenta-portrait.png"
-              alt=""
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'grayscale(100%) brightness(0.62)' }}
-            />
-            {/* Título centrado sobre la imagen */}
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <h1 style={{
-                ...DISPLAY,
-                fontSize: 'clamp(3rem, 5.5vw, 5.5rem)',
-                color: '#ffffff',
-                textAlign: 'center',
-                lineHeight: 1.15,
-              }}>
-                Mi<br />Cuenta
-              </h1>
+          {/* ── Columna izquierda: imagen sticky con título encima, solo desktop ── */}
+          {!isMobile && (
+            <div style={{ position: 'sticky', top: `${NAV_H}px`, height: `calc(100vh - ${NAV_H}px)`, overflow: 'hidden' }}>
+              <img
+                src="/cuenta-portrait.png"
+                alt=""
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'grayscale(100%) brightness(0.62)' }}
+              />
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <h1 style={{
+                  ...DISPLAY,
+                  fontSize: 'clamp(3rem, 5.5vw, 5.5rem)',
+                  color: '#ffffff',
+                  textAlign: 'center',
+                  lineHeight: 1.15,
+                }}>
+                  Mi<br />Cuenta
+                </h1>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* ── Columna derecha: información ── */}
-          <div style={{ padding: '4rem 4rem 5rem 4.5rem' }}>
+          <div style={{ padding: isMobile ? '2rem 1.2rem 4rem' : '4rem 4rem 5rem 4.5rem' }}>
+
+            {/* Título mobile */}
+            {isMobile && (
+              <h1 style={{ ...DISPLAY, fontSize: 'clamp(2.2rem, 8vw, 3rem)', lineHeight: 1, marginBottom: '2rem' }}>
+                Mi Cuenta
+              </h1>
+            )}
 
             {/* ── Perfil ── */}
             <section style={{ marginBottom: '3.5rem' }}>
@@ -332,6 +352,33 @@ export default function MiCuenta() {
                 <CampoInfo label="tipo" value="Mayorista" />
               )}
             </section>
+
+            {/* ── Crédito (solo mayoristas) ── */}
+            {tipoCliente === 'MAYORISTA' && credito && (
+              <section style={{ marginBottom: '3.5rem' }}>
+                <SeccionLabel>crédito</SeccionLabel>
+                <div style={{ display: 'flex', gap: '2rem', padding: '0.85rem 0', borderBottom: '1px solid rgba(10,10,10,0.08)', justifyContent: 'space-between' }}>
+                  <span style={{ ...MONO, fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.78)' }}>límite</span>
+                  <span style={{ ...MONO, fontSize: '14px', color: '#0a0a0a' }}>Q {parseFloat(credito.limite_credito).toFixed(2)}</span>
+                </div>
+                <div style={{ display: 'flex', gap: '2rem', padding: '0.85rem 0', borderBottom: '1px solid rgba(10,10,10,0.08)', justifyContent: 'space-between' }}>
+                  <span style={{ ...MONO, fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.78)' }}>utilizado</span>
+                  <span style={{ ...MONO, fontSize: '14px', color: '#0a0a0a' }}>Q {parseFloat(credito.credito_utilizado).toFixed(2)}</span>
+                </div>
+                <div style={{ display: 'flex', gap: '2rem', padding: '0.85rem 0', borderBottom: '1px solid rgba(10,10,10,0.08)', justifyContent: 'space-between' }}>
+                  <span style={{ ...MONO, fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.78)' }}>disponible</span>
+                  <span style={{ ...MONO, fontSize: '14px', color: credito.disponible > 0 ? 'rgba(0,100,0,0.85)' : 'rgba(160,0,0,0.8)' }}>
+                    Q {parseFloat(credito.disponible).toFixed(2)}
+                  </span>
+                </div>
+                {credito.plazo_credito_dias > 0 && (
+                  <div style={{ display: 'flex', gap: '2rem', padding: '0.85rem 0', borderBottom: '1px solid rgba(10,10,10,0.08)', justifyContent: 'space-between' }}>
+                    <span style={{ ...MONO, fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.78)' }}>plazo</span>
+                    <span style={{ ...MONO, fontSize: '14px', color: '#0a0a0a' }}>{credito.plazo_credito_dias} días</span>
+                  </div>
+                )}
+              </section>
+            )}
 
             {/* ── Direcciones ── */}
             <section style={{ marginBottom: '3.5rem' }}>
