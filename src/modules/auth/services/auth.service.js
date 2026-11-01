@@ -179,8 +179,9 @@ const registro = async ({ nombre, email, password, telefono }, ip) => {
   const codigo = await generarCodigo();
 
   const t = await db.sequelize.transaction();
+  let cliente, usuario;
   try {
-    const cliente = await db.cliente.create({
+    cliente = await db.cliente.create({
       codigo,
       tipo:                  "MINORISTA",
       nombre,
@@ -192,7 +193,7 @@ const registro = async ({ nombre, email, password, telefono }, ip) => {
       version_terminos:      "1.0"
     }, { transaction: t });
 
-    const usuario = await db.usuario.create({
+    usuario = await db.usuario.create({
       email,
       password_hash:    hash,
       perfil:           "CLIENTE",
@@ -205,34 +206,41 @@ const registro = async ({ nombre, email, password, telefono }, ip) => {
     }, { transaction: t });
 
     await t.commit();
-
-    await registrarBitacora({
-      usuario_id:    usuario.id,
-      operacion:     "ALTA_USUARIO",
-      entidad:       "usuario",
-      entidad_id:    usuario.id,
-      valores_nuevos: { email, perfil: "CLIENTE", app: "tienda" },
-      ip
-    });
-
-    await enviarCorreo({
-      destinatario: email,
-      asunto:       "Bienvenido a INVENTA — tu cuenta está activa",
-      enlace:       "https://app.inventa.gt/tienda",
-      cuerpo:       "Tu cuenta fue creada exitosamente. Ya puedes iniciar sesión y realizar compras."
-    });
-
-    return {
-      id:      usuario.id,
-      email:   usuario.email,
-      nombre,
-      perfil:  "CLIENTE",
-      estado:  cliente.estado
-    };
   } catch (err) {
     await t.rollback();
     throw err;
   }
+
+  await registrarBitacora({
+    usuario_id:    usuario.id,
+    operacion:     "ALTA_USUARIO",
+    entidad:       "usuario",
+    entidad_id:    usuario.id,
+    valores_nuevos: { email, perfil: "CLIENTE", app: "tienda" },
+    ip
+  });
+
+  // shortcut: fallo de email no debe bloquear el registro; sin servidor de mail en dev
+  enviarCorreo({
+    destinatario: email,
+    asunto:       "Bienvenido a INVENTA — tu cuenta está activa",
+    enlace:       "https://app.inventa.gt/tienda",
+    cuerpo:       "Tu cuenta fue creada exitosamente. Ya puedes iniciar sesión y realizar compras."
+  }).catch(() => {});
+
+  const token = firmarToken(usuario, "MINORISTA", JWT_EXPIRES_IN_TIENDA);
+
+  return {
+    token,
+    expira_en: JWT_EXPIRES_IN_TIENDA,
+    usuario: {
+      id:           usuario.id,
+      nombre,
+      perfil:       "CLIENTE",
+      sucursal:     null,
+      tipo_cliente: "MINORISTA"
+    }
+  };
 };
 
 // ─── recuperar ────────────────────────────────────────────────────────────────
